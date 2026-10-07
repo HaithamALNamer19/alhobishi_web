@@ -1,0 +1,143 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Authentication & Role Helpers
+    // ===============================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getRole() {
+      return request.auth.token.get('role', 'customer');
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getRole() == 'admin';
+    }
+
+    function isStaff() {
+      return isSignedIn() && (getRole() == 'staff' || getRole() == 'admin');
+    }
+
+    function isWholesale() {
+      return isSignedIn() && (getRole() == 'wholesale' || getRole() == 'admin');
+    }
+
+    // ===============================================================
+    // Users Collection
+    // ===============================================================
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      // All user updates and role assignments must go through Server Actions & Admin SDK
+      allow write: if false;
+    }
+
+    // Internal username uniqueness index - strictly protected
+    match /usernames/{username} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Categories & Products
+    // ===============================================================
+    match /categories/{categoryId} {
+      allow read: if resource.data.isActive == true || isStaff();
+      allow write: if false;
+    }
+
+    match /products/{productId} {
+      allow read: if resource.data.isVisible == true || isStaff();
+      allow write: if false;
+
+      // Variants subcollection - Stock numbers protected from competitor scraping
+      match /variants/{variantId} {
+        allow read: if isStaff();
+        allow write: if false;
+      }
+    }
+
+    // Wholesale pricing data - accessible only by Wholesale traders and Admin
+    match /productPricing/{productId} {
+      allow read: if isWholesale();
+      allow write: if false;
+    }
+
+    // ===============================================================
+    // Shopping Cart
+    // ===============================================================
+    match /carts/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ===============================================================
+    // Orders & Reservations
+    // ===============================================================
+    match /orders/{orderId} {
+      allow read: if isOwner(resource.data.customerId) || isStaff();
+      // Commercial order modifications strictly executed via transactions on the server
+      allow write: if false;
+    }
+
+    // ===============================================================
+    // Accounting Ledger & Payments
+    // ===============================================================
+    match /accountTransactions/{transactionId} {
+      allow read: if isOwner(resource.data.customerId) || isAdmin();
+      allow write: if false;
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isOwner(resource.data.customerId) || isAdmin();
+      allow write: if false;
+    }
+
+    // ===============================================================
+    // Notifications
+    // ===============================================================
+    match /notifications/{notificationId} {
+      allow read: if isOwner(resource.data.userId);
+      // Client can only mark notification as read
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'readAt']);
+      allow create, delete: if false;
+    }
+
+    // ===============================================================
+    // Internal Audits, Counters & Inventory Movements
+    // ===============================================================
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /inventoryMovements/{movementId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /counters/{counterId} {
+      allow read, write: if false;
+    }
+
+    match /settings/{settingId} {
+      // General store settings (currency, time zone, store name) are public
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ===============================================================
+    // Default Fallback: Deny everything else
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
