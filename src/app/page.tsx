@@ -45,9 +45,9 @@ export default async function HomePage() {
 
   return (
     <>
-      <div className="space-y-12 sm:space-y-16 pb-4 sm:pb-6 relative">
+      <div className="space-y-12 sm:space-y-16 pb-4 sm:pb-6 relative w-full max-w-full overflow-x-clip">
       {/* 1. HERO SECTION: High-Impact Cockpit with Interactive Spotlight */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-blue-950 via-slate-900 to-blue-900 text-white pt-12 sm:pt-16 pb-20 sm:pb-24 px-4 sm:px-6 lg:px-8 border-b border-blue-900/40">
+      <section className="relative overflow-hidden bg-gradient-to-br from-blue-950 via-slate-900 to-blue-900 text-white pt-10 sm:pt-16 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 border-b border-blue-900/40 w-full max-w-full">
         {/* Subtle Ambient Blueprint Grid Texture */}
         <div
           className="absolute inset-0 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:28px_28px] opacity-15 pointer-events-none [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_80%)]"
@@ -218,12 +218,12 @@ export default async function HomePage() {
       </section>
 
       {/* 2. ANNOUNCEMENT & PROMOTIONAL BANNERS SLIDER */}
-      <div className="-mt-12 sm:-mt-16 relative z-20">
+      <div className="-mt-8 sm:-mt-16 relative z-20 w-full max-w-full">
         <AnnouncementBannerSlider initialBanners={banners} isAdmin={isAdmin} />
       </div>
 
       {/* 3. CATEGORIES SECTION: Vibrant Visual Grid with Modern Cards */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 w-full max-w-full">
         <ScrollReveal direction="up" durationMs={500}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="text-right">
@@ -297,7 +297,7 @@ export default async function HomePage() {
 
       {/* 4. FEATURED PRODUCTS: Luxury Branded Product Showcase */}
       {featuredProducts.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 w-full max-w-full">
           <ScrollReveal direction="up" durationMs={500}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="text-right">
@@ -323,7 +323,7 @@ export default async function HomePage() {
           </ScrollReveal>
 
           <ScrollReveal direction="up" durationMs={600} delayMs={100}>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6">
               {featuredProducts.map((p) => (
                 <ProductCard key={p.id} product={p} userRole={session?.role} />
               ))}
@@ -333,7 +333,7 @@ export default async function HomePage() {
       )}
 
       {/* 5. LATEST PRODUCTS SECTION */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 w-full max-w-full">
         <ScrollReveal direction="up" durationMs={500}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="text-right">
@@ -364,7 +364,7 @@ export default async function HomePage() {
           </div>
         ) : (
           <ScrollReveal direction="up" durationMs={600} delayMs={100}>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6">
               {latestProducts.map((p) => (
                 <ProductCard key={p.id} product={p} userRole={session?.role} />
               ))}
@@ -375,8 +375,8 @@ export default async function HomePage() {
 
       {/* 6. TRUST BANNER: Direct Wholesale & Retail Ordering Commitment */}
       <ScrollReveal direction="up" durationMs={600}>
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-4xl bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white p-8 sm:p-12 relative overflow-hidden shadow-2xl border border-slate-800 transition-all duration-300 hover:border-slate-700">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full max-w-full">
+          <div className="rounded-3xl sm:rounded-4xl bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white p-6 sm:p-12 relative overflow-hidden shadow-2xl border border-slate-800 transition-all duration-300 hover:border-slate-700">
             <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
             <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8 text-right">
               <div className="space-y-3 max-w-2xl">

@@ -61,18 +61,18 @@ export async function Navbar() {
         </div>
 
         {/* User actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           {session ? (
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-3">
               {/* Backoffice link for admin / staff - now fully visible on mobile */}
               {isBackOfficeRole(session.role) && (
                 <Link
                   href="/admin"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-900 hover:bg-blue-950 text-white transition-all shadow-xs shrink-0"
+                  className="inline-flex items-center gap-1 sm:gap-1.5 text-xs font-bold p-2 sm:px-3 sm:py-1.5 rounded-xl bg-blue-900 hover:bg-blue-950 text-white transition-all shadow-xs shrink-0"
                   title="لوحة الإدارة"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-300" />
-                  <span>الإدارة</span>
+                  <ShieldCheck className="w-4 h-4 text-blue-300" />
+                  <span className="hidden sm:inline">الإدارة</span>
                 </Link>
               )}
 

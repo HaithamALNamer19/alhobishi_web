@@ -106,14 +106,14 @@ export function AnnouncementBannerSlider({
   return (
     <>
       <section
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative group"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative group w-full max-w-full overflow-hidden"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
         {/* Modern Slider Container */}
-        <div className="relative rounded-3xl sm:rounded-4xl overflow-hidden shadow-xl border border-slate-200/90 bg-slate-950 aspect-[21/10] sm:aspect-[24/9] md:aspect-[28/9] min-h-[220px] sm:min-h-[280px] lg:min-h-[320px]">
+        <div className="relative rounded-3xl sm:rounded-4xl overflow-hidden shadow-xl border border-slate-200/90 bg-slate-950 aspect-[16/10] sm:aspect-[24/9] md:aspect-[28/9] min-h-[180px] sm:min-h-[260px] lg:min-h-[320px] w-full max-w-full">
           {/* Background Images with Cross-Fade */}
           {displayBanners.map((banner, index) => {
             const isCurrent = index === currentIndex;
@@ -139,18 +139,18 @@ export function AnnouncementBannerSlider({
           })}
 
           {/* Slide Content Overlay */}
-          <div className="relative z-20 h-full flex flex-col justify-end sm:justify-center p-6 sm:p-10 lg:p-12 text-right">
-            <div className="max-w-xl space-y-2.5 sm:space-y-3.5">
+          <div className="relative z-20 h-full flex flex-col justify-end sm:justify-center p-4 xs:p-6 sm:p-10 lg:p-12 text-right">
+            <div className="max-w-xl space-y-2 sm:space-y-3.5">
               {/* Badge */}
               {currentBanner.badgeText && (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 backdrop-blur-md border border-blue-400/30 text-blue-200 text-xs font-bold shadow-xs">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-300" />
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-blue-500/20 backdrop-blur-md border border-blue-400/30 text-blue-200 text-[11px] sm:text-xs font-bold shadow-xs">
+                  <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-300" />
                   <span>{currentBanner.badgeText}</span>
                 </div>
               )}
 
               {/* Title */}
-              <h3 className="text-xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight drop-shadow-md">
+              <h3 className="text-base xs:text-xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-snug sm:leading-tight drop-shadow-md">
                 {currentBanner.title}
               </h3>
 
@@ -163,13 +163,13 @@ export function AnnouncementBannerSlider({
 
               {/* Call to Action Link */}
               {currentBanner.linkUrl && (
-                <div className="pt-1.5">
+                <div className="pt-1 sm:pt-1.5">
                   <Link
                     href={currentBanner.linkUrl}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-900/30 transition-all hover:scale-[1.02] cursor-pointer"
+                    className="inline-flex items-center gap-1.5 sm:gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-900/30 transition-all hover:scale-[1.02] cursor-pointer"
                   >
                     <span>استعراض العرض</span>
-                    <ArrowLeft className="w-4 h-4" />
+                    <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </Link>
                 </div>
               )}
@@ -178,15 +178,16 @@ export function AnnouncementBannerSlider({
 
           {/* Admin Floating Control Button */}
           {isAdmin && (
-            <div className="absolute top-4 left-4 z-30 flex items-center gap-2">
+            <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-30 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setIsManagerOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-900/85 hover:bg-slate-900 backdrop-blur-md border border-white/20 text-white text-xs font-bold shadow-xl hover:scale-105 transition-all cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-slate-900/85 hover:bg-slate-900 backdrop-blur-md border border-white/20 text-white text-[10px] sm:text-xs font-bold shadow-xl hover:scale-105 transition-all cursor-pointer"
                 title="إدارة البنرات الإعلانية ورفع صور جديدة"
               >
-                <Settings className="w-3.5 h-3.5 text-blue-400" />
-                <span>إدارة ورفع الإعلانات</span>
+                <Settings className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400" />
+                <span className="hidden sm:inline">إدارة ورفع الإعلانات</span>
+                <span className="sm:hidden">إدارة الإعلانات</span>
                 {isUsingDefault && (
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping mr-1" />
                 )}
