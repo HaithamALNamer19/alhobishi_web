@@ -20,7 +20,16 @@ const config = {
 const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
 function app(): FirebaseApp {
-  return getApps().length ? getApp() : initializeApp(config);
+  if (getApps().length) return getApp();
+  const safeConfig = {
+    apiKey: config.apiKey || 'placeholder-api-key',
+    authDomain: config.authDomain || 'placeholder.firebaseapp.com',
+    projectId: config.projectId || 'alhobishi-ecommerce',
+    storageBucket: config.storageBucket || '',
+    messagingSenderId: config.messagingSenderId || '000000000000',
+    appId: config.appId || '1:000000000000:web:placeholder',
+  };
+  return initializeApp(safeConfig);
 }
 
 let auth: Auth | null = null;

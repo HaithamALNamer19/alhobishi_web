@@ -22,9 +22,41 @@ function createApp(): App {
   let credential;
   if (env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     try {
-      credential = cert(JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_KEY));
-    } catch {
-      credential = cert(env.FIREBASE_SERVICE_ACCOUNT_KEY);
+      const raw = env.FIREBASE_SERVICE_ACCOUNT_KEY.trim();
+      let parsed: any;
+      if (raw.startsWith('{')) {
+        parsed = JSON.parse(raw);
+      } else if (raw.startsWith('"')) {
+        parsed = JSON.parse(JSON.parse(raw));
+      } else {
+        try {
+          const decoded = Buffer.from(raw, 'base64').toString('utf8');
+          parsed = JSON.parse(decoded);
+        } catch {
+          parsed = raw;
+        }
+      }
+
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.private_key && typeof parsed.private_key === 'string') {
+          // Replace escaped literal \n with real newlines for RSA parser
+          parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+        }
+        credential = cert(parsed);
+      } else {
+        credential = cert(parsed);
+      }
+    } catch (err) {
+      console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:', err);
+      try {
+        credential = cert(env.FIREBASE_SERVICE_ACCOUNT_KEY);
+      } catch {
+        try {
+          credential = applicationDefault();
+        } catch {
+          // fallback
+        }
+      }
     }
   } else {
     try {
@@ -37,7 +69,11 @@ function createApp(): App {
         credential = applicationDefault();
       }
     } catch {
-      credential = applicationDefault();
+      try {
+        credential = applicationDefault();
+      } catch {
+        // fallback
+      }
     }
   }
 

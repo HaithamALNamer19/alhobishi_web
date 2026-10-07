@@ -25,12 +25,17 @@ export const instant = false;
 export default async function HomePage() {
   await connection();
 
-  const [session, categories, products, banners] = await Promise.all([
+  const [sessionRes, categoriesRes, productsRes, bannersRes] = await Promise.allSettled([
     getCurrentSession(),
     categoryRepository.findAll(true),
     productRepository.list({ isVisible: true, status: 'active', limit: 16 }),
     bannerRepository.findAll(true),
   ]);
+
+  const session = sessionRes.status === 'fulfilled' ? sessionRes.value : null;
+  const categories = categoriesRes.status === 'fulfilled' ? categoriesRes.value : [];
+  const products = productsRes.status === 'fulfilled' ? productsRes.value : [];
+  const banners = bannersRes.status === 'fulfilled' ? bannersRes.value : [];
 
   const isAdmin = session?.role === Role.ADMIN || can(session?.role, Permission.CATALOG_MANAGE);
 
