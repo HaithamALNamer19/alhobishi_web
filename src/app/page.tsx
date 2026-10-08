@@ -45,7 +45,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <div className="space-y-12 sm:space-y-16 pb-4 sm:pb-6 relative w-full max-w-full overflow-x-clip">
+      <div className="space-y-12 sm:space-y-16 pb-4 sm:pb-6 relative w-full max-w-full overflow-x-hidden">
       {/* 1. HERO SECTION: High-Impact Cockpit with Interactive Spotlight */}
       <section className="relative overflow-hidden bg-gradient-to-br from-blue-950 via-slate-900 to-blue-900 text-white pt-10 sm:pt-16 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 border-b border-blue-900/40 w-full max-w-full">
         {/* Subtle Ambient Blueprint Grid Texture */}
@@ -55,8 +55,10 @@ export default async function HomePage() {
         />
 
         {/* Luminous Glowing Orbs with Smooth Floating Pulse */}
-        <div className="absolute top-0 right-10 sm:right-1/4 w-[500px] h-[500px] bg-blue-500/20 rounded-full blur-[120px] pointer-events-none animate-pulse-glow" />
-        <div className="absolute bottom-0 left-10 sm:left-1/4 w-[500px] h-[500px] bg-indigo-500/15 rounded-full blur-[120px] pointer-events-none animate-pulse-glow [animation-delay:3.5s]" />
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+          <div className="absolute top-0 right-0 sm:right-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] bg-blue-500/20 rounded-full blur-3xl sm:blur-[120px] animate-pulse-glow" />
+          <div className="absolute bottom-0 left-0 sm:left-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] bg-indigo-500/15 rounded-full blur-3xl sm:blur-[120px] animate-pulse-glow [animation-delay:3.5s]" />
+        </div>
 
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
@@ -377,7 +379,9 @@ export default async function HomePage() {
       <ScrollReveal direction="up" durationMs={600}>
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full max-w-full">
           <div className="rounded-3xl sm:rounded-4xl bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white p-6 sm:p-12 relative overflow-hidden shadow-2xl border border-slate-800 transition-all duration-300 hover:border-slate-700">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+              <div className="absolute top-0 right-0 w-72 h-72 sm:w-96 sm:h-96 bg-blue-600/10 rounded-full blur-3xl" />
+            </div>
             <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8 text-right">
               <div className="space-y-3 max-w-2xl">
                 <h3 className="text-2xl sm:text-3xl font-black text-white">

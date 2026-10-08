@@ -16,9 +16,9 @@ export async function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-xl shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-2 sm:gap-4 w-full max-w-full">
         {/* Brand / Logo & Main Nav */}
-        <div className="flex items-center gap-6 lg:gap-8">
+        <div className="flex items-center gap-6 lg:gap-8 shrink-0">
           <BrandLogo size="md" href="/" />
 
           {/* Quick Nav */}

@@ -21,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl" className="h-full antialiased scroll-smooth">
-      <body className="min-h-full flex flex-col bg-slate-100/70 text-slate-900 selection:bg-blue-600 selection:text-white overflow-x-clip max-w-full">
+      <body className="min-h-full flex flex-col bg-slate-100/70 text-slate-900 selection:bg-blue-600 selection:text-white overflow-x-hidden w-full max-w-full">
         <ToastProvider />
         <SiteShell
           navbar={

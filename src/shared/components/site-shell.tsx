@@ -22,7 +22,7 @@ export function SiteShell({ children, navbar, footer }: SiteShellProps) {
   return (
     <>
       {navbar}
-      <main className="flex-1 w-full max-w-full overflow-x-clip">{children}</main>
+      <main className="flex-1 w-full max-w-full overflow-x-hidden">{children}</main>
       {footer}
     </>
   );
