@@ -106,14 +106,14 @@ export function AnnouncementBannerSlider({
   return (
     <>
       <section
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative group w-full max-w-full overflow-hidden"
+        className="max-w-7xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8 relative group w-full max-w-full overflow-hidden"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
         {/* Modern Slider Container */}
-        <div className="relative rounded-3xl sm:rounded-4xl overflow-hidden shadow-xl border border-slate-200/90 bg-slate-950 aspect-[16/10] sm:aspect-[24/9] md:aspect-[28/9] min-h-[180px] sm:min-h-[260px] lg:min-h-[320px] w-full max-w-full">
+        <div className="relative rounded-3xl sm:rounded-4xl overflow-hidden shadow-xl border border-slate-200/90 bg-slate-950 aspect-auto sm:aspect-[24/9] md:aspect-[28/9] min-h-[200px] sm:min-h-[260px] lg:min-h-[320px] w-full max-w-full">
           {/* Background Images with Cross-Fade */}
           {displayBanners.map((banner, index) => {
             const isCurrent = index === currentIndex;
@@ -139,7 +139,7 @@ export function AnnouncementBannerSlider({
           })}
 
           {/* Slide Content Overlay */}
-          <div className="relative z-20 h-full flex flex-col justify-end sm:justify-center p-4 xs:p-6 sm:p-10 lg:p-12 text-right">
+          <div className="relative z-20 h-full flex flex-col justify-end sm:justify-center p-3.5 xs:p-5 sm:p-10 lg:p-12 text-right">
             <div className="max-w-xl space-y-2 sm:space-y-3.5">
               {/* Badge */}
               {currentBanner.badgeText && (

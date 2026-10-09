@@ -10,20 +10,31 @@
   --color-foreground: var(--foreground);
 }
 
-html,
-body {
+html {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   position: relative;
 }
 
 body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  position: relative;
   background: var(--background);
   color: var(--foreground);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", "IBM Plex Sans Arabic", Tahoma, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Enforce strict containment so mobile viewports never expand horizontally */
+main,
+header,
+footer,
+section {
+  max-width: 100%;
 }
 
 /* Custom modern scrollbar */

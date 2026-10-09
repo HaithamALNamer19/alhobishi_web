@@ -20,8 +20,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ar" dir="rtl" className="h-full antialiased scroll-smooth">
-      <body className="min-h-full flex flex-col bg-slate-100/70 text-slate-900 selection:bg-blue-600 selection:text-white overflow-x-hidden w-full max-w-full">
+    <html lang="ar" dir="rtl" className="h-full antialiased scroll-smooth overflow-x-clip">
+      <body className="min-h-full flex flex-col bg-slate-100/70 text-slate-900 selection:bg-blue-600 selection:text-white overflow-x-clip w-full max-w-full">
         <ToastProvider />
         <SiteShell
           navbar={

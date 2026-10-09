@@ -45,9 +45,9 @@ export default async function HomePage() {
 
   return (
     <>
-      <div className="space-y-12 sm:space-y-16 pb-4 sm:pb-6 relative w-full max-w-full overflow-x-hidden">
+      <div className="space-y-12 sm:space-y-16 pb-4 sm:pb-6 relative w-full max-w-full overflow-x-clip">
       {/* 1. HERO SECTION: High-Impact Cockpit with Interactive Spotlight */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-blue-950 via-slate-900 to-blue-900 text-white pt-10 sm:pt-16 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 border-b border-blue-900/40 w-full max-w-full">
+      <section className="relative overflow-hidden bg-gradient-to-br from-blue-950 via-slate-900 to-blue-900 text-white pt-10 sm:pt-16 pb-16 sm:pb-24 px-3 xs:px-4 sm:px-6 lg:px-8 border-b border-blue-900/40 w-full max-w-full">
         {/* Subtle Ambient Blueprint Grid Texture */}
         <div
           className="absolute inset-0 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:28px_28px] opacity-15 pointer-events-none [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_80%)]"
@@ -55,26 +55,26 @@ export default async function HomePage() {
         />
 
         {/* Luminous Glowing Orbs with Smooth Floating Pulse */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none isolate" style={{ clipPath: 'inset(0)' }} aria-hidden="true">
           <div className="absolute top-0 right-0 sm:right-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] bg-blue-500/20 rounded-full blur-3xl sm:blur-[120px] animate-pulse-glow" />
           <div className="absolute bottom-0 left-0 sm:left-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] bg-indigo-500/15 rounded-full blur-3xl sm:blur-[120px] animate-pulse-glow [animation-delay:3.5s]" />
         </div>
 
-        <div className="max-w-7xl mx-auto relative z-10">
+        <div className="max-w-7xl mx-auto relative z-10 w-full max-w-full">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
             {/* Right Column (in RTL): Hero Headline & Smart Search */}
-            <div className="lg:col-span-7 space-y-6 text-right">
+            <div className="lg:col-span-7 space-y-6 text-right w-full max-w-full">
               {/* Trust Badge with Ambient Sheen */}
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-blue-200 text-xs font-semibold shadow-xs transition-transform duration-300 hover:scale-105">
-                <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
-                <span className="w-2 h-2 rounded-full bg-blue-400 -mr-4" />
-                <span>منصة التوزيع والتسوق المباشر الرسمية</span>
-                <span className="text-white/40">•</span>
-                <span className="text-white font-bold">متجر الحبيشي</span>
+              <div className="inline-flex max-w-full items-center gap-1.5 xs:gap-2 px-3 py-1 xs:px-4 xs:py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-blue-200 text-[11px] xs:text-xs font-semibold shadow-xs transition-transform duration-300 hover:scale-105">
+                <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping shrink-0" />
+                <span className="w-2 h-2 rounded-full bg-blue-400 -mr-3 xs:-mr-4 shrink-0" />
+                <span className="truncate">منصة التوزيع والتسوق المباشر الرسمية</span>
+                <span className="text-white/40 shrink-0">•</span>
+                <span className="text-white font-bold shrink-0">متجر الحبيشي</span>
               </div>
 
               {/* Main Headline */}
-              <h1 className="text-3xl sm:text-5xl lg:text-5.5xl font-black tracking-tight leading-[1.18] text-white">
+              <h1 className="text-2xl xs:text-3xl sm:text-5xl lg:text-5.5xl font-black tracking-tight leading-[1.2] text-white">
                 وجهتك المعتمدة لتسوق
                 <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-sky-200 to-amber-200 mt-1">
                   الألعاب، الإكسسوارات، والخردوات
@@ -82,30 +82,30 @@ export default async function HomePage() {
               </h1>
 
               {/* Subtitle */}
-              <p className="text-sm sm:text-base text-blue-100/90 leading-relaxed max-w-2xl font-normal">
+              <p className="text-xs sm:text-base text-blue-100/90 leading-relaxed max-w-2xl font-normal">
                 منظومة توريد وتوزيع متطورة تتيح لك حجز البضائع فورياً من المستودع، مراجعة وتجهيز دقيق لكل صنف، ومرونة كاملة في إدارة فواتيرك وكشف حسابك المالي.
               </p>
 
               {/* Smart Search Form */}
-              <div className="pt-2 max-w-xl">
-                <form action="/search" method="GET" className="relative group">
+              <div className="pt-2 max-w-xl w-full">
+                <form action="/search" method="GET" className="relative group w-full">
                   <input
                     type="text"
                     name="q"
                     placeholder="ابحث بالاسم، الصنف، أو القسم..."
-                    className="w-full bg-white text-slate-900 placeholder-slate-400 rounded-2xl py-4 pr-12 pl-28 text-sm font-medium shadow-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/40 transition-all duration-300 group-hover:shadow-blue-500/10"
+                    className="w-full bg-white text-slate-900 placeholder-slate-400 rounded-2xl py-3.5 sm:py-4 pr-11 sm:pr-12 pl-24 sm:pl-28 text-xs sm:text-sm font-medium shadow-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/40 transition-all duration-300 group-hover:shadow-blue-500/10"
                   />
-                  <Search className="w-5 h-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 group-focus-within:text-blue-600 transition-colors" />
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 group-focus-within:text-blue-600 transition-colors" />
                   <button
                     type="submit"
-                    className="absolute left-2 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-blue-700 hover:bg-blue-600 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md active:scale-95 hover:shadow-blue-600/30"
+                    className="absolute left-1.5 sm:left-2 top-1/2 -translate-y-1/2 px-3.5 sm:px-5 py-2 sm:py-2.5 bg-blue-700 hover:bg-blue-600 text-white text-[11px] sm:text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md active:scale-95 hover:shadow-blue-600/30 shrink-0"
                   >
                     بحث فوري
                   </button>
                 </form>
 
                 {/* Popular Search Tags */}
-                <div className="flex flex-wrap items-center gap-2 mt-3 text-xs text-blue-200/80">
+                <div className="flex flex-wrap items-center gap-1.5 xs:gap-2 mt-3 text-[11px] xs:text-xs text-blue-200/80">
                   <span className="text-white/70 font-semibold">الأكثر طلباً:</span>
                   <Link
                     href="/products?category=smart-watches"
@@ -135,17 +135,17 @@ export default async function HomePage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-3 pt-2">
+              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 pt-2">
                 <Link
                   href="/products"
-                  className="px-6 py-3.5 rounded-2xl bg-white text-slate-900 hover:bg-blue-50 font-bold text-xs sm:text-sm shadow-lg transition-all duration-300 flex items-center gap-2 group cursor-pointer hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+                  className="px-4.5 sm:px-6 py-3 sm:py-3.5 rounded-2xl bg-white text-slate-900 hover:bg-blue-50 font-bold text-xs sm:text-sm shadow-lg transition-all duration-300 flex items-center gap-2 group cursor-pointer hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
                 >
                   <span>استعراض كافة المنتجات</span>
                   <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1.5 transition-transform duration-300" />
                 </Link>
                 <Link
                   href="/categories"
-                  className="px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs sm:text-sm transition-all duration-300 flex items-center gap-2 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
+                  className="px-4.5 sm:px-6 py-3 sm:py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs sm:text-sm transition-all duration-300 flex items-center gap-2 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
                 >
                   <Boxes className="w-4 h-4 text-blue-300" />
                   <span>دليل الأقسام</span>
