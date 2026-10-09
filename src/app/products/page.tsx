@@ -25,10 +25,18 @@ export default async function ProductsCatalogPage({ searchParams }: ProductsPage
   const { category: categorySlug, search, page: pageStr } = await searchParams;
   const currentPage = Math.max(1, parseInt(pageStr || '1', 10) || 1);
 
-  const [session, categories] = await Promise.all([
-    getCurrentSession(),
-    categoryRepository.findAll(true),
-  ]);
+  let session = null;
+  let categories: any[] = [];
+  try {
+    const [sessionRes, categoriesRes] = await Promise.allSettled([
+      getCurrentSession(),
+      categoryRepository.findAll(true),
+    ]);
+    session = sessionRes.status === 'fulfilled' ? sessionRes.value : null;
+    categories = categoriesRes.status === 'fulfilled' ? categoriesRes.value : [];
+  } catch (err) {
+    console.error('ProductsPage session/categories error:', err);
+  }
 
   let activeCategoryId: string | undefined;
   let activeCategoryName: string | undefined;
@@ -40,12 +48,18 @@ export default async function ProductsCatalogPage({ searchParams }: ProductsPage
     }
   }
 
-  const allProducts = await productRepository.list({
-    categoryId: activeCategoryId,
-    search: search || undefined,
-    isVisible: true,
-    status: 'active',
-  });
+  let allProducts: any[] = [];
+  try {
+    allProducts = await productRepository.list({
+      categoryId: activeCategoryId,
+      search: search || undefined,
+      isVisible: true,
+      status: 'active',
+    });
+  } catch (err) {
+    console.error('ProductsPage products list error:', err);
+    allProducts = [];
+  }
 
   const totalProducts = allProducts.length;
   const totalPages = Math.ceil(totalProducts / PAGE_SIZE) || 1;

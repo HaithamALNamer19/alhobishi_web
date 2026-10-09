@@ -22,19 +22,33 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const [{ slug }, { page: pageStr }] = await Promise.all([params, searchParams]);
   const currentPage = Math.max(1, parseInt(pageStr || '1', 10) || 1);
 
-  const category = await categoryRepository.findBySlug(slug);
+  let category = null;
+  try {
+    category = await categoryRepository.findBySlug(slug);
+  } catch (err) {
+    console.error('CategoryPage error finding category:', err);
+  }
   if (!category || !category.isActive) {
     notFound();
   }
 
-  const [session, allProducts] = await Promise.all([
-    getCurrentSession(),
-    productRepository.list({
-      categoryId: category.id,
-      isVisible: true,
-      status: 'active',
-    }),
-  ]);
+  let session = null;
+  let allProducts: any[] = [];
+  try {
+    const [sessionRes, productsRes] = await Promise.allSettled([
+      getCurrentSession(),
+      productRepository.list({
+        categoryId: category.id,
+        isVisible: true,
+        status: 'active',
+      }),
+    ]);
+    session = sessionRes.status === 'fulfilled' ? sessionRes.value : null;
+    allProducts = productsRes.status === 'fulfilled' ? productsRes.value : [];
+  } catch (err) {
+    console.error('CategoryPage products list error:', err);
+    allProducts = [];
+  }
 
   const totalProducts = allProducts.length;
   const totalPages = Math.ceil(totalProducts / PAGE_SIZE) || 1;

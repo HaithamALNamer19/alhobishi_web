@@ -13,7 +13,13 @@ export const instant = false;
 
 export default async function CategoriesPage() {
   await connection();
-  const categories = await categoryRepository.findAll(true);
+  let categories: any[] = [];
+  try {
+    categories = await categoryRepository.findAll(true);
+  } catch (err) {
+    console.error('CategoriesPage error loading categories:', err);
+    categories = [];
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">

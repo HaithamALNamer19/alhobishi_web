@@ -30,10 +30,18 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
   await connection();
   const { slug } = await params;
 
-  const [session, product] = await Promise.all([
-    getCurrentSession(),
-    productRepository.findDetailBySlug(slug),
-  ]);
+  let session = null;
+  let product = null;
+  try {
+    const [sessionRes, productRes] = await Promise.allSettled([
+      getCurrentSession(),
+      productRepository.findDetailBySlug(slug),
+    ]);
+    session = sessionRes.status === 'fulfilled' ? sessionRes.value : null;
+    product = productRes.status === 'fulfilled' ? productRes.value : null;
+  } catch (err) {
+    console.error('ProductDetailPage error:', err);
+  }
 
   const isAdmin = session?.role === Role.ADMIN || can(session?.role, Permission.CATALOG_MANAGE);
 
@@ -41,15 +49,23 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
     notFound();
   }
 
-  const [category, relatedProductsList] = await Promise.all([
-    categoryRepository.findById(product.categoryId),
-    productRepository.list({
-      categoryId: product.categoryId,
-      isVisible: true,
-      status: 'active',
-      limit: 6,
-    }),
-  ]);
+  let category = null;
+  let relatedProductsList: any[] = [];
+  try {
+    const [catRes, relRes] = await Promise.allSettled([
+      categoryRepository.findById(product.categoryId),
+      productRepository.list({
+        categoryId: product.categoryId,
+        isVisible: true,
+        status: 'active',
+        limit: 6,
+      }),
+    ]);
+    category = catRes.status === 'fulfilled' ? catRes.value : null;
+    relatedProductsList = relRes.status === 'fulfilled' ? relRes.value : [];
+  } catch (err) {
+    relatedProductsList = [];
+  }
 
   // If the category is hidden/inactive, hide the product from customers
   if ((!category || !category.isActive) && !isAdmin) {
