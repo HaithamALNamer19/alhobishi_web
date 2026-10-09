@@ -5,6 +5,8 @@ import { normalizeArabic, buildSearchKeywords, toSearchToken } from '@/core/text
 import { normalizeUsername, isValidUsername, usernameToEmail, emailToUsername } from '@/features/auth/domain/username';
 import { normalizeYemeniPhone, formatYemeniPhone } from '@/core/domain/phone';
 import { can, Role, Permission, isBackOfficeRole, parseRole } from '@/core/auth/roles';
+import { ErrorCode } from '@/core/errors/error-codes';
+import { errorMessagesAr } from '@/core/errors/messages.ar';
 
 describe('Money Domain (YER)', () => {
   it('validates safe integer money without fractions', () => {
@@ -123,6 +125,13 @@ describe('Roles & Permissions', () => {
 
   it('defaults unknown role to customer', () => {
     expect(parseRole('unknown_role')).toBe(Role.CUSTOMER);
+  });
+});
+
+describe('Account Status & Disabled User Protection', () => {
+  it('has dedicated error code and Arabic message for disabled accounts', () => {
+    expect(ErrorCode.ACCOUNT_DISABLED).toBe('ACCOUNT_DISABLED');
+    expect(errorMessagesAr[ErrorCode.ACCOUNT_DISABLED]).toBe('هذا الحساب معطّل. تواصل مع إدارة المتجر.');
   });
 });
 

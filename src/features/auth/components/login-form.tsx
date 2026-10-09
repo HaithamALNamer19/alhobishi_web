@@ -24,12 +24,17 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get('from') || '/';
+  const errorParam = searchParams.get('error');
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    errorParam === 'disabled'
+      ? 'تم إيقاف هذا الحساب من قبل إدارة المتجر. يرجى التواصل مع الإدارة.'
+      : null
+  );
 
   const fillDemoAccount = (u: string, p: string, label: string) => {
     setUsername(u);

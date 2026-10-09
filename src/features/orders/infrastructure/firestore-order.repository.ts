@@ -134,6 +134,11 @@ export class FirestoreOrderRepository {
         throw new AppError(ErrorCode.NOT_FOUND, { message: 'المستخدم غير موجود.' });
       }
       const userData = userSnap.data()!;
+      if (userData.status === 'disabled') {
+        throw new AppError(ErrorCode.ACCOUNT_DISABLED, {
+          message: 'تم إيقاف حسابك من قبل إدارة المتجر. لا يمكن إتمام أي طلبات جديدة.',
+        });
+      }
       const customerRole = (userData.role || 'customer') as Role;
       const customerName = userData.displayName || userData.name || userData.username || 'عميل';
       const customerPhone = userData.phone || '';
@@ -424,6 +429,18 @@ export class FirestoreOrderRepository {
       const orderData = orderSnap.data()!;
       if (orderData.customerId !== customerId) {
         throw new AppError(ErrorCode.FORBIDDEN, { message: 'غير مصرح بتعديل هذا الطلب.' });
+      }
+
+      const userRef = this.db.collection(Collections.USERS).doc(customerId);
+      const userSnap = await tx.get(userRef);
+      if (!userSnap.exists) {
+        throw new AppError(ErrorCode.NOT_FOUND, { message: 'حساب العميل غير موجود.' });
+      }
+      const userData = userSnap.data()!;
+      if (userData.status === 'disabled') {
+        throw new AppError(ErrorCode.ACCOUNT_DISABLED, {
+          message: 'تم إيقاف حسابك من قبل إدارة المتجر. لا يمكن تعديل الطلبات.',
+        });
       }
 
       if (!canCustomerEditOrder(orderData.status as OrderStatus)) {

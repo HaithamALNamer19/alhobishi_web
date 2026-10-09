@@ -64,6 +64,13 @@ export async function updateUserStatusAction(
       adminUser.email || 'Admin'
     );
 
+    const { revalidatePath } = await import('next/cache');
+    revalidatePath('/admin/customers');
+    revalidatePath('/account');
+    revalidatePath('/cart');
+    revalidatePath('/checkout');
+    revalidatePath('/');
+
     return { success: true };
   });
 }
