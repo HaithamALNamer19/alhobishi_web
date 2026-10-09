@@ -11,6 +11,8 @@ import { ErrorCode } from '@/core/errors/error-codes';
 import { orderRepository } from '@/features/orders/infrastructure/firestore-order.repository';
 import { ledgerRepository } from '../infrastructure/firestore-ledger.repository';
 import { userRepository } from '@/features/users/infrastructure/firestore-user.repository';
+import { productRepository } from '@/features/products/infrastructure/firestore-product.repository';
+import { normalizeArabic } from '@/core/text/arabic-normalize';
 import type { OrderItem } from '@/features/orders/domain/order';
 import type { SalesReturnItem } from '../domain/ledger';
 import { assertMoney, type Money } from '@/core/domain/money';
@@ -350,4 +352,111 @@ export async function getCustomerReturnableItemsAction(
     return items;
   });
 }
+
+export interface StoreProductReturnOption {
+  productId: string;
+  productName: string;
+  variantId: string;
+  variantLabel: string;
+  sku: string | null;
+  barcode: string | null;
+  defaultPrice: number;
+  availableStock: number;
+}
+
+export async function searchStoreProductsForReturnAction(params: {
+  query?: string;
+  customerRole?: string;
+}): Promise<Result<StoreProductReturnOption[]>> {
+  return runAction(async () => {
+    await requirePermission(Permission.ORDERS_CONFIRM);
+    const rawQ = (params.query || '').trim();
+    const isWholesale = params.customerRole === 'wholesale';
+
+    // Fetch active products
+    let products = await productRepository.list({
+      status: 'active',
+      limit: rawQ ? 50 : 25,
+      search: rawQ || undefined,
+    });
+
+    // In-memory fallback if keyword search had few results
+    if (rawQ) {
+      const normQ = normalizeArabic(rawQ);
+      const allActive = await productRepository.list({ status: 'active', limit: 100 });
+      const extraMatches = allActive.filter((p) => {
+        const nameMatch = normalizeArabic(p.name).includes(normQ);
+        const skuMatch = p.sku?.toLowerCase().includes(rawQ.toLowerCase());
+        const barcodeMatch = p.barcode?.includes(rawQ);
+        return nameMatch || skuMatch || barcodeMatch;
+      });
+
+      const seenIds = new Set(products.map((p) => p.id));
+      for (const p of extraMatches) {
+        if (!seenIds.has(p.id)) {
+          products.push(p);
+          seenIds.add(p.id);
+        }
+      }
+    }
+
+    products = products.slice(0, 25);
+
+    const options: StoreProductReturnOption[] = [];
+
+    for (const product of products) {
+      const [variants, pricing] = await Promise.all([
+        productRepository.getVariants(product.id),
+        productRepository.findPricing(product.id).catch(() => null),
+      ]);
+
+      if (variants && variants.length > 0) {
+        for (const v of variants) {
+          if (!v.isActive) continue;
+
+          let price = product.retailPrice;
+          if (isWholesale) {
+            price =
+              pricing?.variantWholesalePrices?.[v.id] ??
+              pricing?.wholesalePrice ??
+              v.retailPriceOverride ??
+              product.retailPrice;
+          } else {
+            price = v.retailPriceOverride ?? product.retailPrice;
+          }
+
+          options.push({
+            productId: product.id,
+            productName: product.name,
+            variantId: v.id,
+            variantLabel: v.label || 'الأساسي',
+            sku: v.sku || product.sku,
+            barcode: v.barcode || product.barcode,
+            defaultPrice: price,
+            availableStock: v.availableQty,
+          });
+        }
+      } else {
+        let price = product.retailPrice;
+        if (isWholesale && pricing?.wholesalePrice) {
+          price = pricing.wholesalePrice;
+        }
+
+        options.push({
+          productId: product.id,
+          productName: product.name,
+          variantId: 'default',
+          variantLabel: 'الأساسي',
+          sku: product.sku,
+          barcode: product.barcode,
+          defaultPrice: price,
+          availableStock: 0,
+        });
+      }
+    }
+
+    return options;
+  });
+}
+
 
