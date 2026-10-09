@@ -58,7 +58,7 @@ export class FirestoreLedgerRepository {
       method: data.method,
       referenceNumber: data.referenceNumber || null,
       notes: data.notes || null,
-      recordedBy: data.recordedBy || 'System',
+      recordedBy: data.recordedByName || data.recordedBy || 'المحاسب',
       createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
     };
   }
@@ -93,7 +93,9 @@ export class FirestoreLedgerRepository {
         method: params.method,
         referenceNumber: params.referenceNumber || null,
         notes: params.notes || null,
-        recordedBy: params.actorId,
+        recordedBy: params.actorName,
+        recordedByName: params.actorName,
+        recordedById: params.actorId,
         createdAt: FieldValue.serverTimestamp(),
       });
 

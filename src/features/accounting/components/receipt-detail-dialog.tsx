@@ -116,9 +116,9 @@ export function ReceiptDetailDialog({
             <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
               <span className="text-slate-500 flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" />
-                <span>المحرر / المحاسب</span>
+                <span>المحصل / أمين الصندوق</span>
               </span>
-              <span className="text-slate-700">{payment.recordedBy || 'النظام'}</span>
+              <span className="font-bold text-slate-800">{payment.recordedBy || 'المحاسب'}</span>
             </div>
 
             <div className="pt-1">

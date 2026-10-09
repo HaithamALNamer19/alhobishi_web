@@ -112,6 +112,19 @@ export async function getLedgerDocumentDetailAction(params: {
 
       const customer = await userRepository.findById(payment.customerId);
 
+      let collectorName = payment.recordedBy;
+      // If recordedBy looks like a Firebase UID (>= 20 chars without spaces), resolve real user name
+      if (payment.recordedBy && !payment.recordedBy.includes(' ') && payment.recordedBy.length >= 20) {
+        const actorUser = await userRepository.findById(payment.recordedBy);
+        if (actorUser?.displayName) {
+          collectorName = actorUser.displayName;
+        } else if (actorUser?.username) {
+          collectorName = actorUser.username;
+        } else {
+          collectorName = 'إدارة المتجر / المحاسب';
+        }
+      }
+
       return {
         type: 'PAYMENT',
         payment: {
@@ -124,7 +137,7 @@ export async function getLedgerDocumentDetailAction(params: {
           method: payment.method,
           referenceNumber: payment.referenceNumber,
           notes: payment.notes,
-          recordedBy: payment.recordedBy,
+          recordedBy: collectorName || 'إدارة المتجر / المحاسب',
           createdAt: payment.createdAt.toISOString(),
         },
       };

@@ -118,6 +118,7 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'TRANSFER' | 'OTHER'>('CASH');
   const [paymentRef, setPaymentRef] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [paymentCollector, setPaymentCollector] = useState('');
 
   const filteredUsers = users.filter((u) => {
     if (roleFilter && u.role !== roleFilter) return false;
@@ -231,6 +232,7 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
           method: paymentMethod,
           referenceNumber: paymentRef.trim() || null,
           notes: paymentNotes.trim() || null,
+          collectorName: paymentCollector.trim() || null,
         });
 
         if (!res.ok) {
@@ -256,6 +258,7 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
         setPaymentAmount('');
         setPaymentRef('');
         setPaymentNotes('');
+        setPaymentCollector('');
         router.refresh();
       } catch (err: unknown) {
         toast.error((err as Error).message || 'حدث خطأ أثناء تسجيل الدفعة');
@@ -703,6 +706,13 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
             />
 
             <Input
+              label="اسم المحصل / أمين الصندوق (المحرر)"
+              placeholder="مثال: اسم المحاسب أو المالك المستلم (أو اتركه فارغًا لاستخدام اسم حسابك الحالي)"
+              value={paymentCollector}
+              onChange={(e) => setPaymentCollector(e.target.value)}
+            />
+
+            <Input
               label="ملاحظات وسند الاستلام (اختياري)"
               placeholder="ملاحظات إضافية عن الدفعة..."
               value={paymentNotes}
@@ -713,7 +723,10 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setPaymentUser(null)}
+                onClick={() => {
+                  setPaymentUser(null);
+                  setPaymentCollector('');
+                }}
                 disabled={isPending}
               >
                 إلغاء

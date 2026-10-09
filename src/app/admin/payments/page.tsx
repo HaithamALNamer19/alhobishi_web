@@ -23,11 +23,38 @@ export default async function AdminPaymentsPage() {
     .limit(50)
     .get();
 
+  const userIds = new Set<string>();
+  snap.docs.forEach((doc) => {
+    const d = doc.data();
+    if (d.customerId) userIds.add(d.customerId);
+    if (d.recordedBy && !d.recordedBy.includes(' ') && d.recordedBy.length >= 20) userIds.add(d.recordedBy);
+  });
+
+  const userMap = new Map<string, string>();
+  if (userIds.size > 0) {
+    const userDocs = await Promise.allSettled(
+      Array.from(userIds).map((id) => db.collection(Collections.USERS).doc(id).get())
+    );
+    userDocs.forEach((res) => {
+      if (res.status === 'fulfilled' && res.value.exists) {
+        const u = res.value.data()!;
+        userMap.set(res.value.id, u.displayName || u.username || res.value.id);
+      }
+    });
+  }
+
   const payments = snap.docs.map((doc) => {
     const data = doc.data();
+    const customerName = userMap.get(data.customerId) || (data.customerId ? `${data.customerId.slice(0, 8)}...` : 'عميل');
+    let collectorName = data.recordedByName || data.recordedBy || 'المحاسب';
+    if (collectorName && userMap.has(collectorName)) {
+      collectorName = userMap.get(collectorName)!;
+    }
     return {
       id: doc.id,
       customerId: data.customerId,
+      customerName,
+      collectorName,
       amount: data.amount,
       method: data.method,
       referenceNumber: data.referenceNumber,
@@ -69,7 +96,8 @@ export default async function AdminPaymentsPage() {
               <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
                 <tr>
                   <th className="py-3.5 px-4">التاريخ</th>
-                  <th className="py-3.5 px-4">معرّف العميل</th>
+                  <th className="py-3.5 px-4">العميل</th>
+                  <th className="py-3.5 px-4">المحصل / أمين الصندوق</th>
                   <th className="py-3.5 px-4">طريقة السداد</th>
                   <th className="py-3.5 px-4">رقم الإيصال / الحوالة</th>
                   <th className="py-3.5 px-4 text-center">المبلغ</th>
@@ -89,8 +117,19 @@ export default async function AdminPaymentsPage() {
                       })}
                     </td>
 
-                    <td className="py-4 px-4 font-mono text-slate-700">
-                      {p.customerId.slice(0, 10)}...
+                    <td className="py-4 px-4 font-bold text-slate-900">
+                      <Link
+                        href={`/admin/customers/${p.customerId}/statement`}
+                        className="hover:text-blue-700 transition-colors"
+                      >
+                        {p.customerName}
+                      </Link>
+                    </td>
+
+                    <td className="py-4 px-4 font-medium text-slate-700">
+                      <span className="inline-flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-lg text-[11px] font-bold text-slate-800">
+                        {p.collectorName}
+                      </span>
                     </td>
 
                     <td className="py-4 px-4 font-bold">

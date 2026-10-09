@@ -7,6 +7,7 @@ import { requireAuth, requirePermission } from '@/core/auth/require-auth';
 import { Permission } from '@/core/auth/roles';
 import { orderRepository } from '../infrastructure/firestore-order.repository';
 import { ledgerRepository } from '@/features/accounting/infrastructure/firestore-ledger.repository';
+import { userRepository } from '@/features/users/infrastructure/firestore-user.repository';
 import type { Order, OrderItemStatus } from '../domain/order';
 import { assertMoney, type Money } from '@/core/domain/money';
 
@@ -120,14 +121,26 @@ export async function recordPaymentAction(params: {
   method: 'CASH' | 'TRANSFER' | 'OTHER';
   referenceNumber?: string | null;
   notes?: string | null;
+  collectorName?: string | null;
 }): Promise<Result<{ transactionId: string; newBalance: Money }>> {
   return runAction(async () => {
     const session = await requirePermission(Permission.PAYMENTS_RECORD);
+
+    let collector = params.collectorName?.trim();
+    if (!collector) {
+      const currentActor = await userRepository.findById(session.uid);
+      collector =
+        currentActor?.displayName ||
+        currentActor?.username ||
+        session.email?.split('@')[0] ||
+        'إدارة المتجر';
+    }
+
     const result = await ledgerRepository.recordPayment({
       ...params,
       amount: assertMoney(params.amount),
       actorId: session.uid,
-      actorName: session.email || 'المدير',
+      actorName: collector,
     });
 
     revalidatePath('/admin/customers');
