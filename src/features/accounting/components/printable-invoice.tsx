@@ -181,7 +181,7 @@ export function PrintableInvoice({ order }: PrintableInvoiceProps) {
           </div>
           <div>
             <span className="text-slate-500 block mb-1 font-medium">المستلم</span>
-            <span className="text-[10px] text-slate-400 block mb-6">{order.customerName}</span>
+            <span className="text-xs font-bold text-slate-800 block mb-6">{order.customerName}</span>
             <div className="border-t border-dashed border-slate-400 mx-6 pt-1 text-slate-700">
               توقيع واستلام
             </div>

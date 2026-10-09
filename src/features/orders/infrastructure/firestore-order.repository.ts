@@ -25,7 +25,21 @@ export class FirestoreOrderRepository {
   async findById(id: string): Promise<Order | null> {
     const doc = await this.db.collection(Collections.ORDERS).doc(id).get();
     if (!doc.exists) return null;
-    return this.mapOrderDoc(doc.id, doc.data()!);
+    const order = this.mapOrderDoc(doc.id, doc.data()!);
+    if (order.customerId) {
+      try {
+        const userDoc = await this.db.collection(Collections.USERS).doc(order.customerId).get();
+        if (userDoc.exists) {
+          const u = userDoc.data()!;
+          if (u.displayName) {
+            order.customerName = u.displayName;
+          }
+        }
+      } catch {
+        // preserve existing order.customerName fallback
+      }
+    }
+    return order;
   }
 
   async listByCustomer(customerId: string): Promise<Order[]> {
@@ -35,6 +49,7 @@ export class FirestoreOrderRepository {
       .get();
 
     const orders = snap.docs.map((d) => this.mapOrderDoc(d.id, d.data()));
+    await this.attachCustomerDisplayNames(orders);
     return orders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
@@ -46,6 +61,7 @@ export class FirestoreOrderRepository {
       .get();
 
     const orders = snap.docs.map((d) => this.mapOrderDoc(d.id, d.data()));
+    await this.attachCustomerDisplayNames(orders);
     return orders.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   }
 
@@ -64,6 +80,7 @@ export class FirestoreOrderRepository {
 
     const snap = await query.get();
     let orders = snap.docs.map((d) => this.mapOrderDoc(d.id, d.data()));
+    await this.attachCustomerDisplayNames(orders);
     if (options.status) {
       orders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       if (options.limit) {
@@ -71,6 +88,34 @@ export class FirestoreOrderRepository {
       }
     }
     return orders;
+  }
+
+  private async attachCustomerDisplayNames(orders: Order[]): Promise<void> {
+    const customerIds = Array.from(new Set(orders.map((o) => o.customerId).filter(Boolean)));
+    if (customerIds.length === 0) return;
+
+    try {
+      const userDocs = await Promise.allSettled(
+        customerIds.map((id) => this.db.collection(Collections.USERS).doc(id).get())
+      );
+      const nameMap = new Map<string, string>();
+      userDocs.forEach((res) => {
+        if (res.status === 'fulfilled' && res.value.exists) {
+          const u = res.value.data()!;
+          if (u.displayName) {
+            nameMap.set(res.value.id, u.displayName);
+          }
+        }
+      });
+
+      for (const o of orders) {
+        if (o.customerId && nameMap.has(o.customerId)) {
+          o.customerName = nameMap.get(o.customerId)!;
+        }
+      }
+    } catch {
+      // fallback to stored names
+    }
   }
 
   /**
@@ -90,7 +135,7 @@ export class FirestoreOrderRepository {
       }
       const userData = userSnap.data()!;
       const customerRole = (userData.role || 'customer') as Role;
-      const customerName = userData.name || userData.username || 'عميل';
+      const customerName = userData.displayName || userData.name || userData.username || 'عميل';
       const customerPhone = userData.phone || '';
 
       // 2. Read Customer Cart

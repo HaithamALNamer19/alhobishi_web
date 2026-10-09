@@ -78,13 +78,25 @@ export async function getLedgerDocumentDetailAction(params: {
         throw new AppError(ErrorCode.FORBIDDEN, { message: 'ليس لديك صلاحية لعرض هذه الفاتورة.' });
       }
 
+      let customerDisplayName = order.customerName;
+      if (order.customerId) {
+        try {
+          const customer = await userRepository.findById(order.customerId);
+          if (customer?.displayName) {
+            customerDisplayName = customer.displayName;
+          }
+        } catch {
+          // fallback
+        }
+      }
+
       return {
         type: 'INVOICE',
         order: {
           id: order.id,
           orderNumber: order.orderNumber,
           customerId: order.customerId,
-          customerName: order.customerName,
+          customerName: customerDisplayName,
           customerPhone: order.customerPhone,
           customerRole: order.customerRole,
           status: order.status,
