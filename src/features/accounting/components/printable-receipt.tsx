@@ -7,6 +7,24 @@ interface PrintableReceiptProps {
   payment: SerializedPaymentDetail['payment'];
 }
 
+function formatSignatoryName(name: string | null | undefined, fallback: string): string {
+  if (!name || !name.trim()) return fallback;
+  const trimmed = name.trim();
+  if (trimmed.includes('@')) {
+    const userPart = trimmed.split('@')[0].toLowerCase();
+    if (userPart === 'admin') return 'مدير المتجر';
+    if (userPart.includes('prep') || userPart.includes('warehouse')) return 'أمين المستودع';
+    return fallback;
+  }
+  if (!trimmed.includes(' ') && trimmed.length >= 20) {
+    return fallback;
+  }
+  if (trimmed.toLowerCase() === 'admin') {
+    return 'مدير المتجر';
+  }
+  return trimmed;
+}
+
 export function PrintableReceipt({ payment }: PrintableReceiptProps) {
   const receiptDate = new Date(payment.createdAt).toLocaleDateString('ar-YE', {
     day: 'numeric',
@@ -118,25 +136,29 @@ export function PrintableReceipt({ payment }: PrintableReceiptProps) {
 
       {/* Signatures Block */}
       <div className="border-t border-slate-200 pt-5 mt-8">
-        <div className="grid grid-cols-3 gap-4 text-center text-[11px]">
-          <div>
-            <span className="text-slate-500 block mb-1 font-medium">المحصل / أمين الصندوق</span>
-            <span className="text-xs font-bold text-slate-800 block mb-6">{payment.recordedBy || 'المحاسب'}</span>
-            <div className="border-t border-dashed border-slate-400 mx-6 pt-1 text-slate-700">
+        <div className="grid grid-cols-3 gap-4 text-center text-[11px]" dir="rtl">
+          <div className="flex flex-col items-center">
+            <span className="text-slate-600 block mb-1 font-bold">المحصل / أمين الصندوق</span>
+            <span className="text-xs font-bold text-slate-900 block min-h-[1.5rem] mb-6">
+              {formatSignatoryName(payment.recordedBy, 'المحاسب')}
+            </span>
+            <div className="w-full border-t border-dashed border-slate-400 px-4 pt-1.5 text-slate-800 font-semibold" dir="rtl">
               التوقيع
             </div>
           </div>
-          <div>
-            <span className="text-slate-500 block mb-1 font-medium">ختم المتجر الرسمي</span>
-            <span className="text-[10px] text-transparent block mb-6">-</span>
-            <div className="border-t border-dashed border-slate-400 mx-6 pt-1 text-slate-700">
+          <div className="flex flex-col items-center">
+            <span className="text-slate-600 block mb-1 font-bold">ختم المتجر الرسمي</span>
+            <span className="text-[10px] text-transparent block min-h-[1.5rem] mb-6">-</span>
+            <div className="w-full border-t border-dashed border-slate-400 px-4 pt-1.5 text-slate-800 font-semibold" dir="rtl">
               الختم
             </div>
           </div>
-          <div>
-            <span className="text-slate-500 block mb-1 font-medium">المسلم</span>
-            <span className="text-[10px] text-slate-400 block mb-6">{payment.customerName}</span>
-            <div className="border-t border-dashed border-slate-400 mx-6 pt-1 text-slate-700">
+          <div className="flex flex-col items-center">
+            <span className="text-slate-600 block mb-1 font-bold">المسلم</span>
+            <span className="text-xs font-bold text-slate-900 block min-h-[1.5rem] mb-6">
+              {formatSignatoryName(payment.customerName, 'العميل')}
+            </span>
+            <div className="w-full border-t border-dashed border-slate-400 px-4 pt-1.5 text-slate-800 font-semibold" dir="rtl">
               توقيع المسلّم
             </div>
           </div>

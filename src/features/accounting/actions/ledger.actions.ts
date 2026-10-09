@@ -90,6 +90,44 @@ export async function getLedgerDocumentDetailAction(params: {
         }
       }
 
+      // Resolve and sanitize preparedBy
+      let preparedByName = order.preparedBy;
+      if (preparedByName && preparedByName.includes('@')) {
+        const uname = preparedByName.split('@')[0];
+        try {
+          const u = await userRepository.findByUsername(uname);
+          preparedByName = u?.displayName || (uname === 'admin' ? 'مدير المتجر' : 'أمين المستودع');
+        } catch {
+          preparedByName = uname === 'admin' ? 'مدير المتجر' : 'أمين المستودع';
+        }
+      } else if (preparedByName && !preparedByName.includes(' ') && preparedByName.length >= 20) {
+        try {
+          const u = await userRepository.findById(preparedByName);
+          preparedByName = u?.displayName || 'أمين المستودع';
+        } catch {
+          preparedByName = 'أمين المستودع';
+        }
+      }
+
+      // Resolve and sanitize confirmedBy
+      let confirmedByName = order.confirmedBy;
+      if (confirmedByName && confirmedByName.includes('@')) {
+        const uname = confirmedByName.split('@')[0];
+        try {
+          const u = await userRepository.findByUsername(uname);
+          confirmedByName = u?.displayName || (uname === 'admin' ? 'مدير المتجر' : 'إدارة المتجر');
+        } catch {
+          confirmedByName = uname === 'admin' ? 'مدير المتجر' : 'إدارة المتجر';
+        }
+      } else if (confirmedByName && !confirmedByName.includes(' ') && confirmedByName.length >= 20) {
+        try {
+          const u = await userRepository.findById(confirmedByName);
+          confirmedByName = u?.displayName || 'مدير المتجر';
+        } catch {
+          confirmedByName = 'مدير المتجر';
+        }
+      }
+
       return {
         type: 'INVOICE',
         order: {
@@ -104,9 +142,9 @@ export async function getLedgerDocumentDetailAction(params: {
           items: order.items,
           totalAmount: order.totalAmount,
           customerNotes: order.customerNotes,
-          preparedBy: order.preparedBy,
+          preparedBy: preparedByName || 'أمين المستودع',
           preparedAt: order.preparedAt ? order.preparedAt.toISOString() : null,
-          confirmedBy: order.confirmedBy,
+          confirmedBy: confirmedByName || 'مدير المتجر',
           confirmedAt: order.confirmedAt ? order.confirmedAt.toISOString() : null,
           createdAt: order.createdAt.toISOString(),
           updatedAt: order.updatedAt.toISOString(),

@@ -60,9 +60,15 @@ export async function staffUpdateItemPrepAction(
 ): Promise<Result<Order>> {
   return runAction(async () => {
     const session = await requirePermission(Permission.ORDERS_PREPARE);
+    const actorUser = await userRepository.findById(session.uid);
+    const actorName =
+      actorUser?.displayName ||
+      actorUser?.username ||
+      'أمين المستودع';
+
     const order = await orderRepository.updateItemPreparation(
       session.uid,
-      session.email || 'موظف تجهيز',
+      actorName,
       orderId,
       variantId,
       preparedQty,
@@ -81,9 +87,15 @@ export async function staffMarkOrderReadyAction(
 ): Promise<Result<Order>> {
   return runAction(async () => {
     const session = await requirePermission(Permission.ORDERS_MARK_READY);
+    const actorUser = await userRepository.findById(session.uid);
+    const actorName =
+      actorUser?.displayName ||
+      actorUser?.username ||
+      'أمين المستودع';
+
     const order = await orderRepository.markOrderReady(
       session.uid,
-      session.email || 'موظف تجهيز',
+      actorName,
       orderId
     );
 
@@ -100,9 +112,15 @@ export async function adminConfirmOrderAction(
 ): Promise<Result<Order>> {
   return runAction(async () => {
     const session = await requirePermission(Permission.ORDERS_CONFIRM);
+    const actorUser = await userRepository.findById(session.uid);
+    const actorName =
+      actorUser?.displayName ||
+      actorUser?.username ||
+      'مدير المتجر';
+
     const order = await orderRepository.confirmOrder(
       session.uid,
-      session.email || 'المدير',
+      actorName,
       orderId
     );
 
