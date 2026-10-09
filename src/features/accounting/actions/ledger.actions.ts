@@ -273,7 +273,10 @@ export async function recordSalesReturnAction(
   rawInput: z.infer<typeof salesReturnSchema>
 ): Promise<Result<{ returnId: string; returnNumber: string; newBalance: Money }>> {
   return runAction(async () => {
-    const session = await requirePermission(Permission.ORDERS_CONFIRM);
+    const session = await requireSession();
+    if (!isBackOfficeRole(session.role)) {
+      throw new AppError(ErrorCode.FORBIDDEN, { message: 'ليس لديك صلاحية لتسجيل فواتير المردود.' });
+    }
     const input = salesReturnSchema.parse(rawInput);
 
     const actorUser = await userRepository.findById(session.uid);
@@ -318,7 +321,10 @@ export async function getCustomerReturnableItemsAction(
   orderDate: string;
 }>>> {
   return runAction(async () => {
-    await requirePermission(Permission.ORDERS_CONFIRM);
+    const session = await requireSession();
+    if (!isBackOfficeRole(session.role)) {
+      throw new AppError(ErrorCode.FORBIDDEN, { message: 'ليس لديك صلاحية لعرض مشتريات العميل.' });
+    }
     const orders = await orderRepository.listByCustomer(customerId);
     const confirmedOrders = orders.filter((o) => o.status === 'CONFIRMED' || o.status === 'READY');
     const items: Array<{
@@ -369,93 +375,99 @@ export async function searchStoreProductsForReturnAction(params: {
   customerRole?: string;
 }): Promise<Result<StoreProductReturnOption[]>> {
   return runAction(async () => {
-    await requirePermission(Permission.ORDERS_CONFIRM);
+    const session = await requireSession();
+    if (!isBackOfficeRole(session.role)) {
+      throw new AppError(ErrorCode.FORBIDDEN, { message: 'ليس لديك صلاحية لعرض منتجات المحل.' });
+    }
     const rawQ = (params.query || '').trim();
     const isWholesale = params.customerRole === 'wholesale';
 
-    // Fetch active products
-    let products = await productRepository.list({
-      status: 'active',
-      limit: rawQ ? 50 : 25,
-      search: rawQ || undefined,
-    });
+    // 1. Fetch products from store catalog (non-archived)
+    let allProducts = await productRepository.list();
+    allProducts = allProducts.filter((p) => p.status !== 'archived');
 
-    // In-memory fallback if keyword search had few results
-    if (rawQ) {
-      const normQ = normalizeArabic(rawQ);
-      const allActive = await productRepository.list({ status: 'active', limit: 100 });
-      const extraMatches = allActive.filter((p) => {
-        const nameMatch = normalizeArabic(p.name).includes(normQ);
-        const skuMatch = p.sku?.toLowerCase().includes(rawQ.toLowerCase());
-        const barcodeMatch = p.barcode?.includes(rawQ);
-        return nameMatch || skuMatch || barcodeMatch;
-      });
+    // 2. Fetch variants & wholesale pricing in parallel
+    const productResults = await Promise.all(
+      allProducts.map(async (product) => {
+        const [variants, pricing] = await Promise.all([
+          productRepository.getVariants(product.id),
+          productRepository.findPricing(product.id).catch(() => null),
+        ]);
 
-      const seenIds = new Set(products.map((p) => p.id));
-      for (const p of extraMatches) {
-        if (!seenIds.has(p.id)) {
-          products.push(p);
-          seenIds.add(p.id);
-        }
-      }
-    }
+        const items: StoreProductReturnOption[] = [];
 
-    products = products.slice(0, 25);
+        if (variants && variants.length > 0) {
+          for (const v of variants) {
+            if (v.isActive === false) continue;
 
-    const options: StoreProductReturnOption[] = [];
+            let price = product.retailPrice || 0;
+            if (isWholesale) {
+              price =
+                pricing?.variantWholesalePrices?.[v.id] ??
+                pricing?.wholesalePrice ??
+                v.retailPriceOverride ??
+                product.retailPrice ??
+                0;
+            } else {
+              price = v.retailPriceOverride ?? product.retailPrice ?? 0;
+            }
 
-    for (const product of products) {
-      const [variants, pricing] = await Promise.all([
-        productRepository.getVariants(product.id),
-        productRepository.findPricing(product.id).catch(() => null),
-      ]);
-
-      if (variants && variants.length > 0) {
-        for (const v of variants) {
-          if (!v.isActive) continue;
-
-          let price = product.retailPrice;
-          if (isWholesale) {
-            price =
-              pricing?.variantWholesalePrices?.[v.id] ??
-              pricing?.wholesalePrice ??
-              v.retailPriceOverride ??
-              product.retailPrice;
-          } else {
-            price = v.retailPriceOverride ?? product.retailPrice;
+            items.push({
+              productId: product.id,
+              productName: product.name,
+              variantId: v.id,
+              variantLabel: v.label || 'الافتراضي',
+              sku: v.sku || product.sku || null,
+              barcode: v.barcode || product.barcode || null,
+              defaultPrice: price,
+              availableStock: v.availableQty ?? v.stockQty ?? 0,
+            });
+          }
+        } else {
+          let price = product.retailPrice || 0;
+          if (isWholesale && pricing?.wholesalePrice) {
+            price = pricing.wholesalePrice;
           }
 
-          options.push({
+          items.push({
             productId: product.id,
             productName: product.name,
-            variantId: v.id,
-            variantLabel: v.label || 'الأساسي',
-            sku: v.sku || product.sku,
-            barcode: v.barcode || product.barcode,
+            variantId: 'default',
+            variantLabel: 'الافتراضي',
+            sku: product.sku || null,
+            barcode: product.barcode || null,
             defaultPrice: price,
-            availableStock: v.availableQty,
+            availableStock: 0,
           });
         }
-      } else {
-        let price = product.retailPrice;
-        if (isWholesale && pricing?.wholesalePrice) {
-          price = pricing.wholesalePrice;
-        }
 
-        options.push({
-          productId: product.id,
-          productName: product.name,
-          variantId: 'default',
-          variantLabel: 'الأساسي',
-          sku: product.sku,
-          barcode: product.barcode,
-          defaultPrice: price,
-          availableStock: 0,
-        });
-      }
+        return items;
+      })
+    );
+
+    let options = productResults.flat();
+
+    // 3. Filter options by search query if specified
+    if (rawQ) {
+      const normQ = normalizeArabic(rawQ);
+      const searchWords = normQ.split(' ').filter(Boolean);
+
+      options = options.filter((opt) => {
+        const normName = normalizeArabic(opt.productName || '');
+        const normVariant = normalizeArabic(opt.variantLabel || '');
+        const combined = `${normName} ${normVariant}`;
+        const sku = (opt.sku || '').toLowerCase();
+        const barcode = opt.barcode || '';
+
+        const nameMatches = searchWords.every((word) => combined.includes(word));
+        const skuMatches = sku.includes(rawQ.toLowerCase());
+        const barcodeMatches = barcode.includes(rawQ);
+
+        return nameMatches || skuMatches || barcodeMatches;
+      });
     }
 
-    return options;
+    return options.slice(0, 50);
   });
 }
 

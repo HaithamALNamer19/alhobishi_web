@@ -19,6 +19,7 @@ import {
   User,
   Store,
   Loader2,
+  X,
 } from 'lucide-react';
 import {
   recordSalesReturnAction,
@@ -84,9 +85,12 @@ export function RecordReturnDialog({
   >([]);
   const [isLoadingPast, setIsLoadingPast] = useState(false);
 
-  // Reset and load catalog products when dialog opens
+  const customerId = customer?.uid;
+  const customerRole = customer?.role;
+
+  // Single robust effect to load store products on open and debounced on search query change
   useEffect(() => {
-    if (!isOpen || !customer) {
+    if (!isOpen || !customerId) {
       setReturnItems([]);
       setReason('');
       setSelectedOrderId(null);
@@ -96,50 +100,41 @@ export function RecordReturnDialog({
       return;
     }
 
-    let isSubscribed = true;
+    let isCurrent = true;
     setIsSearchingCatalog(true);
 
-    // Initial load of store products
-    searchStoreProductsForReturnAction({ query: '', customerRole: customer.role })
-      .then((res) => {
-        if (!isSubscribed) return;
-        if (res.ok) {
-          setStoreProducts(res.data);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (isSubscribed) setIsSearchingCatalog(false);
-      });
+    const timer = setTimeout(
+      () => {
+        searchStoreProductsForReturnAction({
+          query: searchQuery,
+          customerRole,
+        })
+          .then((res) => {
+            if (!isCurrent) return;
+            if (res.ok) {
+              setStoreProducts(res.data);
+            } else {
+              toast.error(res.error.message || 'تعذر تحميل منتجات المحل');
+            }
+          })
+          .catch((err) => {
+            if (!isCurrent) return;
+            toast.error(err?.message || 'حدث خطأ أثناء البحث في المنتجات');
+          })
+          .finally(() => {
+            if (isCurrent) {
+              setIsSearchingCatalog(false);
+            }
+          });
+      },
+      searchQuery.trim() ? 200 : 0
+    );
 
     return () => {
-      isSubscribed = false;
+      isCurrent = false;
+      clearTimeout(timer);
     };
-  }, [isOpen, customer]);
-
-  // Debounced search when manager types in search bar
-  useEffect(() => {
-    if (!isOpen || !customer) return;
-
-    const timer = setTimeout(() => {
-      setIsSearchingCatalog(true);
-      searchStoreProductsForReturnAction({
-        query: searchQuery,
-        customerRole: customer.role,
-      })
-        .then((res) => {
-          if (res.ok) {
-            setStoreProducts(res.data);
-          }
-        })
-        .catch(() => {})
-        .finally(() => {
-          setIsSearchingCatalog(false);
-        });
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery, isOpen, customer]);
+  }, [isOpen, customerId, customerRole, searchQuery]);
 
   // Lazy load past purchases only if requested
   const handleTogglePastPurchases = () => {
@@ -377,27 +372,44 @@ export function RecordReturnDialog({
 
           {/* Search Input */}
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               autoFocus
               placeholder="ابحث في منتجات المحل (اسم الصنف، الباركود، الكود) لإضافته مباشرة..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-rose-600 transition-all placeholder:text-slate-400 font-medium"
+              className="w-full pl-16 pr-9 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-rose-600 transition-all placeholder:text-slate-400 font-medium"
             />
-            {isSearchingCatalog && (
-              <Loader2 className="w-4 h-4 text-rose-600 animate-spin absolute left-3 top-1/2 -translate-y-1/2" />
-            )}
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              {isSearchingCatalog && (
+                <Loader2 className="w-4 h-4 text-rose-600 animate-spin" />
+              )}
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  title="مسح البحث وعرض كل المنتجات"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Search Results List */}
-          <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-100 shadow-2xs">
-            {storeProducts.length === 0 ? (
+          <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-100 shadow-2xs">
+            {isSearchingCatalog && storeProducts.length === 0 ? (
+              <div className="p-6 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-rose-600" />
+                <span>جاري البحث في منتجات المحل...</span>
+              </div>
+            ) : storeProducts.length === 0 ? (
               <div className="p-6 text-center text-slate-400 text-xs">
-                {isSearchingCatalog
-                  ? 'جاري البحث في منتجات المحل...'
-                  : 'لا توجد منتجات مطابقة لبيانات البحث'}
+                {searchQuery.trim()
+                  ? `لا توجد منتجات مطابقة لـ "${searchQuery}"`
+                  : 'لا توجد منتجات مسجلة في المحل حالياً'}
               </div>
             ) : (
               storeProducts.map((p) => {
