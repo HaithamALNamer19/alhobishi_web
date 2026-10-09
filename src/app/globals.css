@@ -13,6 +13,7 @@
 html {
   width: 100%;
   max-width: 100%;
+  overflow-x: hidden;
   overflow-x: clip;
   position: relative;
 }
@@ -20,6 +21,7 @@ html {
 body {
   width: 100%;
   max-width: 100%;
+  overflow-x: hidden;
   overflow-x: clip;
   position: relative;
   background: var(--background);

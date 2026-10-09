@@ -64,15 +64,15 @@ export async function Navbar() {
         <div className="flex items-center gap-1.5 sm:gap-3">
           {session ? (
             <div className="flex items-center gap-1.5 sm:gap-3">
-              {/* Backoffice link for admin / staff - now fully visible on mobile */}
+              {/* Backoffice link for admin / staff (visible on tablet and up; accessible via mobile menu drawer on mobile) */}
               {isBackOfficeRole(session.role) && (
                 <Link
                   href="/admin"
-                  className="inline-flex items-center gap-1 sm:gap-1.5 text-xs font-bold p-2 sm:px-3 sm:py-1.5 rounded-xl bg-blue-900 hover:bg-blue-950 text-white transition-all shadow-xs shrink-0"
+                  className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-blue-900 hover:bg-blue-950 text-white transition-all shadow-xs shrink-0"
                   title="لوحة الإدارة"
                 >
                   <ShieldCheck className="w-4 h-4 text-blue-300" />
-                  <span className="hidden sm:inline">الإدارة</span>
+                  <span>الإدارة</span>
                 </Link>
               )}
 
@@ -82,16 +82,16 @@ export async function Navbar() {
               {/* Cart link */}
               <Link
                 href="/cart"
-                className="relative p-2 sm:p-2.5 text-slate-700 hover:text-blue-750 hover:bg-blue-50 rounded-xl transition-colors"
+                className="relative p-2 sm:p-2.5 text-slate-700 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-colors shrink-0"
                 aria-label="السلة"
               >
                 <ShoppingBag className="w-5 h-5" />
               </Link>
 
-              {/* Account profile link */}
+              {/* Account profile link (visible on tablet and up; accessible via mobile menu drawer on mobile) */}
               <Link
                 href="/account"
-                className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-xl hover:bg-blue-50/70 border border-transparent hover:border-blue-100 transition-all text-right"
+                className="hidden sm:flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-xl hover:bg-blue-50/70 border border-transparent hover:border-blue-100 transition-all text-right shrink-0"
                 title="حسابي"
               >
                 <div className="w-8 h-8 rounded-full bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-xs">
@@ -105,8 +105,8 @@ export async function Navbar() {
                 </div>
               </Link>
 
-              {/* Logout button (hidden on extra small screens since it is inside mobile drawer) */}
-              <div className="hidden sm:block">
+              {/* Logout button */}
+              <div className="hidden md:block">
                 <LogoutButton />
               </div>
             </div>

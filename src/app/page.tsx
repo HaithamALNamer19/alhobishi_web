@@ -47,7 +47,7 @@ export default async function HomePage() {
     <>
       <div className="space-y-12 sm:space-y-16 pb-4 sm:pb-6 relative w-full max-w-full overflow-x-clip">
       {/* 1. HERO SECTION: High-Impact Cockpit with Interactive Spotlight */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-blue-950 via-slate-900 to-blue-900 text-white pt-10 sm:pt-16 pb-16 sm:pb-24 px-3 xs:px-4 sm:px-6 lg:px-8 border-b border-blue-900/40 w-full max-w-full">
+      <section className="relative overflow-hidden bg-gradient-to-br from-blue-950 via-slate-900 to-blue-900 text-white pt-8 sm:pt-16 pb-10 sm:pb-20 px-3 xs:px-4 sm:px-6 lg:px-8 border-b border-blue-900/40 w-full max-w-full">
         {/* Subtle Ambient Blueprint Grid Texture */}
         <div
           className="absolute inset-0 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:28px_28px] opacity-15 pointer-events-none [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_80%)]"
@@ -220,7 +220,7 @@ export default async function HomePage() {
       </section>
 
       {/* 2. ANNOUNCEMENT & PROMOTIONAL BANNERS SLIDER */}
-      <div className="-mt-8 sm:-mt-16 relative z-20 w-full max-w-full">
+      <div className="mt-4 sm:-mt-14 relative z-20 w-full max-w-full">
         <AnnouncementBannerSlider initialBanners={banners} isAdmin={isAdmin} />
       </div>
 
