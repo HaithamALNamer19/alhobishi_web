@@ -22,9 +22,11 @@ interface PrintableStatementProps {
     createdAt: string;
     orderId: string | null;
     paymentId: string | null;
+    returnId?: string | null;
   }>;
   totalInvoices: number;
   totalPayments: number;
+  totalReturns?: number;
   balance: number;
 }
 
@@ -33,6 +35,7 @@ export function PrintableStatement({
   transactions,
   totalInvoices,
   totalPayments,
+  totalReturns = 0,
   balance,
 }: PrintableStatementProps) {
   const printDate = new Date().toLocaleDateString('ar-YE', {
@@ -48,6 +51,8 @@ export function PrintableStatement({
   const customerCode = customer.phone
     ? customer.phone
     : `CUST-${customer.uid.slice(0, 8).toUpperCase()}`;
+
+  const totalCredits = totalPayments + totalReturns;
 
   return (
     <div
@@ -97,7 +102,7 @@ export function PrintableStatement({
         </div>
       </div>
 
-      {/* 2. Customer Information Bar (NO username, NO account type) */}
+      {/* 2. Customer Information Bar */}
       <div className="flex items-center justify-between py-2 px-3 bg-slate-50 border border-slate-300 rounded mb-3 text-xs">
         <div className="flex items-center gap-2">
           <span className="font-bold text-slate-600">اسم العميل:</span>
@@ -113,16 +118,16 @@ export function PrintableStatement({
         )}
       </div>
 
-      {/* 3. Transactions Table (Directly below customer info) */}
+      {/* 3. Transactions Table */}
       <table className="w-full text-right text-[11px] border-collapse border border-slate-400 mb-3">
         <thead>
           <tr className="bg-slate-100 text-slate-900 font-bold border-b border-slate-400">
             <th className="border border-slate-300 py-2 px-2 text-center w-8">م</th>
             <th className="border border-slate-300 py-2 px-2 text-center w-24">التاريخ</th>
-            <th className="border border-slate-300 py-2 px-2 text-center w-28">رقم الفاتورة / السند</th>
+            <th className="border border-slate-300 py-2 px-2 text-center w-32">المستند / المرجع</th>
             <th className="border border-slate-300 py-2 px-2">البيان والتفاصيل</th>
             <th className="border border-slate-300 py-2 px-2 text-center w-24">مدين (فاتورة)</th>
-            <th className="border border-slate-300 py-2 px-2 text-center w-24">دائن (سند قبض)</th>
+            <th className="border border-slate-300 py-2 px-2 text-center w-24">دائن (سداد/مردود)</th>
             <th className="border border-slate-300 py-2 px-2 text-center w-28">الرصيد (ر.ي)</th>
           </tr>
         </thead>
@@ -136,13 +141,18 @@ export function PrintableStatement({
           ) : (
             chronological.map((t, idx) => {
               const isDebit = t.type === 'INVOICE';
+              const isReturn = t.type === 'RETURN';
               const docRef = isDebit
                 ? t.orderId
                   ? `فاتورة #${t.orderId}`
                   : 'فاتورة مبيعات'
-                : t.paymentId
-                  ? `سند #${t.paymentId}`
-                  : 'سند قبض';
+                : isReturn
+                  ? t.returnId
+                    ? `مردود #${t.returnId}`
+                    : 'مردود مبيعات'
+                  : t.paymentId
+                    ? `سند #${t.paymentId}`
+                    : 'سند قبض';
 
               const dateStr = new Date(t.createdAt).toLocaleDateString('ar-YE', {
                 day: 'numeric',
@@ -187,7 +197,7 @@ export function PrintableStatement({
               {formatMoney(totalInvoices)}
             </td>
             <td className="border border-slate-300 py-2 px-2 text-center font-mono font-bold">
-              {formatMoney(totalPayments)}
+              {formatMoney(totalCredits)}
             </td>
             <td className="border border-slate-300 py-2 px-2 text-center font-mono font-black">
               {formatMoney(balance)}
@@ -202,7 +212,7 @@ export function PrintableStatement({
         <span className="font-bold">{tafqeetRials(balance)}</span>
       </div>
 
-      {/* 5. 3-Day Notice (Strictly as requested) */}
+      {/* 5. 3-Day Notice */}
       <div className="border border-slate-400 bg-slate-50 p-2 text-center rounded text-[11px] text-slate-900 font-bold mb-6">
         * تنبيه: فترة المراجعة والمطابقة لهذا الكشف هي خلال (3) أيام فقط من تاريخ صدوره، وما لم يرد أي اعتراض خطي خلال هذه المدة يُعتبر الحساب صحيحاً ومصادقاً عليه نهائياً.
       </div>

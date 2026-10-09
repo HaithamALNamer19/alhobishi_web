@@ -34,6 +34,7 @@ export default async function CustomerStatementPage() {
     createdAt: t.createdAt.toISOString(),
     orderId: t.orderId,
     paymentId: t.paymentId,
+    returnId: t.returnId ?? null,
   }));
 
   return (

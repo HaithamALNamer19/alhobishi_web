@@ -1,19 +1,22 @@
 'use server';
 
 import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
 import { runAction } from '@/core/actions/run-action';
 import type { Result } from '@/core/domain/result';
-import { requireSession } from '@/core/auth/require-auth';
-import { isBackOfficeRole } from '@/core/auth/roles';
+import { requireSession, requirePermission } from '@/core/auth/require-auth';
+import { isBackOfficeRole, Permission } from '@/core/auth/roles';
 import { AppError } from '@/core/errors/app-error';
 import { ErrorCode } from '@/core/errors/error-codes';
 import { orderRepository } from '@/features/orders/infrastructure/firestore-order.repository';
 import { ledgerRepository } from '../infrastructure/firestore-ledger.repository';
 import { userRepository } from '@/features/users/infrastructure/firestore-user.repository';
 import type { OrderItem } from '@/features/orders/domain/order';
+import type { SalesReturnItem } from '../domain/ledger';
+import { assertMoney, type Money } from '@/core/domain/money';
 
 const detailSchema = z.object({
-  type: z.enum(['INVOICE', 'PAYMENT']),
+  type: z.enum(['INVOICE', 'PAYMENT', 'RETURN']),
   id: z.string().min(1),
 });
 
@@ -57,10 +60,28 @@ export type SerializedPaymentDetail = {
   };
 };
 
-export type LedgerDocumentDetail = SerializedInvoiceDetail | SerializedPaymentDetail;
+export type SerializedReturnDetail = {
+  type: 'RETURN';
+  returnDoc: {
+    id: string;
+    returnNumber: string;
+    customerId: string;
+    customerName: string;
+    customerPhone: string;
+    customerRole: string;
+    items: SalesReturnItem[];
+    totalAmount: number;
+    reason: string | null;
+    orderId: string | null;
+    recordedBy: string;
+    createdAt: string;
+  };
+};
+
+export type LedgerDocumentDetail = SerializedInvoiceDetail | SerializedPaymentDetail | SerializedReturnDetail;
 
 export async function getLedgerDocumentDetailAction(params: {
-  type: 'INVOICE' | 'PAYMENT';
+  type: 'INVOICE' | 'PAYMENT' | 'RETURN';
   id: string;
 }): Promise<Result<LedgerDocumentDetail>> {
   return runAction(async () => {
@@ -150,6 +171,41 @@ export async function getLedgerDocumentDetailAction(params: {
           updatedAt: order.updatedAt.toISOString(),
         },
       };
+    } else if (input.type === 'RETURN') {
+      const returnDoc = await ledgerRepository.getSalesReturnById(input.id);
+      if (!returnDoc) {
+        throw new AppError(ErrorCode.NOT_FOUND, { message: 'فاتورة مردود المبيعات غير موجودة.' });
+      }
+
+      if (!isBackOffice && returnDoc.customerId !== session.uid) {
+        throw new AppError(ErrorCode.FORBIDDEN, { message: 'ليس لديك صلاحية لعرض هذا المردود.' });
+      }
+
+      const customer = await userRepository.findById(returnDoc.customerId);
+
+      let recorderName = returnDoc.recordedBy;
+      if (recorderName && !recorderName.includes(' ') && recorderName.length >= 20) {
+        const actorUser = await userRepository.findById(recorderName);
+        recorderName = actorUser?.displayName || actorUser?.username || 'مدير المتجر';
+      }
+
+      return {
+        type: 'RETURN',
+        returnDoc: {
+          id: returnDoc.id,
+          returnNumber: returnDoc.returnNumber,
+          customerId: returnDoc.customerId,
+          customerName: customer?.displayName || returnDoc.customerName,
+          customerPhone: customer?.phone || returnDoc.customerPhone || '',
+          customerRole: customer?.role || 'customer',
+          items: returnDoc.items,
+          totalAmount: returnDoc.totalAmount,
+          reason: returnDoc.reason ?? null,
+          orderId: returnDoc.orderId ?? null,
+          recordedBy: recorderName || 'مدير المتجر',
+          createdAt: returnDoc.createdAt.toISOString(),
+        },
+      };
     } else {
       const payment = await ledgerRepository.getPaymentById(input.id);
       if (!payment) {
@@ -192,6 +248,106 @@ export async function getLedgerDocumentDetailAction(params: {
         },
       };
     }
+  });
+}
+
+export const salesReturnSchema = z.object({
+  customerId: z.string().min(1),
+  items: z.array(
+    z.object({
+      productId: z.string().min(1),
+      productName: z.string().min(1),
+      variantId: z.string().min(1),
+      variantLabel: z.string().min(1),
+      quantity: z.number().int().positive(),
+      unitPrice: z.number().min(0),
+    })
+  ).min(1),
+  reason: z.string().optional().nullable(),
+  orderId: z.string().optional().nullable(),
+});
+
+export async function recordSalesReturnAction(
+  rawInput: z.infer<typeof salesReturnSchema>
+): Promise<Result<{ returnId: string; returnNumber: string; newBalance: Money }>> {
+  return runAction(async () => {
+    const session = await requirePermission(Permission.ORDERS_CONFIRM);
+    const input = salesReturnSchema.parse(rawInput);
+
+    const actorUser = await userRepository.findById(session.uid);
+    const actorName =
+      actorUser?.displayName ||
+      actorUser?.username ||
+      'مدير المتجر';
+
+    const result = await ledgerRepository.recordSalesReturn({
+      customerId: input.customerId,
+      items: input.items.map((i) => ({
+        ...i,
+        unitPrice: assertMoney(i.unitPrice),
+      })),
+      reason: input.reason?.trim() || null,
+      orderId: input.orderId?.trim() || null,
+      actorId: session.uid,
+      actorName,
+    });
+
+    revalidatePath('/admin/customers');
+    revalidatePath(`/admin/customers/${input.customerId}/statement`);
+    revalidatePath('/admin/products');
+    revalidatePath('/account');
+    revalidatePath('/account/statement');
+
+    return result;
+  });
+}
+
+export async function getCustomerReturnableItemsAction(
+  customerId: string
+): Promise<Result<Array<{
+  orderNumber: string;
+  orderId: string;
+  productId: string;
+  productName: string;
+  variantId: string;
+  variantLabel: string;
+  purchasedQty: number;
+  unitPrice: number;
+  orderDate: string;
+}>>> {
+  return runAction(async () => {
+    await requirePermission(Permission.ORDERS_CONFIRM);
+    const orders = await orderRepository.listByCustomer(customerId);
+    const confirmedOrders = orders.filter((o) => o.status === 'CONFIRMED' || o.status === 'READY');
+    const items: Array<{
+      orderNumber: string;
+      orderId: string;
+      productId: string;
+      productName: string;
+      variantId: string;
+      variantLabel: string;
+      purchasedQty: number;
+      unitPrice: number;
+      orderDate: string;
+    }> = [];
+
+    for (const o of confirmedOrders) {
+      for (const item of o.items) {
+        items.push({
+          orderNumber: o.orderNumber,
+          orderId: o.id,
+          productId: item.productId,
+          productName: item.productName,
+          variantId: item.variantId,
+          variantLabel: item.variantLabel || '-',
+          purchasedQty: item.preparedQty ?? item.requestedQty ?? 1,
+          unitPrice: item.unitPrice,
+          orderDate: o.createdAt.toLocaleDateString('ar-YE'),
+        });
+      }
+    }
+
+    return items;
   });
 }
 

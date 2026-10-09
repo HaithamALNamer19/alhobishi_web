@@ -41,5 +41,33 @@ describe('Ledger Statement Running Balance Calculations', () => {
     expect(calculatedClosingBalance).toBe(50000);
     expect(finalTransactionBalance).toBe(50000);
   });
+
+  it('accurately treats sales returns as credit reducing customer balance', () => {
+    const transactions = [
+      { id: '1', type: 'INVOICE', amount: 80000, previousBalance: 0, newBalance: 80000 },
+      { id: '2', type: 'RETURN', amount: -20000, previousBalance: 80000, newBalance: 60000 },
+      { id: '3', type: 'PAYMENT', amount: -50000, previousBalance: 60000, newBalance: 10000 },
+    ];
+
+    const totalInvoices = transactions
+      .filter((t) => t.type === 'INVOICE')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const totalPayments = transactions
+      .filter((t) => t.type === 'PAYMENT')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+    const totalReturns = transactions
+      .filter((t) => t.type === 'RETURN')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+    const netBalance = totalInvoices - (totalPayments + totalReturns);
+
+    expect(totalInvoices).toBe(80000);
+    expect(totalReturns).toBe(20000);
+    expect(totalPayments).toBe(50000);
+    expect(netBalance).toBe(10000);
+    expect(transactions[transactions.length - 1].newBalance).toBe(10000);
+  });
 });
 

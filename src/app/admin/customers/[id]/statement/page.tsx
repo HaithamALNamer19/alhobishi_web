@@ -46,6 +46,7 @@ export default async function AdminCustomerStatementPage({ params }: AdminCustom
     createdAt: t.createdAt.toISOString(),
     orderId: t.orderId,
     paymentId: t.paymentId,
+    returnId: t.returnId ?? null,
   }));
 
   return (

@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   FileText,
   Printer,
@@ -17,6 +18,7 @@ import {
   Phone,
   Calendar,
   Sparkles,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
@@ -27,12 +29,16 @@ import {
   getLedgerDocumentDetailAction,
   type SerializedInvoiceDetail,
   type SerializedPaymentDetail,
+  type SerializedReturnDetail,
 } from '../actions/ledger.actions';
 import { InvoiceDetailDialog } from './invoice-detail-dialog';
 import { ReceiptDetailDialog } from './receipt-detail-dialog';
+import { ReturnDetailDialog } from './return-detail-dialog';
+import { RecordReturnDialog } from './record-return-dialog';
 import { PrintableStatement } from './printable-statement';
 import { PrintableInvoice } from './printable-invoice';
 import { PrintableReceipt } from './printable-receipt';
+import { PrintableReturnInvoice } from './printable-return-invoice';
 
 export interface CustomerStatementUser {
   uid: string;
@@ -54,6 +60,7 @@ export interface SerializedTransaction {
   createdAt: string;
   orderId: string | null;
   paymentId: string | null;
+  returnId?: string | null;
 }
 
 interface CustomerStatementViewProps {
@@ -66,7 +73,8 @@ interface CustomerStatementViewProps {
 type PrintJob =
   | { type: 'statement' }
   | { type: 'invoice'; order: SerializedInvoiceDetail['order'] }
-  | { type: 'receipt'; payment: SerializedPaymentDetail['payment'] };
+  | { type: 'receipt'; payment: SerializedPaymentDetail['payment'] }
+  | { type: 'return'; returnDoc: SerializedReturnDetail['returnDoc'] };
 
 export function CustomerStatementView({
   customer,
@@ -74,17 +82,24 @@ export function CustomerStatementView({
   isAdminView = false,
   backHref = isAdminView ? '/admin/customers' : '/account',
 }: CustomerStatementViewProps) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'INVOICE' | 'PAYMENT'>('ALL');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'INVOICE' | 'PAYMENT' | 'RETURN'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 15;
 
   // Modal states
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<SerializedInvoiceDetail['order'] | null>(null);
+
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<SerializedPaymentDetail['payment'] | null>(null);
+
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [selectedReturn, setSelectedReturn] = useState<SerializedReturnDetail['returnDoc'] | null>(null);
+
+  const [isRecordReturnOpen, setIsRecordReturnOpen] = useState(false);
   const [isDocLoading, setIsDocLoading] = useState(false);
 
   // Print state
@@ -114,17 +129,20 @@ export function CustomerStatementView({
   }, []);
 
   // Compute Totals
-  const { totalInvoices, totalPayments } = useMemo(() => {
+  const { totalInvoices, totalPayments, totalReturns } = useMemo(() => {
     let invSum = 0;
     let paySum = 0;
+    let retSum = 0;
     for (const t of transactions) {
       if (t.type === 'INVOICE') {
         invSum += t.amount;
       } else if (t.type === 'PAYMENT') {
         paySum += Math.abs(t.amount);
+      } else if (t.type === 'RETURN') {
+        retSum += Math.abs(t.amount);
       }
     }
-    return { totalInvoices: invSum, totalPayments: paySum };
+    return { totalInvoices: invSum, totalPayments: paySum, totalReturns: retSum };
   }, [transactions]);
 
   // Filter Transactions
@@ -138,7 +156,10 @@ export function CustomerStatementView({
       const q = search.toLowerCase();
       const descMatch = t.description.toLowerCase().includes(q);
       const amountMatch = t.amount.toString().includes(q);
-      const idMatch = (t.orderId || '').toLowerCase().includes(q) || (t.paymentId || '').toLowerCase().includes(q);
+      const idMatch =
+        (t.orderId || '').toLowerCase().includes(q) ||
+        (t.paymentId || '').toLowerCase().includes(q) ||
+        (t.returnId || '').toLowerCase().includes(q);
       const dateMatch = new Date(t.createdAt).toLocaleDateString('ar-YE').includes(q);
 
       return descMatch || amountMatch || idMatch || dateMatch;
@@ -215,6 +236,27 @@ export function CustomerStatementView({
     }
   };
 
+  // Open return detail dialog
+  const handleOpenReturn = async (returnId: string) => {
+    setIsDocLoading(true);
+    setIsReturnModalOpen(true);
+    setSelectedReturn(null);
+    try {
+      const res = await getLedgerDocumentDetailAction({ type: 'RETURN', id: returnId });
+      if (res.ok && res.data.type === 'RETURN') {
+        setSelectedReturn(res.data.returnDoc);
+      } else {
+        toast.error(!res.ok ? res.error.message : 'تعذر تحميل بيانات فاتورة المردود');
+        setIsReturnModalOpen(false);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'حدث خطأ أثناء تحميل فاتورة المردود');
+      setIsReturnModalOpen(false);
+    } finally {
+      setIsDocLoading(false);
+    }
+  };
+
   // Quick print handlers directly from table
   const handleQuickPrintInvoice = async (orderId: string) => {
     try {
@@ -241,6 +283,20 @@ export function CustomerStatementView({
       }
     } catch {
       toast.error('حدث خطأ أثناء تجهيز السند للطباعة');
+    }
+  };
+
+  const handleQuickPrintReturn = async (returnId: string) => {
+    try {
+      toast.info('جاري تجهيز فاتورة المردود للطباعة...');
+      const res = await getLedgerDocumentDetailAction({ type: 'RETURN', id: returnId });
+      if (res.ok && res.data.type === 'RETURN') {
+        handlePrint({ type: 'return', returnDoc: res.data.returnDoc });
+      } else {
+        toast.error('تعذر جلب تفاصيل فاتورة المردود للطباعة');
+      }
+    } catch {
+      toast.error('حدث خطأ أثناء تجهيز فاتورة المردود للطباعة');
     }
   };
 
@@ -280,8 +336,19 @@ export function CustomerStatementView({
           </div>
         </div>
 
-        {/* Global Print Statement Button */}
-        <div className="flex items-center gap-3 self-end md:self-center">
+        {/* Global Action Buttons */}
+        <div className="flex items-center gap-2.5 self-end md:self-center flex-wrap">
+          {isAdminView && (
+            <Button
+              onClick={() => setIsRecordReturnOpen(true)}
+              variant="outline"
+              className="border-rose-300 text-rose-700 hover:bg-rose-50 font-bold gap-2 px-4 py-2.5 rounded-2xl shadow-xs transition-all cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4 text-rose-600" />
+              <span>تسجيل مردود مبيعات</span>
+            </Button>
+          )}
+
           <Button
             onClick={() => handlePrint({ type: 'statement' })}
             className="bg-blue-700 hover:bg-blue-600 text-white font-bold gap-2 px-5 py-2.5 rounded-2xl shadow-xs transition-all cursor-pointer"
@@ -292,8 +359,8 @@ export function CustomerStatementView({
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* KPI Cards (4 Columns) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Invoices (Debits) */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
           <div>
@@ -301,7 +368,7 @@ export function CustomerStatementView({
               <TrendingUp className="w-4 h-4 text-amber-600" />
               <span>إجمالي المبيعات (الفواتير)</span>
             </span>
-            <div className="text-xl sm:text-2xl font-black font-mono text-amber-700 tracking-tight">
+            <div className="text-xl font-black font-mono text-amber-700 tracking-tight">
               {formatMoney(totalInvoices)}
             </div>
             <span className="text-[11px] text-slate-400 mt-0.5 block">
@@ -317,11 +384,27 @@ export function CustomerStatementView({
               <TrendingDown className="w-4 h-4 text-emerald-600" />
               <span>إجمالي المسدد (سندات القبض)</span>
             </span>
-            <div className="text-xl sm:text-2xl font-black font-mono text-emerald-700 tracking-tight">
+            <div className="text-xl font-black font-mono text-emerald-700 tracking-tight">
               {formatMoney(totalPayments)}
             </div>
             <span className="text-[11px] text-slate-400 mt-0.5 block">
               {transactions.filter((t) => t.type === 'PAYMENT').length} سند قبض مسدد
+            </span>
+          </div>
+        </div>
+
+        {/* Total Returns (Credits / Stock Restoration) */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
+              <RotateCcw className="w-4 h-4 text-rose-600" />
+              <span>إجمالي المردودات (مردود مبيعات)</span>
+            </span>
+            <div className="text-xl font-black font-mono text-rose-700 tracking-tight">
+              {formatMoney(totalReturns)}
+            </div>
+            <span className="text-[11px] text-slate-400 mt-0.5 block">
+              {transactions.filter((t) => t.type === 'RETURN').length} فاتورة مردود
             </span>
           </div>
         </div>
@@ -333,7 +416,7 @@ export function CustomerStatementView({
               <CreditCard className="w-4 h-4 text-blue-400" />
               <span>الرصيد النهائي المستحق</span>
             </span>
-            <div className="text-xl sm:text-2xl font-black font-mono text-white tracking-tight">
+            <div className="text-xl font-black font-mono text-white tracking-tight">
               {formatMoney(balance)}
             </div>
             <span className="text-[11px] text-slate-300 mt-0.5 block">
@@ -353,7 +436,7 @@ export function CustomerStatementView({
           <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="بحث في البيان، رقم الطلب، المبلغ، أو التاريخ..."
+            placeholder="بحث في البيان، رقم الطلب، رقم المردود، المبلغ، أو التاريخ..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -364,7 +447,7 @@ export function CustomerStatementView({
         </div>
 
         {/* Type Filter Buttons */}
-        <div className="flex items-center gap-1.5 w-full md:w-auto bg-slate-100 p-1 rounded-xl text-xs">
+        <div className="flex items-center gap-1.5 w-full md:w-auto bg-slate-100 p-1 rounded-xl text-xs flex-wrap">
           <button
             onClick={() => {
               setTypeFilter('ALL');
@@ -404,6 +487,19 @@ export function CustomerStatementView({
           >
             سندات القبض ({transactions.filter((t) => t.type === 'PAYMENT').length})
           </button>
+          <button
+            onClick={() => {
+              setTypeFilter('RETURN');
+              setCurrentPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+              typeFilter === 'RETURN'
+                ? 'bg-white text-rose-800 shadow-2xs'
+                : 'text-slate-600 hover:text-rose-800'
+            }`}
+          >
+            مردودات المبيعات ({transactions.filter((t) => t.type === 'RETURN').length})
+          </button>
         </div>
       </div>
 
@@ -418,163 +514,215 @@ export function CustomerStatementView({
         ) : (
           <>
             <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
-                <tr>
-                  <th className="py-3.5 px-4 w-32">التاريخ والوقت</th>
-                  <th className="py-3.5 px-4 w-28">نوع الحركة</th>
-                  <th className="py-3.5 px-4">البيان والتفاصيل</th>
-                  <th className="py-3.5 px-4 text-center w-28">المبلغ (ر.ي)</th>
-                  <th className="py-3.5 px-4 text-center w-32">الرصيد بعد الحركة</th>
-                  <th className="py-3.5 px-4 text-left w-36">الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {paginatedTransactions.map((t) => {
-                  const isDebit = t.type === 'INVOICE';
-                  const dateObj = new Date(t.createdAt);
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="py-3.5 px-4 w-32">التاريخ والوقت</th>
+                    <th className="py-3.5 px-4 w-28">نوع الحركة</th>
+                    <th className="py-3.5 px-4">البيان والتفاصيل</th>
+                    <th className="py-3.5 px-4 text-center w-28">المبلغ (ر.ي)</th>
+                    <th className="py-3.5 px-4 text-center w-32">الرصيد بعد الحركة</th>
+                    <th className="py-3.5 px-4 text-left w-36">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {paginatedTransactions.map((t) => {
+                    const isInvoice = t.type === 'INVOICE';
+                    const isPayment = t.type === 'PAYMENT';
+                    const isReturn = t.type === 'RETURN';
+                    const dateObj = new Date(t.createdAt);
 
-                  return (
-                    <tr
-                      key={t.id}
-                      className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
-                      onClick={() => {
-                        if (isDebit && t.orderId) {
-                          handleOpenInvoice(t.orderId);
-                        } else if (!isDebit && t.paymentId) {
-                          handleOpenReceipt(t.paymentId);
-                        }
-                      }}
-                    >
-                      {/* Date */}
-                      <td className="py-3.5 px-4 font-mono text-slate-500 whitespace-nowrap">
-                        <div>
-                          <span>
-                            {dateObj.toLocaleDateString('ar-YE', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric',
-                            })}
-                          </span>
-                          <span className="block text-[10px] text-slate-400">
-                            {dateObj.toLocaleTimeString('ar-YE', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Type Badge */}
-                      <td className="py-3.5 px-4 font-bold whitespace-nowrap">
-                        <Badge
-                          variant={isDebit ? 'amber' : 'emerald'}
-                          className="text-[11px] font-semibold"
-                        >
-                          {isDebit ? 'فاتورة مبيعات' : 'سند قبض'}
-                        </Badge>
-                      </td>
-
-                      {/* Description */}
-                      <td className="py-3.5 px-4 text-slate-800 font-medium">
-                        <div className="flex items-center gap-2">
-                          <span>{t.description}</span>
-                          {t.orderId && (
-                            <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                              طلب
+                    return (
+                      <tr
+                        key={t.id}
+                        className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                        onClick={() => {
+                          if (isInvoice && t.orderId) {
+                            handleOpenInvoice(t.orderId);
+                          } else if (isPayment && t.paymentId) {
+                            handleOpenReceipt(t.paymentId);
+                          } else if (isReturn && t.returnId) {
+                            handleOpenReturn(t.returnId);
+                          }
+                        }}
+                      >
+                        {/* Date */}
+                        <td className="py-3.5 px-4 font-mono text-slate-500 whitespace-nowrap">
+                          <div>
+                            <span>
+                              {dateObj.toLocaleDateString('ar-YE', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
                             </span>
-                          )}
-                          {t.paymentId && (
-                            <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                              سند
+                            <span className="block text-[10px] text-slate-400">
+                              {dateObj.toLocaleTimeString('ar-YE', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
                             </span>
-                          )}
-                        </div>
-                      </td>
+                          </div>
+                        </td>
 
-                      {/* Amount */}
-                      <td className="py-3.5 px-4 text-center font-mono font-bold whitespace-nowrap">
-                        <span className={isDebit ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold'}>
-                          {isDebit ? `+${formatMoney(t.amount)}` : `-${formatMoney(Math.abs(t.amount))}`}
-                        </span>
-                      </td>
-
-                      {/* Balance After */}
-                      <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900 whitespace-nowrap">
-                        {formatMoney(t.newBalance)}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 text-left whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1.5">
-                          {isDebit && t.orderId ? (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenInvoice(t.orderId!)}
-                                className="h-7 px-2 text-[11px] text-blue-700 border-blue-200 hover:bg-blue-50 gap-1"
-                                title="عرض تفاصيل الفاتورة"
-                              >
-                                <Eye className="w-3.5 h-3.5 text-blue-600" />
-                                <span>الفاتورة</span>
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleQuickPrintInvoice(t.orderId!)}
-                                className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100"
-                                title="طباعة الفاتورة مباشرة"
-                              >
-                                <Printer className="w-3.5 h-3.5 text-slate-600" />
-                              </Button>
-                            </>
-                          ) : !isDebit && t.paymentId ? (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenReceipt(t.paymentId!)}
-                                className="h-7 px-2 text-[11px] text-emerald-800 border-emerald-200 hover:bg-emerald-50 gap-1"
-                                title="عرض تفاصيل السند"
-                              >
-                                <Eye className="w-3.5 h-3.5 text-emerald-700" />
-                                <span>السند</span>
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleQuickPrintReceipt(t.paymentId!)}
-                                className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100"
-                                title="طباعة سند القبض مباشرة"
-                              >
-                                <Printer className="w-3.5 h-3.5 text-slate-600" />
-                              </Button>
-                            </>
+                        {/* Type Badge */}
+                        <td className="py-3.5 px-4 font-bold whitespace-nowrap">
+                          {isInvoice ? (
+                            <Badge variant="amber" className="text-[11px] font-semibold">
+                              فاتورة مبيعات
+                            </Badge>
+                          ) : isPayment ? (
+                            <Badge variant="emerald" className="text-[11px] font-semibold">
+                              سند قبض
+                            </Badge>
+                          ) : isReturn ? (
+                            <Badge variant="rose" className="text-[11px] font-semibold">
+                              مردود مبيعات
+                            </Badge>
                           ) : (
-                            <span className="text-[11px] text-slate-400">-</span>
+                            <Badge variant="slate" className="text-[11px] font-semibold">
+                              حركة حساب
+                            </Badge>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
 
-          <div className="p-4 border-t border-slate-200 bg-slate-50/50">
-            <Pagination
-              currentPage={activePage}
-              totalPages={totalPages}
-              totalItems={filteredTransactions.length}
-              pageSize={PAGE_SIZE}
-              itemName="حركة مالية"
-              onPageChange={setCurrentPage}
-            />
-          </div>
-        </>
-      )}
+                        {/* Description */}
+                        <td className="py-3.5 px-4 text-slate-800 font-medium">
+                          <div className="flex items-center gap-2">
+                            <span>{t.description}</span>
+                            {t.orderId && (
+                              <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                                طلب
+                              </span>
+                            )}
+                            {t.paymentId && (
+                              <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                                سند
+                              </span>
+                            )}
+                            {t.returnId && (
+                              <span className="font-mono text-[10px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border border-rose-200">
+                                مردود
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Amount */}
+                        <td className="py-3.5 px-4 text-center font-mono font-bold whitespace-nowrap">
+                          <span
+                            className={
+                              isInvoice
+                                ? 'text-amber-700 font-bold'
+                                : isReturn
+                                  ? 'text-rose-700 font-bold'
+                                  : 'text-emerald-700 font-bold'
+                            }
+                          >
+                            {isInvoice
+                              ? `+${formatMoney(t.amount)}`
+                              : `-${formatMoney(Math.abs(t.amount))}`}
+                          </span>
+                        </td>
+
+                        {/* Balance After */}
+                        <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900 whitespace-nowrap">
+                          {formatMoney(t.newBalance)}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-left whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isInvoice && t.orderId ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenInvoice(t.orderId!)}
+                                  className="h-7 px-2 text-[11px] text-blue-700 border-blue-200 hover:bg-blue-50 gap-1"
+                                  title="عرض تفاصيل الفاتورة"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-blue-600" />
+                                  <span>الفاتورة</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleQuickPrintInvoice(t.orderId!)}
+                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100"
+                                  title="طباعة الفاتورة مباشرة"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                </Button>
+                              </>
+                            ) : isPayment && t.paymentId ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenReceipt(t.paymentId!)}
+                                  className="h-7 px-2 text-[11px] text-emerald-800 border-emerald-200 hover:bg-emerald-50 gap-1"
+                                  title="عرض تفاصيل السند"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-emerald-700" />
+                                  <span>السند</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleQuickPrintReceipt(t.paymentId!)}
+                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100"
+                                  title="طباعة سند القبض مباشرة"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                </Button>
+                              </>
+                            ) : isReturn && t.returnId ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenReturn(t.returnId!)}
+                                  className="h-7 px-2 text-[11px] text-rose-800 border-rose-200 hover:bg-rose-50 gap-1"
+                                  title="عرض تفاصيل فاتورة المردود"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-rose-700" />
+                                  <span>المردود</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleQuickPrintReturn(t.returnId!)}
+                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100"
+                                  title="طباعة فاتورة المردود مباشرة"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                </Button>
+                              </>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">-</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-4 border-t border-slate-200 bg-slate-50/50">
+              <Pagination
+                currentPage={activePage}
+                totalPages={totalPages}
+                totalItems={filteredTransactions.length}
+                pageSize={PAGE_SIZE}
+                itemName="حركة مالية"
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Invoice Detail Dialog */}
@@ -595,6 +743,27 @@ export function CustomerStatementView({
         onPrint={(pay) => handlePrint({ type: 'receipt', payment: pay })}
       />
 
+      {/* Return Detail Dialog */}
+      <ReturnDetailDialog
+        isOpen={isReturnModalOpen}
+        onClose={() => setIsReturnModalOpen(false)}
+        returnDoc={selectedReturn}
+        isLoading={isDocLoading}
+        onPrint={(ret) => handlePrint({ type: 'return', returnDoc: ret })}
+      />
+
+      {/* Record Return Dialog (Admin) */}
+      {isAdminView && (
+        <RecordReturnDialog
+          isOpen={isRecordReturnOpen}
+          onClose={() => setIsRecordReturnOpen(false)}
+          customer={customer}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
+
       {/* Printable Documents Root (Rendered via Portal onto document.body for clean isolation) */}
       {mounted &&
         createPortal(
@@ -603,12 +772,15 @@ export function CustomerStatementView({
               <PrintableInvoice order={activePrint.order} />
             ) : activePrint?.type === 'receipt' ? (
               <PrintableReceipt payment={activePrint.payment} />
+            ) : activePrint?.type === 'return' ? (
+              <PrintableReturnInvoice returnDoc={activePrint.returnDoc} />
             ) : (
               <PrintableStatement
                 customer={customer}
                 transactions={transactions}
                 totalInvoices={totalInvoices}
                 totalPayments={totalPayments}
+                totalReturns={totalReturns}
                 balance={balance}
               />
             )}
