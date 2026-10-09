@@ -531,6 +531,7 @@ export function CustomerStatementView({
                     const isPayment = t.type === 'PAYMENT';
                     const isReturn = t.type === 'RETURN';
                     const dateObj = new Date(t.createdAt);
+                    const isValidDate = !isNaN(dateObj.getTime());
 
                     return (
                       <tr
@@ -548,21 +549,25 @@ export function CustomerStatementView({
                       >
                         {/* Date */}
                         <td className="py-3.5 px-4 font-mono text-slate-500 whitespace-nowrap">
-                          <div>
-                            <span>
-                              {dateObj.toLocaleDateString('ar-YE', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                              })}
-                            </span>
-                            <span className="block text-[10px] text-slate-400">
-                              {dateObj.toLocaleTimeString('ar-YE', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </span>
-                          </div>
+                          {isValidDate ? (
+                            <div>
+                              <span>
+                                {dateObj.toLocaleDateString('ar-YE', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })}
+                              </span>
+                              <span className="block text-[10px] text-slate-400">
+                                {dateObj.toLocaleTimeString('ar-YE', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                          ) : (
+                            <span>-</span>
+                          )}
                         </td>
 
                         {/* Type Badge */}

@@ -94,11 +94,20 @@ export function ReturnDetailDialog({
                 <span>تاريخ المردود</span>
               </span>
               <p className="font-mono text-slate-800">
-                {new Date(returnDoc.createdAt).toLocaleDateString('ar-YE', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
+                {(() => {
+                  try {
+                    const d = new Date(returnDoc?.createdAt || '');
+                    return isNaN(d.getTime())
+                      ? '-'
+                      : d.toLocaleDateString('ar-YE', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        });
+                  } catch {
+                    return '-';
+                  }
+                })()}
               </p>
             </div>
 

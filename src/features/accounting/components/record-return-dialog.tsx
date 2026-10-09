@@ -88,47 +88,53 @@ export function RecordReturnDialog({
   const customerId = customer?.uid;
   const customerRole = customer?.role;
 
-  // Single robust effect to load store products on open and debounced on search query change
+  // Reset dialog state when closed
   useEffect(() => {
-    if (!isOpen || !customerId) {
+    if (!isOpen) {
       setReturnItems([]);
       setReason('');
       setSelectedOrderId(null);
       setSearchQuery('');
       setStoreProducts([]);
       setShowPastPurchases(false);
+    }
+  }, [isOpen]);
+
+  // Search store products ONLY when manager types in search bar (do not load all products on open)
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!isOpen || !customerId || !q) {
+      setStoreProducts([]);
+      setIsSearchingCatalog(false);
       return;
     }
 
     let isCurrent = true;
     setIsSearchingCatalog(true);
 
-    const timer = setTimeout(
-      () => {
-        searchStoreProductsForReturnAction({
-          query: searchQuery,
-          customerRole,
+    const timer = setTimeout(() => {
+      searchStoreProductsForReturnAction({
+        query: q,
+        customerRole,
+      })
+        .then((res) => {
+          if (!isCurrent) return;
+          if (res.ok) {
+            setStoreProducts(res.data);
+          } else {
+            toast.error(res.error.message || 'تعذر تحميل منتجات المحل');
+          }
         })
-          .then((res) => {
-            if (!isCurrent) return;
-            if (res.ok) {
-              setStoreProducts(res.data);
-            } else {
-              toast.error(res.error.message || 'تعذر تحميل منتجات المحل');
-            }
-          })
-          .catch((err) => {
-            if (!isCurrent) return;
-            toast.error(err?.message || 'حدث خطأ أثناء البحث في المنتجات');
-          })
-          .finally(() => {
-            if (isCurrent) {
-              setIsSearchingCatalog(false);
-            }
-          });
-      },
-      searchQuery.trim() ? 200 : 0
-    );
+        .catch((err) => {
+          if (!isCurrent) return;
+          toast.error(err?.message || 'حدث خطأ أثناء البحث في المنتجات');
+        })
+        .finally(() => {
+          if (isCurrent) {
+            setIsSearchingCatalog(false);
+          }
+        });
+    }, 250);
 
     return () => {
       isCurrent = false;
@@ -335,7 +341,7 @@ export function RecordReturnDialog({
             <div>
               <span className="text-slate-500 block text-[10px]">العميل المسترجع منه:</span>
               <div className="flex items-center gap-2">
-                <span className="font-black text-slate-900 text-sm">{customer.displayName}</span>
+                <span className="font-black text-slate-900 text-sm">{customer.displayName || customer.username || 'العميل'}</span>
                 <Badge variant={customer.role === 'wholesale' ? 'indigo' : 'slate'} className="text-[10px] py-0 px-2">
                   {customer.role === 'wholesale' ? 'تاجر جملة' : 'عميل عادي'}
                 </Badge>
@@ -400,16 +406,22 @@ export function RecordReturnDialog({
 
           {/* Search Results List */}
           <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-100 shadow-2xs">
-            {isSearchingCatalog && storeProducts.length === 0 ? (
+            {!searchQuery.trim() ? (
+              <div className="p-7 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-1.5">
+                <Search className="w-5 h-5 text-slate-300 stroke-[1.5]" />
+                <span className="font-semibold text-slate-700">ابحث عن الصنف لإضافته للمردود</span>
+                <span className="text-[11px] text-slate-400">
+                  اكتب اسم المنتج، المتغير، الباركود، أو الكود في حقل البحث أعلاه لإظهار الأصناف
+                </span>
+              </div>
+            ) : isSearchingCatalog && storeProducts.length === 0 ? (
               <div className="p-6 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-rose-600" />
                 <span>جاري البحث في منتجات المحل...</span>
               </div>
             ) : storeProducts.length === 0 ? (
               <div className="p-6 text-center text-slate-400 text-xs">
-                {searchQuery.trim()
-                  ? `لا توجد منتجات مطابقة لـ "${searchQuery}"`
-                  : 'لا توجد منتجات مسجلة في المحل حالياً'}
+                لا توجد منتجات مطابقة لـ "{searchQuery}"
               </div>
             ) : (
               storeProducts.map((p) => {

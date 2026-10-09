@@ -183,13 +183,29 @@ export async function getLedgerDocumentDetailAction(params: {
         throw new AppError(ErrorCode.FORBIDDEN, { message: 'ليس لديك صلاحية لعرض هذا المردود.' });
       }
 
-      const customer = await userRepository.findById(returnDoc.customerId);
+      let customer = null;
+      try {
+        if (returnDoc.customerId) {
+          customer = await userRepository.findById(returnDoc.customerId);
+        }
+      } catch {
+        // ignore
+      }
 
       let recorderName = returnDoc.recordedBy;
       if (recorderName && !recorderName.includes(' ') && recorderName.length >= 20) {
-        const actorUser = await userRepository.findById(recorderName);
-        recorderName = actorUser?.displayName || actorUser?.username || 'مدير المتجر';
+        try {
+          const actorUser = await userRepository.findById(recorderName);
+          recorderName = actorUser?.displayName || actorUser?.username || 'مدير المتجر';
+        } catch {
+          // ignore
+        }
       }
+
+      const createdAtIso =
+        returnDoc.createdAt instanceof Date && !isNaN(returnDoc.createdAt.getTime())
+          ? returnDoc.createdAt.toISOString()
+          : new Date().toISOString();
 
       return {
         type: 'RETURN',
@@ -197,15 +213,15 @@ export async function getLedgerDocumentDetailAction(params: {
           id: returnDoc.id,
           returnNumber: returnDoc.returnNumber,
           customerId: returnDoc.customerId,
-          customerName: customer?.displayName || returnDoc.customerName,
+          customerName: customer?.displayName || returnDoc.customerName || 'العميل',
           customerPhone: customer?.phone || returnDoc.customerPhone || '',
           customerRole: customer?.role || 'customer',
-          items: returnDoc.items,
-          totalAmount: returnDoc.totalAmount,
+          items: returnDoc.items || [],
+          totalAmount: returnDoc.totalAmount || 0,
           reason: returnDoc.reason ?? null,
           orderId: returnDoc.orderId ?? null,
           recordedBy: recorderName || 'مدير المتجر',
-          createdAt: returnDoc.createdAt.toISOString(),
+          createdAt: createdAtIso,
         },
       };
     } else {
@@ -380,92 +396,99 @@ export async function searchStoreProductsForReturnAction(params: {
       throw new AppError(ErrorCode.FORBIDDEN, { message: 'ليس لديك صلاحية لعرض منتجات المحل.' });
     }
     const rawQ = (params.query || '').trim();
+    // Do not return all products if search query is empty; only return matches when searched
+    if (!rawQ) {
+      return [];
+    }
+
     const isWholesale = params.customerRole === 'wholesale';
 
     // 1. Fetch products from store catalog (non-archived)
-    let allProducts = await productRepository.list();
+    let allProducts = await productRepository.list().catch(() => []);
     allProducts = allProducts.filter((p) => p.status !== 'archived');
 
     // 2. Fetch variants & wholesale pricing in parallel
     const productResults = await Promise.all(
       allProducts.map(async (product) => {
-        const [variants, pricing] = await Promise.all([
-          productRepository.getVariants(product.id),
-          productRepository.findPricing(product.id).catch(() => null),
-        ]);
+        try {
+          const [variants, pricing] = await Promise.all([
+            productRepository.getVariants(product.id).catch(() => []),
+            productRepository.findPricing(product.id).catch(() => null),
+          ]);
 
-        const items: StoreProductReturnOption[] = [];
+          const items: StoreProductReturnOption[] = [];
 
-        if (variants && variants.length > 0) {
-          for (const v of variants) {
-            if (v.isActive === false) continue;
+          if (variants && variants.length > 0) {
+            for (const v of variants) {
+              if (v.isActive === false) continue;
 
+              let price = product.retailPrice || 0;
+              if (isWholesale) {
+                price =
+                  pricing?.variantWholesalePrices?.[v.id] ??
+                  pricing?.wholesalePrice ??
+                  v.retailPriceOverride ??
+                  product.retailPrice ??
+                  0;
+              } else {
+                price = v.retailPriceOverride ?? product.retailPrice ?? 0;
+              }
+
+              items.push({
+                productId: product.id,
+                productName: product.name || '',
+                variantId: v.id,
+                variantLabel: v.label || 'الافتراضي',
+                sku: v.sku || product.sku || null,
+                barcode: v.barcode || product.barcode || null,
+                defaultPrice: Number(price) || 0,
+                availableStock: v.availableQty ?? v.stockQty ?? 0,
+              });
+            }
+          } else {
             let price = product.retailPrice || 0;
-            if (isWholesale) {
-              price =
-                pricing?.variantWholesalePrices?.[v.id] ??
-                pricing?.wholesalePrice ??
-                v.retailPriceOverride ??
-                product.retailPrice ??
-                0;
-            } else {
-              price = v.retailPriceOverride ?? product.retailPrice ?? 0;
+            if (isWholesale && pricing?.wholesalePrice) {
+              price = pricing.wholesalePrice;
             }
 
             items.push({
               productId: product.id,
-              productName: product.name,
-              variantId: v.id,
-              variantLabel: v.label || 'الافتراضي',
-              sku: v.sku || product.sku || null,
-              barcode: v.barcode || product.barcode || null,
-              defaultPrice: price,
-              availableStock: v.availableQty ?? v.stockQty ?? 0,
+              productName: product.name || '',
+              variantId: 'default',
+              variantLabel: 'الافتراضي',
+              sku: product.sku || null,
+              barcode: product.barcode || null,
+              defaultPrice: Number(price) || 0,
+              availableStock: 0,
             });
           }
-        } else {
-          let price = product.retailPrice || 0;
-          if (isWholesale && pricing?.wholesalePrice) {
-            price = pricing.wholesalePrice;
-          }
 
-          items.push({
-            productId: product.id,
-            productName: product.name,
-            variantId: 'default',
-            variantLabel: 'الافتراضي',
-            sku: product.sku || null,
-            barcode: product.barcode || null,
-            defaultPrice: price,
-            availableStock: 0,
-          });
+          return items;
+        } catch {
+          return [];
         }
-
-        return items;
       })
     );
 
     let options = productResults.flat();
 
-    // 3. Filter options by search query if specified
-    if (rawQ) {
-      const normQ = normalizeArabic(rawQ);
-      const searchWords = normQ.split(' ').filter(Boolean);
+    // 3. Filter options by search query
+    const normQ = normalizeArabic(rawQ);
+    const searchWords = normQ.split(' ').filter(Boolean);
 
-      options = options.filter((opt) => {
-        const normName = normalizeArabic(opt.productName || '');
-        const normVariant = normalizeArabic(opt.variantLabel || '');
-        const combined = `${normName} ${normVariant}`;
-        const sku = (opt.sku || '').toLowerCase();
-        const barcode = opt.barcode || '';
+    options = options.filter((opt) => {
+      const normName = normalizeArabic(opt.productName || '');
+      const normVariant = normalizeArabic(opt.variantLabel || '');
+      const combined = `${normName} ${normVariant}`;
+      const sku = (opt.sku || '').toLowerCase();
+      const barcode = opt.barcode || '';
 
-        const nameMatches = searchWords.every((word) => combined.includes(word));
-        const skuMatches = sku.includes(rawQ.toLowerCase());
-        const barcodeMatches = barcode.includes(rawQ);
+      const nameMatches = searchWords.every((word) => combined.includes(word));
+      const skuMatches = sku.includes(rawQ.toLowerCase());
+      const barcodeMatches = barcode.includes(rawQ);
 
-        return nameMatches || skuMatches || barcodeMatches;
-      });
-    }
+      return nameMatches || skuMatches || barcodeMatches;
+    });
 
     return options.slice(0, 50);
   });

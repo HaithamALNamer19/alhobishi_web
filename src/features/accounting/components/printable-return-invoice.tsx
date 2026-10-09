@@ -26,13 +26,22 @@ function formatSignatoryName(name: string | null | undefined, fallback: string):
 }
 
 export function PrintableReturnInvoice({ returnDoc }: PrintableReturnInvoiceProps) {
-  const returnDate = new Date(returnDoc.createdAt).toLocaleDateString('ar-YE', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const returnDate = (() => {
+    try {
+      const d = new Date(returnDoc?.createdAt || '');
+      return isNaN(d.getTime())
+        ? '-'
+        : d.toLocaleDateString('ar-YE', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+    } catch {
+      return '-';
+    }
+  })();
 
   const totalPieces = returnDoc.items.reduce((sum, item) => sum + item.quantity, 0);
 
