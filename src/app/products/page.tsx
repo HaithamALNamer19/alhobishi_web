@@ -5,7 +5,7 @@ import { getCurrentSession } from '@/core/auth/require-auth';
 import { productRepository } from '@/features/products/infrastructure/firestore-product.repository';
 import { categoryRepository } from '@/features/categories/infrastructure/firestore-category.repository';
 import { ProductCard } from '@/features/products/components/product-card';
-import { Pagination } from '@/shared/ui/pagination';
+import { UrlPagination } from '@/shared/ui/url-pagination';
 import { Package, ChevronLeft, Home, Search, SlidersHorizontal, Sparkles } from 'lucide-react';
 
 export const metadata = {
@@ -192,7 +192,7 @@ export default async function ProductsCatalogPage({ searchParams }: ProductsPage
             ))}
           </div>
 
-          <Pagination
+          <UrlPagination
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={totalProducts}

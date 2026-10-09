@@ -5,7 +5,7 @@ import { requireAuth } from '@/core/auth/require-auth';
 import { orderRepository } from '@/features/orders/infrastructure/firestore-order.repository';
 import { formatMoney } from '@/core/domain/money';
 import { Badge } from '@/shared/ui/badge';
-import { Pagination } from '@/shared/ui/pagination';
+import { UrlPagination } from '@/shared/ui/url-pagination';
 import { ORDER_STATUS_LABELS } from '@/features/orders/domain/order';
 import { ShoppingBag, ArrowLeft, ArrowRight, Package } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
@@ -126,7 +126,7 @@ export default async function CustomerOrdersPage({ searchParams }: CustomerOrder
 
       {totalOrders > 0 && (
         <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs">
-          <Pagination
+          <UrlPagination
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={totalOrders}

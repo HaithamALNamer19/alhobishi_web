@@ -6,7 +6,7 @@ import { getCurrentSession } from '@/core/auth/require-auth';
 import { categoryRepository } from '@/features/categories/infrastructure/firestore-category.repository';
 import { productRepository } from '@/features/products/infrastructure/firestore-product.repository';
 import { ProductCard } from '@/features/products/components/product-card';
-import { Pagination } from '@/shared/ui/pagination';
+import { UrlPagination } from '@/shared/ui/url-pagination';
 import { ChevronLeft, FolderTree, Home, Package, ArrowLeft } from 'lucide-react';
 
 interface CategoryPageProps {
@@ -149,7 +149,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
             ))}
           </div>
 
-          <Pagination
+          <UrlPagination
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={totalProducts}

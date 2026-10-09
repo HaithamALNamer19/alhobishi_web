@@ -4,7 +4,7 @@ import { connection } from 'next/server';
 import { orderRepository } from '@/features/orders/infrastructure/firestore-order.repository';
 import { formatMoney } from '@/core/domain/money';
 import { Badge, RoleBadge } from '@/shared/ui/badge';
-import { Pagination } from '@/shared/ui/pagination';
+import { UrlPagination } from '@/shared/ui/url-pagination';
 import { ORDER_STATUS_LABELS, type OrderStatus } from '@/features/orders/domain/order';
 import { ClipboardList, ArrowLeft, CalendarCheck2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
@@ -144,7 +144,7 @@ export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageP
           </div>
 
           <div className="p-4 border-t border-slate-200 bg-slate-50/50">
-            <Pagination
+            <UrlPagination
               currentPage={currentPage}
               totalPages={totalPages}
               totalItems={totalOrders}
