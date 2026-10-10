@@ -12,6 +12,8 @@ import { orderRepository } from '@/features/orders/infrastructure/firestore-orde
 import { ledgerRepository } from '../infrastructure/firestore-ledger.repository';
 import { userRepository } from '@/features/users/infrastructure/firestore-user.repository';
 import { productRepository } from '@/features/products/infrastructure/firestore-product.repository';
+import { adminDb } from '@/infrastructure/firebase/admin';
+import { Collections } from '@/infrastructure/firebase/collections';
 import { normalizeArabic } from '@/core/text/arabic-normalize';
 import type { OrderItem } from '@/features/orders/domain/order';
 import type { SalesReturnItem } from '../domain/ledger';
@@ -395,102 +397,157 @@ export async function searchStoreProductsForReturnAction(params: {
 }): Promise<Result<StoreProductReturnOption[]>> {
   return runAction(async () => {
     const session = await requireSession();
-    if (!isBackOfficeRole(session.role)) {
+    const isBackOffice =
+      session.role === 'admin' ||
+      session.role === 'staff' ||
+      isBackOfficeRole(session.role);
+    if (!isBackOffice) {
       throw new AppError(ErrorCode.FORBIDDEN, { message: 'ليس لديك صلاحية لعرض منتجات المحل.' });
     }
     const rawQ = (params.query || '').trim();
-    // Do not return all products if search query is empty; only return matches when searched
+    // Do not return products if search query is empty
     if (!rawQ) {
       return [];
     }
 
     const isWholesale = params.customerRole === 'wholesale';
+    const db = adminDb();
 
-    // 1. Fetch products from store catalog (non-archived)
-    let allProducts = await productRepository.list().catch(() => []);
-    allProducts = allProducts.filter((p) => p.status !== 'archived');
+    // 1. Fetch products from Firestore directly without index restrictions
+    const snap = await db.collection(Collections.PRODUCTS).get();
+    if (snap.empty) {
+      return [];
+    }
 
-    // 2. Fetch variants & wholesale pricing in parallel
-    const productResults = await Promise.all(
-      allProducts.map(async (product) => {
+    const allProducts = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+    const activeProducts = allProducts.filter((p) => p.status !== 'archived');
+
+    // 2. Prepare search criteria
+    const normQ = normalizeArabic(rawQ);
+    const searchWords = normQ.split(' ').filter(Boolean);
+    const cleanLowerQ = rawQ.toLowerCase().trim();
+
+    // 3. Match products in-memory (Name, Arabic normalized, SKU, Barcode, Keywords)
+    const matchedProducts = activeProducts.filter((p) => {
+      const name = String(p.name || '');
+      const normName = normalizeArabic(name);
+      const sku = String(p.sku || '').toLowerCase();
+      const barcode = String(p.barcode || '').trim();
+      const desc = String(p.description || '');
+      const normDesc = normalizeArabic(desc);
+
+      // Direct full or substring match
+      if (normName.includes(normQ) || name.toLowerCase().includes(cleanLowerQ)) {
+        return true;
+      }
+
+      // Word-by-word match
+      if (searchWords.length > 0 && searchWords.every((w) => normName.includes(w) || normDesc.includes(w))) {
+        return true;
+      }
+
+      // SKU or barcode match
+      if (cleanLowerQ && (sku.includes(cleanLowerQ) || barcode.includes(cleanLowerQ))) {
+        return true;
+      }
+
+      // searchKeywords match
+      if (Array.isArray(p.searchKeywords)) {
+        if (p.searchKeywords.some((k: string) => k.includes(normQ) || normQ.includes(k) || k.includes(cleanLowerQ))) {
+          return true;
+        }
+      }
+
+      return false;
+    });
+
+    // Limit to top 30 products to keep responses fast
+    const topProducts = matchedProducts.slice(0, 30);
+
+    // 4. Fetch variants and pricing for matched products only
+    const options: StoreProductReturnOption[] = [];
+
+    await Promise.all(
+      topProducts.map(async (product) => {
         try {
-          const [variants, pricing] = await Promise.all([
-            productRepository.getVariants(product.id).catch(() => []),
-            productRepository.findPricing(product.id).catch(() => null),
+          const [variantsSnap, pricingDoc] = await Promise.all([
+            db
+              .collection(Collections.PRODUCTS)
+              .doc(product.id)
+              .collection(Collections.VARIANTS)
+              .get()
+              .catch(() => null),
+            db
+              .collection(Collections.PRODUCT_PRICING)
+              .doc(product.id)
+              .get()
+              .catch(() => null),
           ]);
 
-          const items: StoreProductReturnOption[] = [];
+          const pricing = pricingDoc?.exists ? pricingDoc.data() : null;
+          const variants =
+            variantsSnap && !variantsSnap.empty
+              ? variantsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any))
+              : [];
 
-          if (variants && variants.length > 0) {
-            for (const v of variants) {
-              if (v.isActive === false) continue;
+          const activeVariants = variants.filter((v) => v.isActive !== false);
 
-              let price = product.retailPrice || 0;
+          if (activeVariants.length > 0) {
+            for (const v of activeVariants) {
+              let price = Number(product.retailPrice) || 0;
               if (isWholesale) {
-                price =
+                price = Number(
                   pricing?.variantWholesalePrices?.[v.id] ??
-                  pricing?.wholesalePrice ??
-                  v.retailPriceOverride ??
-                  product.retailPrice ??
-                  0;
+                    pricing?.wholesalePrice ??
+                    v.retailPriceOverride ??
+                    product.retailPrice ??
+                    0
+                );
               } else {
-                price = v.retailPriceOverride ?? product.retailPrice ?? 0;
+                price = Number(v.retailPriceOverride ?? product.retailPrice ?? 0);
               }
 
-              items.push({
+              options.push({
                 productId: product.id,
-                productName: product.name || '',
+                productName: String(product.name || ''),
                 variantId: v.id,
-                variantLabel: v.label || 'الافتراضي',
+                variantLabel: String(v.label || 'الافتراضي'),
                 sku: v.sku || product.sku || null,
                 barcode: v.barcode || product.barcode || null,
-                defaultPrice: Number(price) || 0,
-                availableStock: v.availableQty ?? v.stockQty ?? 0,
+                defaultPrice: Math.round(price) || 0,
+                availableStock: Number(v.availableQty ?? v.stockQty ?? 0),
               });
             }
           } else {
-            let price = product.retailPrice || 0;
+            let price = Number(product.retailPrice) || 0;
             if (isWholesale && pricing?.wholesalePrice) {
-              price = pricing.wholesalePrice;
+              price = Number(pricing.wholesalePrice) || 0;
             }
 
-            items.push({
+            options.push({
               productId: product.id,
-              productName: product.name || '',
+              productName: String(product.name || ''),
               variantId: 'default',
               variantLabel: 'الافتراضي',
               sku: product.sku || null,
               barcode: product.barcode || null,
-              defaultPrice: Number(price) || 0,
-              availableStock: 0,
+              defaultPrice: Math.round(price) || 0,
+              availableStock: Number(product.stockQty ?? 0),
             });
           }
-
-          return items;
-        } catch {
-          return [];
+        } catch (err) {
+          console.error(`Error loading return options for product ${product.id}:`, err);
         }
       })
     );
 
-    let options = productResults.flat();
-
-    // 3. Filter options by search query
-    const normQ = normalizeArabic(rawQ);
-    const searchWords = normQ.split(' ').filter(Boolean);
-
-    options = options.filter((opt) => {
-      const normName = normalizeArabic(opt.productName || '');
-      const normVariant = normalizeArabic(opt.variantLabel || '');
-      const combined = `${normName} ${normVariant}`;
-      const sku = (opt.sku || '').toLowerCase();
-      const barcode = opt.barcode || '';
-
-      const nameMatches = searchWords.every((word) => combined.includes(word));
-      const skuMatches = sku.includes(rawQ.toLowerCase());
-      const barcodeMatches = barcode.includes(rawQ);
-
-      return nameMatches || skuMatches || barcodeMatches;
+    // Sort options: products matching name first
+    options.sort((a, b) => {
+      const aName = normalizeArabic(a.productName);
+      const bName = normalizeArabic(b.productName);
+      const aStarts = aName.startsWith(normQ) ? 0 : 1;
+      const bStarts = bName.startsWith(normQ) ? 0 : 1;
+      return aStarts - bStarts;
     });
 
     return options.slice(0, 50);

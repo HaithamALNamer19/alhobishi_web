@@ -85,7 +85,7 @@ export function RecordReturnDialog({
   >([]);
   const [isLoadingPast, setIsLoadingPast] = useState(false);
 
-  const customerId = customer?.uid;
+  const customerId = customer?.uid || (customer as any)?.id || '';
   const customerRole = customer?.role;
 
   // Reset dialog state when closed
@@ -103,7 +103,7 @@ export function RecordReturnDialog({
   // Search store products ONLY when manager types in search bar (do not load all products on open)
   useEffect(() => {
     const q = searchQuery.trim();
-    if (!isOpen || !customerId || !q) {
+    if (!isOpen || !q) {
       setStoreProducts([]);
       setIsSearchingCatalog(false);
       return;
@@ -134,13 +134,13 @@ export function RecordReturnDialog({
             setIsSearchingCatalog(false);
           }
         });
-    }, 250);
+    }, 200);
 
     return () => {
       isCurrent = false;
       clearTimeout(timer);
     };
-  }, [isOpen, customerId, customerRole, searchQuery]);
+  }, [isOpen, customerRole, searchQuery]);
 
   // Lazy load past purchases only if requested
   const handleTogglePastPurchases = () => {
@@ -295,7 +295,7 @@ export function RecordReturnDialog({
     startTransition(async () => {
       try {
         const res = await recordSalesReturnAction({
-          customerId: customer.uid,
+          customerId,
           items: returnItems.map((item) => ({
             productId: item.productId,
             productName: item.productName,

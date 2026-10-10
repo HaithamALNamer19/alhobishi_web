@@ -145,13 +145,6 @@ export class FirestoreProductRepository {
       options.search
     );
 
-    if (!hasFilter) {
-      query = query.orderBy('createdAt', 'desc');
-      if (options.limit) {
-        query = query.limit(options.limit);
-      }
-    }
-
     const snap = await query.get();
     let products = snap.docs.map((d) => this.mapProductDoc(d.id, d.data()));
 
@@ -170,11 +163,9 @@ export class FirestoreProductRepository {
       products = products.filter((p) => activeCatIds.has(p.categoryId));
     }
 
-    if (hasFilter) {
-      products.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-      if (options.limit) {
-        products = products.slice(0, options.limit);
-      }
+    products.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
+    if (options.limit) {
+      products = products.slice(0, options.limit);
     }
 
     return products;
