@@ -69,7 +69,13 @@ export class FirestoreNotificationRepository {
         createdAt:
           data.createdAt instanceof Timestamp
             ? data.createdAt.toDate()
-            : new Date(data.createdAt || Date.now()),
+            : typeof data.createdAt?.toDate === 'function'
+              ? data.createdAt.toDate()
+              : data.createdAt instanceof Date
+                ? data.createdAt
+                : typeof data.createdAt === 'string' && !isNaN(new Date(data.createdAt).getTime())
+                  ? new Date(data.createdAt)
+                  : new Date(),
       };
     });
 

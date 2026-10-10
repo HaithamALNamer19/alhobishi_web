@@ -9,7 +9,8 @@ export const metadata = {
   description: 'تصفح كافة أقسام وتصنيفات متجر الحبيشي: ألعاب، إكسسوارات، خردوات وأدوات، أواني منزلية.',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function CategoriesPage() {
   await connection();

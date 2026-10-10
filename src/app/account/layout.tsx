@@ -4,7 +4,8 @@ import { connection } from 'next/server';
 import { getCurrentSession } from '@/core/auth/require-auth';
 import { userRepository } from '@/features/users/infrastructure/firestore-user.repository';
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function AccountLayout({
   children,

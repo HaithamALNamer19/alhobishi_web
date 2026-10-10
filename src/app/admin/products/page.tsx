@@ -4,7 +4,8 @@ import { productRepository } from '@/features/products/infrastructure/firestore-
 import { categoryRepository } from '@/features/categories/infrastructure/firestore-category.repository';
 import { ProductListTable } from '@/features/products/components/product-list-table';
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function AdminProductsPage() {
   await connection();

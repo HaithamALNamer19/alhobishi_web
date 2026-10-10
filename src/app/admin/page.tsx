@@ -30,7 +30,8 @@ export const metadata = {
   title: 'لوحة التحكم والمؤشرات | المتجر',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function AdminDashboardPage() {
   await connection();

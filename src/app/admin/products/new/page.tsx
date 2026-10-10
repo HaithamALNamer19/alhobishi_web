@@ -3,7 +3,8 @@ import { connection } from 'next/server';
 import { categoryRepository } from '@/features/categories/infrastructure/firestore-category.repository';
 import { ProductForm } from '@/features/products/components/product-form';
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function NewProductPage() {
   await connection();

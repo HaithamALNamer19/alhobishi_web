@@ -6,7 +6,8 @@ import { can, Permission } from '@/core/auth/roles';
 import { orderRepository } from '@/features/orders/infrastructure/firestore-order.repository';
 import { OrderPrepView } from '@/features/orders/components/order-prep-view';
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface AdminOrderPageProps {
   params: Promise<{ id: string }>;

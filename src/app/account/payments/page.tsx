@@ -11,7 +11,8 @@ export const metadata = {
   title: 'سندات القبض والمدفوعات | حسابي',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function CustomerPaymentsPage() {
   await connection();

@@ -11,7 +11,8 @@ export const metadata = {
   title: 'الإشعارات | حسابي',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function CustomerNotificationsPage() {
   await connection();
@@ -19,16 +20,30 @@ export default async function CustomerNotificationsPage() {
   const isBackOffice = isBackOfficeRole(session.role);
   const notifications = await notificationRepository.listByUser(session.uid, isBackOffice, 50);
 
-  const serialized = notifications.map((n) => ({
-    id: n.id,
-    userId: n.userId,
-    title: n.title,
-    message: n.message,
-    type: n.type,
-    referenceId: n.referenceId,
-    isRead: n.isRead,
-    createdAt: n.createdAt.toISOString(),
-  }));
+  const serialized = (notifications || []).map((n) => {
+    let createdAtIso = new Date().toISOString();
+    try {
+      if (n.createdAt instanceof Date && !isNaN(n.createdAt.getTime())) {
+        createdAtIso = n.createdAt.toISOString();
+      } else if (typeof n.createdAt === 'string') {
+        const d = new Date(n.createdAt);
+        if (!isNaN(d.getTime())) createdAtIso = d.toISOString();
+      }
+    } catch {
+      createdAtIso = new Date().toISOString();
+    }
+
+    return {
+      id: n.id,
+      userId: n.userId,
+      title: n.title,
+      message: n.message,
+      type: n.type,
+      referenceId: n.referenceId,
+      isRead: n.isRead,
+      createdAt: createdAtIso,
+    };
+  });
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">

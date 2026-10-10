@@ -27,7 +27,8 @@ export const metadata = {
   title: 'لوحة التحكم | حسابي',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function AccountPage() {
   const session = await requireSession();

@@ -24,7 +24,8 @@ interface ProductPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function ProductDetailPage({ params }: ProductPageProps) {
   await connection();

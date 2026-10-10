@@ -10,7 +10,8 @@ export const metadata = {
   title: 'نتائج البحث | المتجر',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface SearchPageProps {
   searchParams: Promise<{ q?: string }>;

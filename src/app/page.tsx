@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 import { formatMoney } from '@/core/domain/money';
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function HomePage() {
   await connection();

@@ -14,7 +14,8 @@ export const metadata = {
   title: 'طلباتي | حسابي',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface CustomerOrdersPageProps {
   searchParams: Promise<{ page?: string }>;

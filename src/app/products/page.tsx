@@ -13,7 +13,8 @@ export const metadata = {
   description: 'استعرض تشكيلة متجر الحبيشي من الألعاب، الإكسسوارات، الأدوات، والأواني المنزلية مع حجز فوري للمخزون.',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface ProductsPageProps {
   searchParams: Promise<{ category?: string; search?: string; page?: string }>;

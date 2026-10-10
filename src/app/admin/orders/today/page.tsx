@@ -20,7 +20,8 @@ export const metadata = {
   title: 'طلبات اليوم للتجهيز | إدارة المتجر',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function TodayOrdersPage() {
   await connection();

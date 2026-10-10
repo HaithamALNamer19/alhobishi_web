@@ -9,7 +9,8 @@ export const metadata = {
   title: 'تفاصيل الطلب | المتجر',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface CustomerOrderPageProps {
   params: Promise<{ id: string }>;

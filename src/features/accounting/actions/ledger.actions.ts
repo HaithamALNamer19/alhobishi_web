@@ -166,11 +166,11 @@ export async function getLedgerDocumentDetailAction(params: {
           totalAmount: order.totalAmount,
           customerNotes: order.customerNotes,
           preparedBy: preparedByName || 'أمين المستودع',
-          preparedAt: order.preparedAt ? order.preparedAt.toISOString() : null,
+          preparedAt: order.preparedAt && !isNaN(order.preparedAt.getTime()) ? order.preparedAt.toISOString() : null,
           confirmedBy: confirmedByName || 'مدير المتجر',
-          confirmedAt: order.confirmedAt ? order.confirmedAt.toISOString() : null,
-          createdAt: order.createdAt.toISOString(),
-          updatedAt: order.updatedAt.toISOString(),
+          confirmedAt: order.confirmedAt && !isNaN(order.confirmedAt.getTime()) ? order.confirmedAt.toISOString() : null,
+          createdAt: order.createdAt instanceof Date && !isNaN(order.createdAt.getTime()) ? order.createdAt.toISOString() : new Date().toISOString(),
+          updatedAt: order.updatedAt instanceof Date && !isNaN(order.updatedAt.getTime()) ? order.updatedAt.toISOString() : new Date().toISOString(),
         },
       };
     } else if (input.type === 'RETURN') {
@@ -262,7 +262,10 @@ export async function getLedgerDocumentDetailAction(params: {
           referenceNumber: payment.referenceNumber,
           notes: payment.notes,
           recordedBy: collectorName || 'إدارة المتجر / المحاسب',
-          createdAt: payment.createdAt.toISOString(),
+          createdAt:
+            payment.createdAt instanceof Date && !isNaN(payment.createdAt.getTime())
+              ? payment.createdAt.toISOString()
+              : new Date().toISOString(),
         },
       };
     }

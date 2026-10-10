@@ -10,7 +10,8 @@ export const metadata = {
   title: 'سلة المشتريات | المتجر',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function CartPage() {
   await connection();

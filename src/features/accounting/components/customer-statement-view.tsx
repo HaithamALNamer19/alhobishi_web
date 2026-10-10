@@ -160,7 +160,15 @@ export function CustomerStatementView({
         (t.orderId || '').toLowerCase().includes(q) ||
         (t.paymentId || '').toLowerCase().includes(q) ||
         (t.returnId || '').toLowerCase().includes(q);
-      const dateMatch = new Date(t.createdAt).toLocaleDateString('ar-YE').includes(q);
+      let dateMatch = false;
+      try {
+        const d = new Date(t.createdAt);
+        if (!isNaN(d.getTime())) {
+          dateMatch = d.toLocaleDateString('ar-YE').includes(q);
+        }
+      } catch {
+        dateMatch = false;
+      }
 
       return descMatch || amountMatch || idMatch || dateMatch;
     });
@@ -777,7 +785,7 @@ export function CustomerStatementView({
               <PrintableInvoice order={activePrint.order} />
             ) : activePrint?.type === 'receipt' ? (
               <PrintableReceipt payment={activePrint.payment} />
-            ) : activePrint?.type === 'return' ? (
+            ) : activePrint?.type === 'return' && activePrint.returnDoc ? (
               <PrintableReturnInvoice returnDoc={activePrint.returnDoc} />
             ) : (
               <PrintableStatement

@@ -43,7 +43,9 @@ export function PrintableReturnInvoice({ returnDoc }: PrintableReturnInvoiceProp
     }
   })();
 
-  const totalPieces = returnDoc.items.reduce((sum, item) => sum + item.quantity, 0);
+  const items = Array.isArray(returnDoc?.items) ? returnDoc.items : [];
+  const totalPieces = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+  const totalAmount = Number(returnDoc?.totalAmount) || 0;
 
   return (
     <div className="w-full max-w-[210mm] mx-auto p-6 bg-white text-slate-900 font-sans text-xs leading-relaxed" dir="rtl">
@@ -136,24 +138,26 @@ export function PrintableReturnInvoice({ returnDoc }: PrintableReturnInvoiceProp
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {returnDoc.items.map((item, idx) => {
-              const subtotal = item.subtotal ?? (item.unitPrice * item.quantity);
+            {items.map((item, idx) => {
+              const uPrice = Number(item.unitPrice) || 0;
+              const qty = Number(item.quantity) || 0;
+              const subtotal = Number(item.subtotal ?? (uPrice * qty)) || 0;
               return (
                 <tr key={item.variantId || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
                   <td className="py-2 px-2.5 text-center font-mono text-slate-500 text-[10px]">
                     {idx + 1}
                   </td>
                   <td className="py-2 px-2.5 font-bold text-slate-900">
-                    {item.productName}
+                    {item.productName || 'صنف'}
                   </td>
                   <td className="py-2 px-2.5 text-slate-600 text-[10px]">
                     {item.variantLabel || '-'}
                   </td>
                   <td className="py-2 px-2.5 text-center font-mono font-bold text-rose-900">
-                    {item.quantity}
+                    {qty}
                   </td>
                   <td className="py-2 px-2.5 text-center font-mono text-slate-700">
-                    {formatMoney(item.unitPrice)}
+                    {formatMoney(uPrice)}
                   </td>
                   <td className="py-2 px-2.5 text-left font-mono font-bold text-slate-950">
                     {formatMoney(subtotal)}
@@ -165,13 +169,13 @@ export function PrintableReturnInvoice({ returnDoc }: PrintableReturnInvoiceProp
           <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-300 text-slate-900">
             <tr>
               <td colSpan={3} className="py-2 px-2.5 text-right">
-                إجمالي الأصناف المردودة ({returnDoc.items.length} صنف / {totalPieces} قطعة)
+                إجمالي الأصناف المردودة ({items.length} صنف / {totalPieces} قطعة)
               </td>
               <td colSpan={2} className="py-2 px-2.5 text-center font-bold">
                 صافي مردود المبيعات المعتمد:
               </td>
               <td className="py-2 px-2.5 text-left font-mono font-black text-sm text-rose-950">
-                {formatMoney(returnDoc.totalAmount)}
+                {formatMoney(totalAmount)}
               </td>
             </tr>
           </tfoot>
@@ -182,7 +186,7 @@ export function PrintableReturnInvoice({ returnDoc }: PrintableReturnInvoiceProp
       <div className="space-y-2 mb-6">
         <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-[11px] font-medium">
           <span className="text-slate-500">المبلغ المقيد كتابةً: </span>
-          <span className="font-bold text-slate-950">{tafqeetRials(returnDoc.totalAmount)}</span>
+          <span className="font-bold text-slate-950">{tafqeetRials(totalAmount)}</span>
         </div>
       </div>
 

@@ -8,7 +8,8 @@ export const metadata = {
   description: 'إدارة ورفع صور البنرات الإعلانية لشريط الصفحة الرئيسية في متجر الحبيشي',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function AdminBannersPage() {
   await connection();

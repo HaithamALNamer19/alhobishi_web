@@ -13,7 +13,8 @@ export const metadata = {
   title: 'جميع الطلبات | إدارة المتجر',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface AdminOrdersPageProps {
   searchParams: Promise<{ page?: string; status?: string }>;

@@ -10,7 +10,8 @@ export const metadata = {
   title: 'إتمام الطلب وحجز البضاعة | المتجر',
 };
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function CheckoutPage() {
   await connection();

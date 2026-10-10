@@ -34,11 +34,24 @@ export class FirestoreLedgerRepository {
         newBalance: data.newBalance as Money,
         description: data.description || '',
         recordedBy: data.recordedBy || 'System',
-        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+        createdAt:
+          data.createdAt instanceof Timestamp
+            ? data.createdAt.toDate()
+            : typeof data.createdAt?.toDate === 'function'
+              ? data.createdAt.toDate()
+              : data.createdAt instanceof Date
+                ? data.createdAt
+                : typeof data.createdAt === 'string' && !isNaN(new Date(data.createdAt).getTime())
+                  ? new Date(data.createdAt)
+                  : new Date(),
       };
     });
 
-    return txs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit);
+    return txs.sort((a, b) => {
+      const timeB = isNaN(b.createdAt.getTime()) ? 0 : b.createdAt.getTime();
+      const timeA = isNaN(a.createdAt.getTime()) ? 0 : a.createdAt.getTime();
+      return timeB - timeA;
+    }).slice(0, limit);
   }
 
   async getPaymentById(paymentId: string): Promise<{
@@ -62,7 +75,16 @@ export class FirestoreLedgerRepository {
       referenceNumber: data.referenceNumber || null,
       notes: data.notes || null,
       recordedBy: data.recordedByName || data.recordedBy || 'المحاسب',
-      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
+      createdAt:
+        data.createdAt instanceof Timestamp
+          ? data.createdAt.toDate()
+          : typeof data.createdAt?.toDate === 'function'
+            ? data.createdAt.toDate()
+            : data.createdAt instanceof Date
+              ? data.createdAt
+              : typeof data.createdAt === 'string' && !isNaN(new Date(data.createdAt).getTime())
+                ? new Date(data.createdAt)
+                : new Date(),
     };
   }
 
@@ -167,7 +189,16 @@ export class FirestoreLedgerRepository {
       reason: data.reason || null,
       orderId: data.orderId || null,
       recordedBy: data.recordedByName || data.recordedBy || 'إدارة المتجر',
-      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
+      createdAt:
+        data.createdAt instanceof Timestamp
+          ? data.createdAt.toDate()
+          : typeof data.createdAt?.toDate === 'function'
+            ? data.createdAt.toDate()
+            : data.createdAt instanceof Date
+              ? data.createdAt
+              : typeof data.createdAt === 'string' && !isNaN(new Date(data.createdAt).getTime())
+                ? new Date(data.createdAt)
+                : new Date(),
     };
   }
 

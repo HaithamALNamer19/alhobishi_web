@@ -3,7 +3,8 @@ import { connection } from 'next/server';
 import { categoryRepository } from '@/features/categories/infrastructure/firestore-category.repository';
 import { CategoryManager } from '@/features/categories/components/category-manager';
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function AdminCategoriesPage() {
   await connection();

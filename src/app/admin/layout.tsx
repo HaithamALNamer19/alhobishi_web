@@ -4,7 +4,8 @@ import { getCurrentSession } from '@/core/auth/require-auth';
 import { isBackOfficeRole, can, Permission } from '@/core/auth/roles';
 import { AdminSidebar } from '@/features/admin/components/admin-sidebar';
 
-export const instant = false;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function AdminLayout({
   children,

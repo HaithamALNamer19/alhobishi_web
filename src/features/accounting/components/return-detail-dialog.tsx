@@ -151,56 +151,62 @@ export function ReturnDetailDialog({
           </div>
 
           {/* Items Table */}
-          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-            <div className="bg-slate-100/70 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-700 flex items-center gap-2">
-                <Package className="w-4 h-4 text-slate-500" />
-                <span>الأصناف المردودة ({returnDoc.items.length})</span>
-              </span>
-              <span className="text-xs font-mono font-bold text-slate-500">
-                {returnDoc.items.reduce((s, i) => s + i.quantity, 0)} قطعة
-              </span>
-            </div>
+          {(() => {
+            const items = Array.isArray(returnDoc.items) ? returnDoc.items : [];
+            const totalPieces = items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+            return (
+              <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                <div className="bg-slate-100/70 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                    <Package className="w-4 h-4 text-slate-500" />
+                    <span>الأصناف المردودة ({items.length})</span>
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-500">
+                    {totalPieces} قطعة
+                  </span>
+                </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
-                  <tr>
-                    <th className="py-2.5 px-3 text-center w-8">#</th>
-                    <th className="py-2.5 px-3">اسم المنتج</th>
-                    <th className="py-2.5 px-3 w-32">المتغير</th>
-                    <th className="py-2.5 px-3 text-center w-24">الكمية المردودة</th>
-                    <th className="py-2.5 px-3 text-center w-28">سعر الوحدة</th>
-                    <th className="py-2.5 px-3 text-left w-28">الإجمالي</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {returnDoc.items.map((item, idx) => (
-                    <tr key={item.variantId || idx} className="hover:bg-slate-50/50">
-                      <td className="py-2.5 px-3 text-center font-mono text-slate-400 text-[11px]">
-                        {idx + 1}
-                      </td>
-                      <td className="py-2.5 px-3 font-bold text-slate-900">
-                        {item.productName}
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-500 text-[11px]">
-                        {item.variantLabel || '-'}
-                      </td>
-                      <td className="py-2.5 px-3 text-center font-mono font-bold text-rose-900">
-                        {item.quantity}
-                      </td>
-                      <td className="py-2.5 px-3 text-center font-mono text-slate-600">
-                        {formatMoney(item.unitPrice)}
-                      </td>
-                      <td className="py-2.5 px-3 text-left font-mono font-bold text-slate-900">
-                        {formatMoney(item.subtotal ?? (item.unitPrice * item.quantity))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-xs">
+                    <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                      <tr>
+                        <th className="py-2.5 px-3 text-center w-8">#</th>
+                        <th className="py-2.5 px-3">اسم المنتج</th>
+                        <th className="py-2.5 px-3 w-32">المتغير</th>
+                        <th className="py-2.5 px-3 text-center w-24">الكمية المردودة</th>
+                        <th className="py-2.5 px-3 text-center w-28">سعر الوحدة</th>
+                        <th className="py-2.5 px-3 text-left w-28">الإجمالي</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {items.map((item, idx) => (
+                        <tr key={item.variantId || idx} className="hover:bg-slate-50/50">
+                          <td className="py-2.5 px-3 text-center font-mono text-slate-400 text-[11px]">
+                            {idx + 1}
+                          </td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900">
+                            {item.productName || 'صنف'}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-500 text-[11px]">
+                            {item.variantLabel || '-'}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-mono font-bold text-rose-900">
+                            {Number(item.quantity) || 0}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-mono text-slate-600">
+                            {formatMoney(Number(item.unitPrice) || 0)}
+                          </td>
+                          <td className="py-2.5 px-3 text-left font-mono font-bold text-slate-900">
+                            {formatMoney(Number(item.subtotal ?? ((Number(item.unitPrice) || 0) * (Number(item.quantity) || 0))) || 0)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Footer Actions */}
           <div className="pt-2 flex items-center justify-between border-t border-slate-100">

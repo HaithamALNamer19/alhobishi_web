@@ -251,15 +251,39 @@ export class FirestoreUserRepository {
         totalDebit: data.account?.totalDebit ?? 0,
         totalCredit: data.account?.totalCredit ?? 0,
         lastSeq: data.account?.lastSeq ?? 0,
-        lastTransactionAt: data.account?.lastTransactionAt?.toDate() ?? null,
+        lastTransactionAt:
+          typeof data.account?.lastTransactionAt?.toDate === 'function'
+            ? data.account.lastTransactionAt.toDate()
+            : data.account?.lastTransactionAt instanceof Date
+              ? data.account.lastTransactionAt
+              : null,
       },
       stats: {
         ordersCount: data.stats?.ordersCount ?? 0,
         openOrdersCount: data.stats?.openOrdersCount ?? 0,
       },
-      wholesaleSince: data.wholesaleSince?.toDate() ?? null,
-      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
-      updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
+      wholesaleSince:
+        typeof data.wholesaleSince?.toDate === 'function'
+          ? data.wholesaleSince.toDate()
+          : data.wholesaleSince instanceof Date
+            ? data.wholesaleSince
+            : null,
+      createdAt:
+        data.createdAt instanceof Timestamp
+          ? data.createdAt.toDate()
+          : typeof data.createdAt?.toDate === 'function'
+            ? data.createdAt.toDate()
+            : data.createdAt instanceof Date
+              ? data.createdAt
+              : new Date(),
+      updatedAt:
+        data.updatedAt instanceof Timestamp
+          ? data.updatedAt.toDate()
+          : typeof data.updatedAt?.toDate === 'function'
+            ? data.updatedAt.toDate()
+            : data.updatedAt instanceof Date
+              ? data.updatedAt
+              : new Date(),
     };
   }
 }
