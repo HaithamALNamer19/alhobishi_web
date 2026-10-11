@@ -31,7 +31,6 @@ import { Role } from '@/core/auth/roles';
 import type { UserProfile, UserStatus } from '../domain/user';
 import { updateUserRoleAction, updateUserStatusAction } from '../actions/user.actions';
 import { recordPaymentAction } from '@/features/orders/actions/order.actions';
-import { RecordReturnDialog } from '@/features/accounting/components/record-return-dialog';
 
 interface CustomerManagerProps {
   initialUsers: UserProfile[];
@@ -121,9 +120,6 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
   const [paymentRef, setPaymentRef] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [paymentCollector, setPaymentCollector] = useState('');
-
-  // Sales Return Recording Dialog
-  const [returnUser, setReturnUser] = useState<UserProfile | null>(null);
 
   const filteredUsers = users.filter((u) => {
     if (roleFilter && u.role !== roleFilter) return false;
@@ -495,18 +491,6 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
                             <CreditCard className="w-3.5 h-3.5 text-blue-700" />
                             <span>سند قبض</span>
                           </Button>
-
-                          {/* Record Sales Return Button */}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setReturnUser(u)}
-                            className="text-[11px] h-7 px-2 text-rose-800 border-rose-200 hover:bg-rose-50 gap-1"
-                            title="تسجيل فاتورة مردود مبيعات وإرجاع بضاعة للمخزون"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
-                            <span>مردود مبيعات</span>
-                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -756,16 +740,6 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
           </form>
         )}
       </Dialog>
-
-      {/* Record Sales Return Dialog */}
-      <RecordReturnDialog
-        isOpen={!!returnUser}
-        onClose={() => setReturnUser(null)}
-        customer={returnUser}
-        onSuccess={() => {
-          router.refresh();
-        }}
-      />
     </div>
   );
 }

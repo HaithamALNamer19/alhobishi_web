@@ -29,16 +29,12 @@ import {
   getLedgerDocumentDetailAction,
   type SerializedInvoiceDetail,
   type SerializedPaymentDetail,
-  type SerializedReturnDetail,
 } from '../actions/ledger.actions';
 import { InvoiceDetailDialog } from './invoice-detail-dialog';
 import { ReceiptDetailDialog } from './receipt-detail-dialog';
-import { ReturnDetailDialog } from './return-detail-dialog';
-import { RecordReturnDialog } from './record-return-dialog';
 import { PrintableStatement } from './printable-statement';
 import { PrintableInvoice } from './printable-invoice';
 import { PrintableReceipt } from './printable-receipt';
-import { PrintableReturnInvoice } from './printable-return-invoice';
 
 export interface CustomerStatementUser {
   uid: string;
@@ -60,7 +56,6 @@ export interface SerializedTransaction {
   createdAt: string;
   orderId: string | null;
   paymentId: string | null;
-  returnId?: string | null;
 }
 
 interface CustomerStatementViewProps {
@@ -73,8 +68,7 @@ interface CustomerStatementViewProps {
 type PrintJob =
   | { type: 'statement' }
   | { type: 'invoice'; order: SerializedInvoiceDetail['order'] }
-  | { type: 'receipt'; payment: SerializedPaymentDetail['payment'] }
-  | { type: 'return'; returnDoc: SerializedReturnDetail['returnDoc'] };
+  | { type: 'receipt'; payment: SerializedPaymentDetail['payment'] };
 
 export function CustomerStatementView({
   customer,
@@ -85,7 +79,7 @@ export function CustomerStatementView({
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'INVOICE' | 'PAYMENT' | 'RETURN'>('ALL');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'INVOICE' | 'PAYMENT'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 15;
 
@@ -95,11 +89,6 @@ export function CustomerStatementView({
 
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<SerializedPaymentDetail['payment'] | null>(null);
-
-  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
-  const [selectedReturn, setSelectedReturn] = useState<SerializedReturnDetail['returnDoc'] | null>(null);
-
-  const [isRecordReturnOpen, setIsRecordReturnOpen] = useState(false);
   const [isDocLoading, setIsDocLoading] = useState(false);
 
   // Print state
@@ -158,8 +147,7 @@ export function CustomerStatementView({
       const amountMatch = t.amount.toString().includes(q);
       const idMatch =
         (t.orderId || '').toLowerCase().includes(q) ||
-        (t.paymentId || '').toLowerCase().includes(q) ||
-        (t.returnId || '').toLowerCase().includes(q);
+        (t.paymentId || '').toLowerCase().includes(q);
       let dateMatch = false;
       try {
         const d = new Date(t.createdAt);
@@ -244,27 +232,6 @@ export function CustomerStatementView({
     }
   };
 
-  // Open return detail dialog
-  const handleOpenReturn = async (returnId: string) => {
-    setIsDocLoading(true);
-    setIsReturnModalOpen(true);
-    setSelectedReturn(null);
-    try {
-      const res = await getLedgerDocumentDetailAction({ type: 'RETURN', id: returnId });
-      if (res.ok && res.data.type === 'RETURN') {
-        setSelectedReturn(res.data.returnDoc);
-      } else {
-        toast.error(!res.ok ? res.error.message : 'تعذر تحميل بيانات فاتورة المردود');
-        setIsReturnModalOpen(false);
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'حدث خطأ أثناء تحميل فاتورة المردود');
-      setIsReturnModalOpen(false);
-    } finally {
-      setIsDocLoading(false);
-    }
-  };
-
   // Quick print handlers directly from table
   const handleQuickPrintInvoice = async (orderId: string) => {
     try {
@@ -291,20 +258,6 @@ export function CustomerStatementView({
       }
     } catch {
       toast.error('حدث خطأ أثناء تجهيز السند للطباعة');
-    }
-  };
-
-  const handleQuickPrintReturn = async (returnId: string) => {
-    try {
-      toast.info('جاري تجهيز فاتورة المردود للطباعة...');
-      const res = await getLedgerDocumentDetailAction({ type: 'RETURN', id: returnId });
-      if (res.ok && res.data.type === 'RETURN') {
-        handlePrint({ type: 'return', returnDoc: res.data.returnDoc });
-      } else {
-        toast.error('تعذر جلب تفاصيل فاتورة المردود للطباعة');
-      }
-    } catch {
-      toast.error('حدث خطأ أثناء تجهيز فاتورة المردود للطباعة');
     }
   };
 
@@ -346,16 +299,6 @@ export function CustomerStatementView({
 
         {/* Global Action Buttons */}
         <div className="flex items-center gap-2.5 self-end md:self-center flex-wrap">
-          {isAdminView && (
-            <Button
-              onClick={() => setIsRecordReturnOpen(true)}
-              variant="outline"
-              className="border-rose-300 text-rose-700 hover:bg-rose-50 font-bold gap-2 px-4 py-2.5 rounded-2xl shadow-xs transition-all cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4 text-rose-600" />
-              <span>تسجيل مردود مبيعات</span>
-            </Button>
-          )}
 
           <Button
             onClick={() => handlePrint({ type: 'statement' })}
@@ -367,8 +310,8 @@ export function CustomerStatementView({
         </div>
       </div>
 
-      {/* KPI Cards (4 Columns) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Cards (3 Columns) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Total Invoices (Debits) */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
           <div>
@@ -401,22 +344,6 @@ export function CustomerStatementView({
           </div>
         </div>
 
-        {/* Total Returns (Credits / Stock Restoration) */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
-              <RotateCcw className="w-4 h-4 text-rose-600" />
-              <span>إجمالي المردودات (مردود مبيعات)</span>
-            </span>
-            <div className="text-xl font-black font-mono text-rose-700 tracking-tight">
-              {formatMoney(totalReturns)}
-            </div>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">
-              {transactions.filter((t) => t.type === 'RETURN').length} فاتورة مردود
-            </span>
-          </div>
-        </div>
-
         {/* Current Balance */}
         <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xs flex items-center justify-between">
           <div>
@@ -444,7 +371,7 @@ export function CustomerStatementView({
           <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="بحث في البيان، رقم الطلب، رقم المردود، المبلغ، أو التاريخ..."
+            placeholder="بحث في البيان، رقم الطلب، المبلغ، أو التاريخ..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -495,19 +422,6 @@ export function CustomerStatementView({
           >
             سندات القبض ({transactions.filter((t) => t.type === 'PAYMENT').length})
           </button>
-          <button
-            onClick={() => {
-              setTypeFilter('RETURN');
-              setCurrentPage(1);
-            }}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-              typeFilter === 'RETURN'
-                ? 'bg-white text-rose-800 shadow-2xs'
-                : 'text-slate-600 hover:text-rose-800'
-            }`}
-          >
-            مردودات المبيعات ({transactions.filter((t) => t.type === 'RETURN').length})
-          </button>
         </div>
       </div>
 
@@ -550,8 +464,6 @@ export function CustomerStatementView({
                             handleOpenInvoice(t.orderId);
                           } else if (isPayment && t.paymentId) {
                             handleOpenReceipt(t.paymentId);
-                          } else if (isReturn && t.returnId) {
-                            handleOpenReturn(t.returnId);
                           }
                         }}
                       >
@@ -611,11 +523,6 @@ export function CustomerStatementView({
                             {t.paymentId && (
                               <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
                                 سند
-                              </span>
-                            )}
-                            {t.returnId && (
-                              <span className="font-mono text-[10px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border border-rose-200">
-                                مردود
                               </span>
                             )}
                           </div>
@@ -690,28 +597,6 @@ export function CustomerStatementView({
                                   <Printer className="w-3.5 h-3.5 text-slate-600" />
                                 </Button>
                               </>
-                            ) : isReturn && t.returnId ? (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleOpenReturn(t.returnId!)}
-                                  className="h-7 px-2 text-[11px] text-rose-800 border-rose-200 hover:bg-rose-50 gap-1"
-                                  title="عرض تفاصيل فاتورة المردود"
-                                >
-                                  <Eye className="w-3.5 h-3.5 text-rose-700" />
-                                  <span>المردود</span>
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleQuickPrintReturn(t.returnId!)}
-                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100"
-                                  title="طباعة فاتورة المردود مباشرة"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
-                                </Button>
-                              </>
                             ) : (
                               <span className="text-[11px] text-slate-400">-</span>
                             )}
@@ -756,27 +641,6 @@ export function CustomerStatementView({
         onPrint={(pay) => handlePrint({ type: 'receipt', payment: pay })}
       />
 
-      {/* Return Detail Dialog */}
-      <ReturnDetailDialog
-        isOpen={isReturnModalOpen}
-        onClose={() => setIsReturnModalOpen(false)}
-        returnDoc={selectedReturn}
-        isLoading={isDocLoading}
-        onPrint={(ret) => handlePrint({ type: 'return', returnDoc: ret })}
-      />
-
-      {/* Record Return Dialog (Admin) */}
-      {isAdminView && (
-        <RecordReturnDialog
-          isOpen={isRecordReturnOpen}
-          onClose={() => setIsRecordReturnOpen(false)}
-          customer={customer}
-          onSuccess={() => {
-            router.refresh();
-          }}
-        />
-      )}
-
       {/* Printable Documents Root (Rendered via Portal onto document.body for clean isolation) */}
       {mounted &&
         createPortal(
@@ -785,8 +649,6 @@ export function CustomerStatementView({
               <PrintableInvoice order={activePrint.order} />
             ) : activePrint?.type === 'receipt' ? (
               <PrintableReceipt payment={activePrint.payment} />
-            ) : activePrint?.type === 'return' && activePrint.returnDoc ? (
-              <PrintableReturnInvoice returnDoc={activePrint.returnDoc} />
             ) : (
               <PrintableStatement
                 customer={customer}

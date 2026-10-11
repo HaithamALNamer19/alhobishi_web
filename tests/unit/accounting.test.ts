@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import { formatMoney, assertMoney, addMoney } from '@/core/domain/money';
-import { normalizeArabic } from '@/core/text/arabic-normalize';
 
 describe('Arabic Currency Tafqeet (YER)', () => {
   it('converts small and typical amounts to Arabic words', () => {
@@ -69,64 +68,6 @@ describe('Ledger Statement Running Balance Calculations', () => {
     expect(totalPayments).toBe(50000);
     expect(netBalance).toBe(10000);
     expect(transactions[transactions.length - 1].newBalance).toBe(10000);
-  });
-});
-
-describe('Store Product Search Matching for Sales Return', () => {
-  const products = [
-    { id: '1', name: 'طقم قدور جرانيت تركي', sku: 'COOK-TURK-01', barcode: '6281000123' },
-    { id: '2', name: 'ألعاب أطفال تركيب سيارات', sku: 'TOY-CAR-01', barcode: '6281000456' },
-    { id: '3', name: 'ساعة يد رجالية كلاسيك', sku: 'WATCH-M-01', barcode: '6281000789' },
-  ];
-
-  function matchProducts(rawQ: string) {
-    const normQ = normalizeArabic(rawQ);
-    const searchWords = normQ.split(' ').filter(Boolean);
-    const cleanLowerQ = rawQ.toLowerCase().trim();
-
-    return products.filter((p) => {
-      const name = String(p.name || '');
-      const normName = normalizeArabic(name);
-      const sku = String(p.sku || '').toLowerCase();
-      const barcode = String(p.barcode || '').trim();
-
-      if (normName.includes(normQ) || name.toLowerCase().includes(cleanLowerQ)) return true;
-      if (searchWords.length > 0 && searchWords.every((w) => normName.includes(w))) return true;
-      if (cleanLowerQ && (sku.includes(cleanLowerQ) || barcode.includes(cleanLowerQ))) return true;
-      return false;
-    });
-  }
-
-  it('matches Arabic names with and without Alef / Hamza normalization', () => {
-    // "العاب" matches "ألعاب"
-    expect(matchProducts('العاب').length).toBe(1);
-    expect(matchProducts('العاب')[0].id).toBe('2');
-
-    // "ألعاب" matches "ألعاب"
-    expect(matchProducts('ألعاب').length).toBe(1);
-    expect(matchProducts('ألعاب')[0].id).toBe('2');
-  });
-
-  it('matches partial single word and multi-word searches', () => {
-    expect(matchProducts('قدور').length).toBe(1);
-    expect(matchProducts('قدور')[0].id).toBe('1');
-
-    expect(matchProducts('طقم تركي').length).toBe(1);
-    expect(matchProducts('طقم تركي')[0].id).toBe('1');
-
-    expect(matchProducts('ساعة').length).toBe(1);
-    expect(matchProducts('ساعة')[0].id).toBe('3');
-
-    expect(matchProducts('ساعه').length).toBe(1);
-    expect(matchProducts('ساعه')[0].id).toBe('3');
-  });
-
-  it('matches SKU and Barcode searches', () => {
-    expect(matchProducts('toy-car').length).toBe(1);
-    expect(matchProducts('toy-car')[0].id).toBe('2');
-
-    expect(matchProducts('6281000789').length).toBe(1);
-    expect(matchProducts('6281000789')[0].id).toBe('3');
   });
 });
 
