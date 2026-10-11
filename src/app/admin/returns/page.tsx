@@ -20,11 +20,11 @@ export default async function AdminReturnsPage() {
   await connection();
   const session = await getCurrentSession();
 
-  // 1. Fetch sales returns from repository
-  const rawReturns = await ledgerRepository.listSalesReturns(100);
+  // 1. Fetch sales returns from repository (optimized limit to reduce reads)
+  const rawReturns = await ledgerRepository.listSalesReturns(50);
 
   // 2. Fetch customers for new return invoice selector
-  const users = await userRepository.listUsers(undefined, 150);
+  const users = await userRepository.listUsers(undefined, 50);
   const customers = users.map((u) => ({
     uid: u.uid,
     displayName: u.displayName || u.username || 'عميل',

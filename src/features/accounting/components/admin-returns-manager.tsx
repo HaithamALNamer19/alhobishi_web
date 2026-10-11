@@ -13,9 +13,7 @@ import {
   User,
   Package,
   CreditCard,
-  FileText,
   AlertCircle,
-  TrendingDown,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -83,17 +81,6 @@ export function AdminReturnsManager({
     return filteredReturns.slice(start, start + pageSize);
   }, [filteredReturns, currentPage, pageSize]);
 
-  // KPIs
-  const { totalInvoicesCount, totalReturnsAmount, totalReturnedUnits } = useMemo(() => {
-    const totalAmount = initialReturns.reduce((sum, r) => sum + r.totalAmount, 0);
-    const totalUnits = initialReturns.reduce((sum, r) => sum + r.totalUnits, 0);
-    return {
-      totalInvoicesCount: initialReturns.length,
-      totalReturnsAmount: totalAmount,
-      totalReturnedUnits: totalUnits,
-    };
-  }, [initialReturns]);
-
   const handlePrint = (doc: SerializedReturnDetail) => {
     setPrintDoc(doc);
     document.body.classList.add('print-active');
@@ -137,59 +124,6 @@ export function AdminReturnsManager({
           <Plus className="w-4 h-4" />
           <span>تسجيل فاتورة مردود جديدة</span>
         </Button>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* KPI 1: Total Invoices */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-bold block mb-1">
-              عدد فواتير المردود
-            </span>
-            <span className="text-2xl font-black font-mono text-slate-900">
-              {totalInvoicesCount}
-            </span>
-            <span className="text-[11px] text-slate-400 block mt-0.5">فاتورة مسجلة</span>
-          </div>
-          <div className="p-3 bg-slate-50 text-slate-600 rounded-2xl border border-slate-100">
-            <FileText className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* KPI 2: Total Units */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-bold block mb-1">
-              الأصناف المسترجعة للمخزن
-            </span>
-            <span className="text-2xl font-black font-mono text-slate-900">
-              {totalReturnedUnits}
-            </span>
-            <span className="text-[11px] text-slate-400 block mt-0.5">قطعة مسترجعة</span>
-          </div>
-          <div className="p-3 bg-blue-50 text-blue-700 rounded-2xl border border-blue-100">
-            <Package className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* KPI 3: Total Amount */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-bold block mb-1">
-              إجمالي مبالغ المردودات
-            </span>
-            <span className="text-2xl font-black font-mono text-rose-700">
-              {formatMoney(totalReturnsAmount)}
-            </span>
-            <span className="text-[11px] text-rose-600 font-medium block mt-0.5">
-              مخصومة من أرصدة العملاء
-            </span>
-          </div>
-          <div className="p-3 bg-rose-50 text-rose-700 rounded-2xl border border-rose-100">
-            <TrendingDown className="w-6 h-6" />
-          </div>
-        </div>
       </div>
 
       {/* Search and Table */}
