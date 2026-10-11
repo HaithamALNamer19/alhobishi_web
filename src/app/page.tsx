@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { connection } from 'next/server';
 import { getCurrentSession } from '@/core/auth/require-auth';
 import { categoryRepository } from '@/features/categories/infrastructure/firestore-category.repository';
@@ -176,10 +177,11 @@ export default async function HomePage() {
                   {/* Spotlight Image */}
                   <div className="relative z-10 aspect-4/3 rounded-2xl bg-slate-900/50 border border-white/10 overflow-hidden flex items-center justify-center p-4 mb-4">
                     {spotlightProduct.images[0] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={spotlightProduct.images[0]}
                         alt={spotlightProduct.name}
+                        width={360}
+                        height={270}
                         className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500 ease-out"
                       />
                     ) : (
@@ -270,10 +272,11 @@ export default async function HomePage() {
 
                   <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-b from-slate-50 to-slate-100 border border-slate-200/80 p-2 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-110 group-hover:rotate-1 transition-all duration-300">
                     {cat.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={cat.image}
                         alt={cat.name}
+                        width={80}
+                        height={80}
                         className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (

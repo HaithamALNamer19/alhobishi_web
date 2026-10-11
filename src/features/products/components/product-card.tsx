@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Package, Layers, ArrowUpLeft, Check } from 'lucide-react';
 import { formatMoney } from '@/core/domain/money';
 import type { Product } from '../domain/product';
@@ -25,10 +26,11 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Image Frame with Soft Gradient & Badges */}
         <div className="aspect-square bg-gradient-to-b from-slate-50 to-slate-100/60 rounded-2xl overflow-hidden relative flex items-center justify-center p-3 border border-slate-100/80">
           {product.images[0] ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={product.images[0]}
               alt={product.name}
+              width={240}
+              height={240}
               className="w-full h-full object-contain transition-transform duration-500 ease-out group-hover:scale-108"
               loading="lazy"
             />
