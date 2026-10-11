@@ -104,8 +104,8 @@ export function PrintableReturnInvoice({ returnDoc }: PrintableReturnInvoiceProp
             <span className="font-mono font-bold text-slate-800">{formattedDate}</span>
           </div>
           <div className="flex justify-between gap-2">
-            <span className="text-slate-500 font-medium">طبيعة القيد:</span>
-            <span className="font-bold text-slate-900">دائن (تخفيض الحساب)</span>
+            <span className="text-slate-500 font-medium">طريقة الحساب:</span>
+            <span className="font-bold text-slate-900">قيد بالحساب</span>
           </div>
         </div>
       </div>
@@ -195,11 +195,7 @@ export function PrintableReturnInvoice({ returnDoc }: PrintableReturnInvoiceProp
       </div>
 
       {/* Terms & Signatures */}
-      <div className="border-t border-slate-200 pt-4 mt-6">
-        <p className="text-[10px] text-slate-500 mb-6 text-center">
-          * تم قيد هذه الفاتورة كدائن في كشف حساب العميل وإعادة البضاعة إلى مخزون المستودع آلياً.
-        </p>
-
+      <div className="border-t border-slate-200 pt-6 mt-6">
         <div className="grid grid-cols-3 gap-4 text-center text-[11px]" dir="rtl">
           <div className="flex flex-col items-center">
             <span className="text-slate-600 block mb-1 font-bold">مستلم المردود / المستودع</span>
@@ -234,7 +230,7 @@ export function PrintableReturnInvoice({ returnDoc }: PrintableReturnInvoiceProp
               className="w-full border-t border-dashed border-slate-400 px-4 pt-1.5 text-slate-800 font-semibold"
               dir="rtl"
             >
-              توقيع واستلام القيد
+              توقيع واستلام
             </div>
           </div>
         </div>
