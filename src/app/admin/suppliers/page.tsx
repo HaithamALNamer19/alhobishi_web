@@ -20,7 +20,8 @@ export default async function SuppliersPage() {
     redirect('/login?from=/admin/suppliers');
   }
 
-  const suppliers = await purchasingRepository.listSuppliers(100);
+  // Optimize initial fetch limit to reduce Firestore reads
+  const suppliers = await purchasingRepository.listSuppliers(50);
 
   const serializedSuppliers: SerializedSupplier[] = (suppliers || []).map((s) => ({
     id: s.id,

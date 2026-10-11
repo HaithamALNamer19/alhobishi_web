@@ -13,7 +13,6 @@ import {
   Calendar,
   Loader2,
   FileText,
-  CreditCard,
   Receipt,
   UserCheck,
 } from 'lucide-react';
@@ -60,8 +59,6 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
     const matchPhone = (s.phone || '').includes(q);
     return matchName || matchCompany || matchPhone;
   });
-
-  const totalBalance = suppliers.reduce((sum, s) => sum + (Number(s.balance) || 0), 0);
 
   const handleCreateSupplier = (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,51 +131,6 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
             <Plus className="w-4 h-4" />
             <span>إضافة مورد جديد</span>
           </Button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
-              <Building2 className="w-4 h-4 text-blue-600" />
-              <span>إجمالي الموردين</span>
-            </span>
-            <div className="text-xl font-black font-mono text-slate-900 tracking-tight">
-              {suppliers.length} مورد
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
-              <CreditCard className="w-4 h-4 text-rose-600" />
-              <span>إجمالي المستحقات للموردين</span>
-            </span>
-            <div className="text-xl font-black font-mono text-rose-700 tracking-tight">
-              {formatMoney(totalBalance)}
-            </div>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">
-              مبالغ وفواتير مستحقة السداد
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5 mb-1">
-              <Receipt className="w-4 h-4 text-blue-400" />
-              <span>دورة المشتريات النشطة</span>
-            </span>
-            <div className="text-sm font-bold text-white mt-1">
-              ربط مباشر مع المخزون
-            </div>
-            <span className="text-[11px] text-slate-300 mt-0.5 block">
-              تحديث كميات الأصناف تلقائياً عند اعتماد الفواتير
-            </span>
-          </div>
         </div>
       </div>
 
