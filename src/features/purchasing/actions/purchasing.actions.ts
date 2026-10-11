@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getCurrentSession } from '@/core/auth/require-auth';
 import { isBackOfficeRole } from '@/core/auth/roles';
+import { userRepository } from '@/features/users/infrastructure/firestore-user.repository';
 import { purchasingRepository } from '../infrastructure/firestore-purchasing.repository';
 import type {
   Supplier,
@@ -168,6 +169,107 @@ export async function listStockMovementsAction(): Promise<ActionResult<StockMove
     return { ok: true, data: movements };
   } catch (err: any) {
     return { ok: false, error: { message: err.message || 'فشل جلب سجل حركات المخزون.' } };
+  }
+}
+
+export async function recordSupplierPaymentAction(params: {
+  supplier_id: string;
+  amount: number;
+  payment_method: 'CASH' | 'TRANSFER' | 'CHECK' | 'OTHER';
+  reference_number?: string | null;
+  bank_or_exchange?: string | null;
+  notes?: string | null;
+}): Promise<ActionResult<any>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح لك بتسجيل سندات الصرف للموردين.' } };
+    }
+
+    if (!params.supplier_id) {
+      return { ok: false, error: { message: 'يرجى تحديد المورد.' } };
+    }
+
+    if (!params.amount || params.amount <= 0) {
+      return { ok: false, error: { message: 'يرجى إدخال مبلغ صحيح للسند.' } };
+    }
+
+    const actorUser = await userRepository.findById(session.uid).catch(() => null);
+    const actorName = actorUser?.displayName || actorUser?.username || 'إدارة المشتريات';
+
+    const payment = await purchasingRepository.recordSupplierPayment({
+      ...params,
+      actor_name: actorName,
+    });
+
+    revalidatePath('/admin/suppliers');
+    revalidatePath(`/admin/suppliers/${params.supplier_id}/statement`);
+    return {
+      ok: true,
+      data: {
+        ...payment,
+        createdAt: payment.createdAt.toISOString(),
+      },
+    };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل تسجيل سند الصرف.' } };
+  }
+}
+
+export async function getSupplierStatementAction(
+  supplierId: string
+): Promise<ActionResult<any>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح.' } };
+    }
+
+    const statement = await purchasingRepository.getSupplierStatement(supplierId);
+    return {
+      ok: true,
+      data: {
+        supplier: {
+          ...statement.supplier,
+          createdAt: statement.supplier.createdAt.toISOString(),
+        },
+        transactions: statement.transactions.map((tx) => ({
+          ...tx,
+          createdAt: tx.createdAt.toISOString(),
+        })),
+        total_purchases: statement.total_purchases,
+        total_payments: statement.total_payments,
+        total_returns: statement.total_returns,
+        net_balance: statement.net_balance,
+      },
+    };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل جلب كشف حساب المورد.' } };
+  }
+}
+
+export async function getSupplierPaymentAction(
+  paymentId: string
+): Promise<ActionResult<any>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح.' } };
+    }
+
+    const payment = await purchasingRepository.getSupplierPaymentById(paymentId);
+    if (!payment) {
+      return { ok: false, error: { message: 'سند الصرف غير موجود.' } };
+    }
+    return {
+      ok: true,
+      data: {
+        ...payment,
+        createdAt: payment.createdAt.toISOString(),
+      },
+    };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل جلب بيانات سند الصرف.' } };
   }
 }
 

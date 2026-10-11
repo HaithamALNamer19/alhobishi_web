@@ -24,6 +24,8 @@ export const Collections = {
   PURCHASES: 'purchases',
   PURCHASE_RETURNS: 'purchase_returns',
   STOCK_MOVEMENTS: 'stock_movements',
+  SUPPLIER_PAYMENTS: 'supplier_payments',
+  SUPPLIER_TRANSACTIONS: 'supplier_transactions',
 } as const;
 
 export type CollectionName = (typeof Collections)[keyof typeof Collections];

@@ -135,5 +135,62 @@ describe('Purchasing Cycle Logic & Calculations', () => {
     expect(availableQty).toBe(0);
     expect(state).toBe('out');
   });
+
+  it('correctly calculates supplier payment voucher deduction and running balance', () => {
+    let supplierBalance = 150000;
+    const paymentAmount = 60000;
+
+    // Payment voucher issued to supplier
+    supplierBalance -= paymentAmount;
+
+    expect(supplierBalance).toBe(90000);
+    expect(formatMoney(paymentAmount)).toContain('60,000');
+    expect(tafqeetRials(paymentAmount)).toBe('فقط وقدره ستون ألف ريال يمني لا غير');
+  });
+
+  it('accurately computes multi-step chronological supplier account statement ledger', () => {
+    // Scenario:
+    // 1. Initial balance: 25,000 (credit)
+    // 2. Purchase Invoice: 100,000 (credit)
+    // 3. Payment Voucher: 40,000 (debit)
+    // 4. Purchase Return: 15,000 (debit)
+    // 5. Second Payment Voucher: 50,000 (debit)
+    const transactions = [
+      { type: 'INITIAL_BALANCE', credit: 25000, debit: 0 },
+      { type: 'PURCHASE', credit: 100000, debit: 0 },
+      { type: 'PAYMENT', credit: 0, debit: 40000 },
+      { type: 'PURCHASE_RETURN', credit: 0, debit: 15000 },
+      { type: 'PAYMENT', credit: 0, debit: 50000 },
+    ];
+
+    let running = 0;
+    const computed = transactions.map((tx) => {
+      running += tx.credit - tx.debit;
+      return { ...tx, balanceAfter: running };
+    });
+
+    expect(computed[0].balanceAfter).toBe(25000);
+    expect(computed[1].balanceAfter).toBe(125000);
+    expect(computed[2].balanceAfter).toBe(85000);
+    expect(computed[3].balanceAfter).toBe(70000);
+    expect(computed[4].balanceAfter).toBe(20000);
+
+    const totalPurchases = transactions
+      .filter((t) => t.type === 'PURCHASE')
+      .reduce((s, t) => s + t.credit, 0);
+    const totalPayments = transactions
+      .filter((t) => t.type === 'PAYMENT')
+      .reduce((s, t) => s + t.debit, 0);
+    const totalReturns = transactions
+      .filter((t) => t.type === 'PURCHASE_RETURN')
+      .reduce((s, t) => s + t.debit, 0);
+
+    expect(totalPurchases).toBe(100000);
+    expect(totalPayments).toBe(90000);
+    expect(totalReturns).toBe(15000);
+    expect(running).toBe(20000);
+    expect(tafqeetRials(running)).toBe('فقط وقدره عشرون ألف ريال يمني لا غير');
+  });
 });
+
 

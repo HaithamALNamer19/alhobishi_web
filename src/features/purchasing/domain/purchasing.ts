@@ -60,3 +60,53 @@ export interface StockMovement {
   timestamp: Date;
 }
 
+export type SupplierPaymentMethod = 'CASH' | 'TRANSFER' | 'CHECK' | 'OTHER';
+
+export interface SupplierPayment {
+  id: string;
+  voucher_number: string;
+  supplier_id: string;
+  supplier_name: string;
+  amount: number;
+  payment_method: SupplierPaymentMethod;
+  reference_number?: string | null;
+  bank_or_exchange?: string | null;
+  notes?: string | null;
+  recorded_by: string;
+  createdAt: Date;
+}
+
+export type SupplierTransactionType =
+  | 'PURCHASE'
+  | 'PAYMENT'
+  | 'PURCHASE_RETURN'
+  | 'INITIAL_BALANCE';
+
+export interface SupplierTransaction {
+  id: string;
+  supplier_id: string;
+  type: SupplierTransactionType;
+  amount: number; // positive = credit (له), negative = debit (عليه)
+  debit: number; // مدين (عليه / مسدد له أو مردود)
+  credit: number; // دائن (له / فواتير شراء أو رصيد سابق)
+  balance_after: number;
+  description: string;
+  reference_id?: string | null;
+  reference_number?: string | null;
+  recorded_by?: string;
+  createdAt: Date;
+  items?: PurchaseItem[] | PurchaseReturnItem[];
+  payment_method?: SupplierPaymentMethod;
+  bank_or_exchange?: string | null;
+  notes?: string | null;
+}
+
+export interface SupplierStatement {
+  supplier: Supplier;
+  transactions: SupplierTransaction[];
+  total_purchases: number;
+  total_payments: number;
+  total_returns: number;
+  net_balance: number;
+}
+
