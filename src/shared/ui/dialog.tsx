@@ -10,6 +10,7 @@ export interface DialogProps {
   description?: string;
   children: React.ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+  className?: string;
 }
 
 export const Dialog: React.FC<DialogProps> = ({
@@ -19,6 +20,7 @@ export const Dialog: React.FC<DialogProps> = ({
   description,
   children,
   maxWidth = 'md',
+  className = '',
 }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -48,7 +50,7 @@ export const Dialog: React.FC<DialogProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
       <div
-        className={`w-full ${maxWidths[maxWidth]} bg-white rounded-2xl shadow-xl border border-slate-200 p-6 text-right relative animate-in zoom-in-95 duration-150`}
+        className={`w-full ${maxWidths[maxWidth]} ${className} bg-white rounded-2xl shadow-xl border border-slate-200 p-6 text-right relative animate-in zoom-in-95 duration-150`}
         role="dialog"
         aria-modal="true"
       >

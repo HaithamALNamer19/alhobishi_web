@@ -71,4 +71,129 @@ describe('Ledger Statement Running Balance Calculations', () => {
   });
 });
 
+describe('Sales Return Schema & Data Validation', () => {
+  it('validates a valid sales return request payload', async () => {
+    const { createSalesReturnSchema } = await import('@/features/accounting/schemas/return.schemas');
+    const validData = {
+      customerId: 'cust-123',
+      items: [
+        {
+          productId: 'prod-1',
+          productName: 'طقم قدور جرانيت تركي',
+          variantId: 'var-1',
+          variantLabel: 'الافتراضي',
+          quantity: 2,
+          unitPrice: 25000,
+        },
+      ],
+      reason: 'تبديل مقاس',
+      orderId: 'ORD-2026-0001',
+    };
+
+    const parsed = createSalesReturnSchema.parse(validData);
+    expect(parsed.customerId).toBe('cust-123');
+    expect(parsed.items.length).toBe(1);
+    expect(parsed.items[0].quantity).toBe(2);
+    expect(parsed.items[0].unitPrice).toBe(25000);
+  });
+
+  it('rejects sales return with empty items or invalid numbers', async () => {
+    const { createSalesReturnSchema } = await import('@/features/accounting/schemas/return.schemas');
+
+    // Empty items
+    expect(() =>
+      createSalesReturnSchema.parse({
+        customerId: 'cust-123',
+        items: [],
+      })
+    ).toThrow();
+
+    // Negative quantity
+    expect(() =>
+      createSalesReturnSchema.parse({
+        customerId: 'cust-123',
+        items: [
+          {
+            productId: 'prod-1',
+            productName: 'صنف',
+            variantId: 'var-1',
+            variantLabel: 'الافتراضي',
+            quantity: -1,
+            unitPrice: 500,
+          },
+        ],
+      })
+    ).toThrow();
+
+    // Negative price
+    expect(() =>
+      createSalesReturnSchema.parse({
+        customerId: 'cust-123',
+        items: [
+          {
+            productId: 'prod-1',
+            productName: 'صنف',
+            variantId: 'var-1',
+            variantLabel: 'الافتراضي',
+            quantity: 1,
+            unitPrice: -100,
+          },
+        ],
+      })
+    ).toThrow();
+  });
+});
+
+describe('Product Search Query Logic for Sales Returns', () => {
+  const storeCatalog = [
+    { id: '1', name: 'طقم قدور جرانيت تركي فاخر', sku: 'COOK-TURK-01', barcode: '6281000123' },
+    { id: '2', name: 'ألعاب أطفال تركيب سيارات وشاحنات', sku: 'TOY-CAR-01', barcode: '6281000456' },
+    { id: '3', name: 'ساعة يد رجالية كلاسيك جلد', sku: 'WATCH-M-01', barcode: '6281000789' },
+  ];
+
+  it('filters catalog based on Arabic normalized and alphanumeric queries', async () => {
+    const { normalizeArabic } = await import('@/core/text/arabic-normalize');
+
+    const searchCatalog = (rawQ: string) => {
+      if (rawQ.trim().length < 2) return [];
+      const normQ = normalizeArabic(rawQ);
+      const searchWords = normQ.split(' ').filter(Boolean);
+      const cleanLowerQ = rawQ.toLowerCase().trim();
+
+      return storeCatalog.filter((p) => {
+        const name = String(p.name || '');
+        const normName = normalizeArabic(name);
+        const sku = String(p.sku || '').toLowerCase();
+        const barcode = String(p.barcode || '').trim();
+
+        if (normName.includes(normQ) || name.toLowerCase().includes(cleanLowerQ)) return true;
+        if (searchWords.length > 0 && searchWords.every((w) => normName.includes(w))) return true;
+        if (cleanLowerQ && (sku.includes(cleanLowerQ) || barcode.includes(cleanLowerQ))) return true;
+        return false;
+      });
+    };
+
+    // Does not return when query is less than 2 chars
+    expect(searchCatalog('').length).toBe(0);
+    expect(searchCatalog('أ').length).toBe(0);
+
+    // Matches with Arabic normalization (العاب -> ألعاب)
+    expect(searchCatalog('العاب').length).toBe(1);
+    expect(searchCatalog('العاب')[0].id).toBe('2');
+
+    // Matches partial keywords
+    expect(searchCatalog('قدور تركي').length).toBe(1);
+    expect(searchCatalog('قدور تركي')[0].id).toBe('1');
+
+    // Matches barcode
+    expect(searchCatalog('6281000789').length).toBe(1);
+    expect(searchCatalog('6281000789')[0].id).toBe('3');
+
+    // Matches SKU
+    expect(searchCatalog('toy-car').length).toBe(1);
+    expect(searchCatalog('toy-car')[0].id).toBe('2');
+  });
+});
+
+
 

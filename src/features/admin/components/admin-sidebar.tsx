@@ -21,6 +21,7 @@ import {
   X,
   ChevronDown,
   Bell,
+  RotateCcw,
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -92,6 +93,13 @@ export function AdminSidebar({ session, isAdmin }: AdminSidebarProps) {
       label: 'المدفوعات',
       fullLabel: 'المدفوعات وسندات القبض',
       icon: CreditCard,
+      adminOnly: true,
+    },
+    {
+      href: '/admin/returns',
+      label: 'المردودات',
+      fullLabel: 'فواتير مردود المبيعات',
+      icon: RotateCcw,
       adminOnly: true,
     },
     {

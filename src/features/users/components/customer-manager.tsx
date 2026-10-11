@@ -31,6 +31,7 @@ import { Role } from '@/core/auth/roles';
 import type { UserProfile, UserStatus } from '../domain/user';
 import { updateUserRoleAction, updateUserStatusAction } from '../actions/user.actions';
 import { recordPaymentAction } from '@/features/orders/actions/order.actions';
+import { CreateReturnDialog } from '@/features/accounting/components/create-return-dialog';
 
 interface CustomerManagerProps {
   initialUsers: UserProfile[];
@@ -120,6 +121,9 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
   const [paymentRef, setPaymentRef] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [paymentCollector, setPaymentCollector] = useState('');
+
+  // Sales Return Dialog
+  const [returnUser, setReturnUser] = useState<UserProfile | null>(null);
 
   const filteredUsers = users.filter((u) => {
     if (roleFilter && u.role !== roleFilter) return false;
@@ -491,6 +495,18 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
                             <CreditCard className="w-3.5 h-3.5 text-blue-700" />
                             <span>سند قبض</span>
                           </Button>
+
+                          {/* Record Return Button */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setReturnUser(u)}
+                            className="text-[11px] h-7 px-2 text-rose-800 border-rose-200 hover:bg-rose-50 gap-1"
+                            title="تسجيل فاتورة مردود مبيعات لهذا العميل"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-rose-700" />
+                            <span>مردود مبيعات</span>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -740,6 +756,27 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
           </form>
         )}
       </Dialog>
+
+      {/* Sales Return Dialog */}
+      <CreateReturnDialog
+        isOpen={Boolean(returnUser)}
+        onClose={() => setReturnUser(null)}
+        preselectedCustomer={
+          returnUser
+            ? {
+                uid: returnUser.uid,
+                displayName: returnUser.displayName || returnUser.username,
+                role: returnUser.role,
+                phone: returnUser.phone,
+                balance: returnUser.account?.balance ?? 0,
+              }
+            : null
+        }
+        onSuccess={() => {
+          setReturnUser(null);
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

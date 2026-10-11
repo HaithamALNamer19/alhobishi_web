@@ -30,11 +30,18 @@ import {
   type SerializedInvoiceDetail,
   type SerializedPaymentDetail,
 } from '../actions/ledger.actions';
+import {
+  getSalesReturnDetailAction,
+  type SerializedReturnDetail,
+} from '../actions/return.actions';
 import { InvoiceDetailDialog } from './invoice-detail-dialog';
 import { ReceiptDetailDialog } from './receipt-detail-dialog';
+import { ReturnDetailDialog } from './return-detail-dialog';
+import { CreateReturnDialog } from './create-return-dialog';
 import { PrintableStatement } from './printable-statement';
 import { PrintableInvoice } from './printable-invoice';
 import { PrintableReceipt } from './printable-receipt';
+import { PrintableReturnInvoice } from './printable-return-invoice';
 
 export interface CustomerStatementUser {
   uid: string;
@@ -56,6 +63,7 @@ export interface SerializedTransaction {
   createdAt: string;
   orderId: string | null;
   paymentId: string | null;
+  returnId?: string | null;
 }
 
 interface CustomerStatementViewProps {
@@ -68,7 +76,8 @@ interface CustomerStatementViewProps {
 type PrintJob =
   | { type: 'statement' }
   | { type: 'invoice'; order: SerializedInvoiceDetail['order'] }
-  | { type: 'receipt'; payment: SerializedPaymentDetail['payment'] };
+  | { type: 'receipt'; payment: SerializedPaymentDetail['payment'] }
+  | { type: 'return'; returnDoc: SerializedReturnDetail };
 
 export function CustomerStatementView({
   customer,
@@ -79,7 +88,7 @@ export function CustomerStatementView({
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'INVOICE' | 'PAYMENT'>('ALL');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'INVOICE' | 'PAYMENT' | 'RETURN'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 15;
 
@@ -89,6 +98,10 @@ export function CustomerStatementView({
 
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<SerializedPaymentDetail['payment'] | null>(null);
+
+  const [isCreateReturnOpen, setIsCreateReturnOpen] = useState(false);
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [selectedReturn, setSelectedReturn] = useState<SerializedReturnDetail | null>(null);
   const [isDocLoading, setIsDocLoading] = useState(false);
 
   // Print state
@@ -261,6 +274,39 @@ export function CustomerStatementView({
     }
   };
 
+  const handleOpenReturn = async (returnId: string) => {
+    setIsDocLoading(true);
+    setIsReturnModalOpen(true);
+    try {
+      const res = await getSalesReturnDetailAction(returnId);
+      if (res.ok) {
+        setSelectedReturn(res.data);
+      } else {
+        toast.error(!res.ok ? res.error.message : 'تعذر تحميل بيانات فاتورة المردود');
+        setIsReturnModalOpen(false);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'حدث خطأ أثناء تحميل فاتورة المردود');
+      setIsReturnModalOpen(false);
+    } finally {
+      setIsDocLoading(false);
+    }
+  };
+
+  const handleQuickPrintReturn = async (returnId: string) => {
+    try {
+      toast.info('جاري تجهيز فاتورة المردود للطباعة...');
+      const res = await getSalesReturnDetailAction(returnId);
+      if (res.ok) {
+        handlePrint({ type: 'return', returnDoc: res.data });
+      } else {
+        toast.error('تعذر جلب تفاصيل المردود للطباعة');
+      }
+    } catch {
+      toast.error('حدث خطأ أثناء تجهيز المردود للطباعة');
+    }
+  };
+
   const balance = customer.balance;
 
   return (
@@ -299,10 +345,19 @@ export function CustomerStatementView({
 
         {/* Global Action Buttons */}
         <div className="flex items-center gap-2.5 self-end md:self-center flex-wrap">
+          {isAdminView && (
+            <Button
+              onClick={() => setIsCreateReturnOpen(true)}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold gap-2 px-4 py-2.5 rounded-2xl shadow-xs transition-all cursor-pointer text-xs"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>تسجيل مردود مبيعات</span>
+            </Button>
+          )}
 
           <Button
             onClick={() => handlePrint({ type: 'statement' })}
-            className="bg-blue-700 hover:bg-blue-600 text-white font-bold gap-2 px-5 py-2.5 rounded-2xl shadow-xs transition-all cursor-pointer"
+            className="bg-blue-700 hover:bg-blue-600 text-white font-bold gap-2 px-5 py-2.5 rounded-2xl shadow-xs transition-all cursor-pointer text-xs"
           >
             <Printer className="w-4 h-4" />
             <span>طباعة كشف الحساب</span>
@@ -310,8 +365,8 @@ export function CustomerStatementView({
         </div>
       </div>
 
-      {/* KPI Cards (3 Columns) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* KPI Cards (4 Columns) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Invoices (Debits) */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
           <div>
@@ -344,6 +399,22 @@ export function CustomerStatementView({
           </div>
         </div>
 
+        {/* Total Returns (Credits) */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
+              <RotateCcw className="w-4 h-4 text-rose-600" />
+              <span>إجمالي المردودات</span>
+            </span>
+            <div className="text-xl font-black font-mono text-rose-700 tracking-tight">
+              {formatMoney(totalReturns)}
+            </div>
+            <span className="text-[11px] text-slate-400 mt-0.5 block">
+              {transactions.filter((t) => t.type === 'RETURN').length} مردود مبيعات
+            </span>
+          </div>
+        </div>
+
         {/* Current Balance */}
         <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xs flex items-center justify-between">
           <div>
@@ -358,8 +429,8 @@ export function CustomerStatementView({
               {balance > 0
                 ? 'مديونية مستحقة لصالح المتجر'
                 : balance < 0
-                  ? 'رصيد دائن فائض للعميل'
-                  : 'الحساب خالص بالكامل'}
+                  ? 'رصيد دائن لصالح العميل'
+                  : 'الحساب خالص / مسدد بالكامل'}
             </span>
           </div>
         </div>
@@ -422,6 +493,19 @@ export function CustomerStatementView({
           >
             سندات القبض ({transactions.filter((t) => t.type === 'PAYMENT').length})
           </button>
+          <button
+            onClick={() => {
+              setTypeFilter('RETURN');
+              setCurrentPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+              typeFilter === 'RETURN'
+                ? 'bg-white text-rose-800 shadow-2xs'
+                : 'text-slate-600 hover:text-rose-800'
+            }`}
+          >
+            مردودات المبيعات ({transactions.filter((t) => t.type === 'RETURN').length})
+          </button>
         </div>
       </div>
 
@@ -464,6 +548,8 @@ export function CustomerStatementView({
                             handleOpenInvoice(t.orderId);
                           } else if (isPayment && t.paymentId) {
                             handleOpenReceipt(t.paymentId);
+                          } else if (isReturn && t.returnId) {
+                            handleOpenReturn(t.returnId);
                           }
                         }}
                       >
@@ -523,6 +609,11 @@ export function CustomerStatementView({
                             {t.paymentId && (
                               <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
                                 سند
+                              </span>
+                            )}
+                            {t.returnId && (
+                              <span className="font-mono text-[10px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border border-rose-200">
+                                مردود
                               </span>
                             )}
                           </div>
@@ -597,6 +688,28 @@ export function CustomerStatementView({
                                   <Printer className="w-3.5 h-3.5 text-slate-600" />
                                 </Button>
                               </>
+                            ) : isReturn && t.returnId ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenReturn(t.returnId!)}
+                                  className="h-7 px-2 text-[11px] text-rose-800 border-rose-200 hover:bg-rose-50 gap-1"
+                                  title="عرض تفاصيل المردود"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-rose-700" />
+                                  <span>المردود</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleQuickPrintReturn(t.returnId!)}
+                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100"
+                                  title="طباعة فاتورة المردود مباشرة"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                </Button>
+                              </>
                             ) : (
                               <span className="text-[11px] text-slate-400">-</span>
                             )}
@@ -641,6 +754,24 @@ export function CustomerStatementView({
         onPrint={(pay) => handlePrint({ type: 'receipt', payment: pay })}
       />
 
+      {/* Return Detail Dialog */}
+      <ReturnDetailDialog
+        isOpen={isReturnModalOpen}
+        onClose={() => setIsReturnModalOpen(false)}
+        returnDoc={selectedReturn}
+        onPrint={(doc) => handlePrint({ type: 'return', returnDoc: doc })}
+      />
+
+      {/* Create Return Dialog */}
+      <CreateReturnDialog
+        isOpen={isCreateReturnOpen}
+        onClose={() => setIsCreateReturnOpen(false)}
+        preselectedCustomer={customer}
+        onSuccess={({ returnId }) => {
+          handleOpenReturn(returnId);
+        }}
+      />
+
       {/* Printable Documents Root (Rendered via Portal onto document.body for clean isolation) */}
       {mounted &&
         createPortal(
@@ -649,6 +780,8 @@ export function CustomerStatementView({
               <PrintableInvoice order={activePrint.order} />
             ) : activePrint?.type === 'receipt' ? (
               <PrintableReceipt payment={activePrint.payment} />
+            ) : activePrint?.type === 'return' ? (
+              <PrintableReturnInvoice returnDoc={activePrint.returnDoc} />
             ) : (
               <PrintableStatement
                 customer={customer}
