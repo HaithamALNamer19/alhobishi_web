@@ -837,7 +837,15 @@ export class FirestoreOrderRepository {
           const currentReserved = (vData.reservedQty ?? 0) as number;
 
           // Quantity actually being taken
-          const actualDeduction = item.preparedQty > 0 ? item.preparedQty : item.requestedQty;
+          let actualDeduction = 0;
+          if (item.status === 'unavailable') {
+            actualDeduction = 0;
+          } else if (item.status === 'partial') {
+            actualDeduction = item.preparedQty;
+          } else {
+            actualDeduction = item.preparedQty > 0 ? item.preparedQty : item.requestedQty;
+          }
+
           const newStock = Math.max(0, currentStock - actualDeduction);
           const newReserved = Math.max(0, currentReserved - item.requestedQty);
           const newAvailable = Math.max(0, newStock - newReserved);
@@ -852,25 +860,67 @@ export class FirestoreOrderRepository {
             updatedAt: FieldValue.serverTimestamp(),
           });
 
-          // COMMIT movement
-          const moveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
-          tx.set(moveRef, {
-            productId: item.productId,
-            variantId: item.variantId,
-            type: 'COMMIT',
-            delta: -actualDeduction,
-            stockAfter: newStock,
-            reservedAfter: newReserved,
-            orderId: orderData.orderNumber,
-            reason: `تجهيز وتأكيد جاهزية الطلب ${orderData.orderNumber}`,
-            actorId: staffId,
-            createdAt: FieldValue.serverTimestamp(),
-          });
+          // COMMIT movement for the stock actually taken
+          if (actualDeduction > 0) {
+            const moveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+            tx.set(moveRef, {
+              productId: item.productId,
+              variantId: item.variantId,
+              type: 'COMMIT',
+              delta: -actualDeduction,
+              stockAfter: newStock,
+              reservedAfter: newReserved,
+              orderId: orderData.orderNumber,
+              reason: `تجهيز وتأكيد جاهزية الطلب ${orderData.orderNumber}`,
+              actorId: staffId,
+              createdAt: FieldValue.serverTimestamp(),
+            });
+          }
+
+          // If partial or unavailable, release the remaining reservation
+          const releasedQty = item.requestedQty - actualDeduction;
+          if (releasedQty > 0) {
+            const moveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+            tx.set(moveRef, {
+              productId: item.productId,
+              variantId: item.variantId,
+              type: 'RELEASE',
+              delta: releasedQty,
+              stockAfter: newStock,
+              reservedAfter: newReserved,
+              orderId: orderData.orderNumber,
+              reason: `تحرير حجز غير متوفر عند تأكيد جاهزية الطلب ${orderData.orderNumber}`,
+              actorId: staffId,
+              createdAt: FieldValue.serverTimestamp(),
+            });
+          }
         }
       }
 
+      // Recalculate billable items and total amount
+      let finalTotalAmount = assertMoney(0);
+      const finalItems: OrderItem[] = items.map((item) => {
+        let billableQty = 0;
+        if (item.status === 'unavailable') {
+          billableQty = 0;
+        } else if (item.status === 'partial') {
+          billableQty = item.preparedQty;
+        } else {
+          billableQty = item.preparedQty > 0 ? item.preparedQty : item.requestedQty;
+        }
+        const subtotal = multiplyMoney(item.unitPrice, billableQty);
+        finalTotalAmount = addMoney(finalTotalAmount, subtotal);
+        return {
+          ...item,
+          preparedQty: billableQty,
+          subtotal,
+        };
+      });
+
       // Update Order to READY and lock it
       tx.update(orderRef, {
+        items: finalItems,
+        totalAmount: finalTotalAmount,
         status: 'READY' as OrderStatus,
         isLocked: true,
         preparedBy: staffName,
@@ -898,8 +948,8 @@ export class FirestoreOrderRepository {
         action: 'ORDER_MARKED_READY',
         entityType: 'order',
         entityId: orderId,
-        oldData: { status: orderData.status },
-        newData: { status: 'READY', isLocked: true },
+        oldData: { status: orderData.status, totalAmount: orderData.totalAmount },
+        newData: { status: 'READY', totalAmount: finalTotalAmount, isLocked: true },
         timestamp: FieldValue.serverTimestamp(),
       });
 
@@ -912,8 +962,8 @@ export class FirestoreOrderRepository {
         customerRole: orderData.customerRole,
         status: 'READY',
         businessDate: orderData.businessDate,
-        items,
-        totalAmount: orderData.totalAmount,
+        items: finalItems,
+        totalAmount: finalTotalAmount,
         customerNotes: orderData.customerNotes,
         isLocked: true,
         preparedBy: staffName,
@@ -1033,6 +1083,198 @@ export class FirestoreOrderRepository {
         preparedAt: orderData.preparedAt instanceof Timestamp ? orderData.preparedAt.toDate() : null,
         confirmedBy: adminName,
         confirmedAt: new Date(),
+        cancelledBy: orderData.cancelledBy || null,
+        cancelledAt: orderData.cancelledAt instanceof Timestamp ? orderData.cancelledAt.toDate() : null,
+        cancelReason: orderData.cancelReason || null,
+        createdAt: orderData.createdAt instanceof Timestamp ? orderData.createdAt.toDate() : new Date(),
+        updatedAt: new Date(),
+      };
+    });
+  }
+
+  /**
+   * Cancels an order atomically.
+   * If order was READY, restores physical stock back into inventory.
+   * If order was PENDING/PREPARING/PARTIALLY_READY, releases reserved quantities.
+   * Blocks cancellation if already CONFIRMED or COMPLETED.
+   */
+  async cancelOrder(
+    actorId: string,
+    actorName: string,
+    orderId: string,
+    reason?: string
+  ): Promise<Order> {
+    return this.db.runTransaction(async (tx) => {
+      const orderRef = this.db.collection(Collections.ORDERS).doc(orderId);
+      const snap = await tx.get(orderRef);
+
+      if (!snap.exists) {
+        throw new AppError(ErrorCode.ORDER_NOT_FOUND, { message: 'الطلب غير موجود.' });
+      }
+
+      const orderData = snap.data()!;
+      if (orderData.status === 'CONFIRMED' || orderData.status === 'COMPLETED') {
+        throw new AppError(ErrorCode.INVALID_STATUS_TRANSITION, {
+          message: 'لا يمكن إلغاء طلب معتمد ومقيد في دفتر الحسابات.',
+        });
+      }
+
+      if (orderData.status === 'CANCELLED') {
+        throw new AppError(ErrorCode.INVALID_STATUS_TRANSITION, {
+          message: 'الطلب ملغي بالفعل.',
+        });
+      }
+
+      const items = (orderData.items || []) as OrderItem[];
+      const wasReady = orderData.status === 'READY';
+
+      // Pre-read all variant snapshots in parallel before any writes
+      const loadedVariants = await Promise.all(
+        items.map(async (item) => {
+          const varRef = this.db
+            .collection(Collections.PRODUCTS)
+            .doc(item.productId)
+            .collection(Collections.VARIANTS)
+            .doc(item.variantId);
+          const varSnap = await tx.get(varRef);
+          return { item, varRef, varSnap };
+        })
+      );
+
+      // Execute inventory release or restoration
+      for (const lv of loadedVariants) {
+        const { item, varRef, varSnap } = lv;
+        if (varSnap.exists) {
+          const vData = varSnap.data()!;
+          const currentStock = (vData.stockQty ?? 0) as number;
+          const currentReserved = (vData.reservedQty ?? 0) as number;
+          const threshold = (vData.lowStockThreshold ?? 5) as number;
+
+          if (wasReady) {
+            // Physical stock was committed at markReady -> RESTORE physical stock
+            let actualDeducted = 0;
+            if (item.status === 'unavailable') {
+              actualDeducted = 0;
+            } else if (item.status === 'partial') {
+              actualDeducted = item.preparedQty;
+            } else {
+              actualDeducted = item.preparedQty > 0 ? item.preparedQty : item.requestedQty;
+            }
+
+            if (actualDeducted > 0) {
+              const newStock = currentStock + actualDeducted;
+              const newAvailable = Math.max(0, newStock - currentReserved);
+              const newStockState = computeStockState(newAvailable, threshold);
+
+              tx.update(varRef, {
+                stockQty: newStock,
+                availableQty: newAvailable,
+                stockState: newStockState,
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+
+              const moveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+              tx.set(moveRef, {
+                productId: item.productId,
+                variantId: item.variantId,
+                type: 'RESTORE',
+                delta: actualDeducted,
+                stockAfter: newStock,
+                reservedAfter: currentReserved,
+                orderId: orderData.orderNumber,
+                reason: `إلغاء الطلب ${orderData.orderNumber} واسترجاع المخزون`,
+                actorId,
+                createdAt: FieldValue.serverTimestamp(),
+              });
+            }
+          } else {
+            // Order was PENDING, PREPARING, or PARTIALLY_READY -> RELEASE reservations
+            const newReserved = Math.max(0, currentReserved - item.requestedQty);
+            const newAvailable = Math.max(0, currentStock - newReserved);
+            const newStockState = computeStockState(newAvailable, threshold);
+
+            tx.update(varRef, {
+              reservedQty: newReserved,
+              availableQty: newAvailable,
+              stockState: newStockState,
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+
+            if (item.requestedQty > 0) {
+              const moveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+              tx.set(moveRef, {
+                productId: item.productId,
+                variantId: item.variantId,
+                type: 'RELEASE',
+                delta: item.requestedQty,
+                stockAfter: currentStock,
+                reservedAfter: newReserved,
+                orderId: orderData.orderNumber,
+                reason: `إلغاء الطلب ${orderData.orderNumber} وتحرير الحجز`,
+                actorId,
+                createdAt: FieldValue.serverTimestamp(),
+              });
+            }
+          }
+        }
+      }
+
+      // Update Order document
+      const cancelReason = reason?.trim() || null;
+      tx.update(orderRef, {
+        status: 'CANCELLED' as OrderStatus,
+        isLocked: true,
+        cancelledBy: actorName,
+        cancelledAt: FieldValue.serverTimestamp(),
+        cancelReason,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      // Notification to customer
+      const notifRef = this.db.collection(Collections.NOTIFICATIONS).doc();
+      tx.set(notifRef, {
+        userId: orderData.customerId,
+        title: 'تم إلغاء طلبك',
+        message: `تم إلغاء الطلب رقم ${orderData.orderNumber}.${cancelReason ? ` السبب: ${cancelReason}` : ''}`,
+        type: 'ORDER_CANCELLED',
+        referenceId: orderId,
+        isRead: false,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      // Audit Log
+      const auditRef = this.db.collection(Collections.AUDIT_LOGS).doc();
+      tx.set(auditRef, {
+        actorId,
+        actorName,
+        action: 'ORDER_CANCELLED',
+        entityType: 'order',
+        entityId: orderId,
+        oldData: { status: orderData.status },
+        newData: { status: 'CANCELLED', reason: cancelReason },
+        timestamp: FieldValue.serverTimestamp(),
+      });
+
+      return {
+        id: orderId,
+        orderNumber: orderData.orderNumber,
+        customerId: orderData.customerId,
+        customerName: orderData.customerName,
+        customerPhone: orderData.customerPhone,
+        customerRole: orderData.customerRole,
+        status: 'CANCELLED',
+        businessDate: orderData.businessDate,
+        items,
+        totalAmount: orderData.totalAmount,
+        customerNotes: orderData.customerNotes,
+        isLocked: true,
+        preparedBy: orderData.preparedBy,
+        preparedAt: orderData.preparedAt instanceof Timestamp ? orderData.preparedAt.toDate() : null,
+        confirmedBy: orderData.confirmedBy,
+        confirmedAt: orderData.confirmedAt instanceof Timestamp ? orderData.confirmedAt.toDate() : null,
+        cancelledBy: actorName,
+        cancelledAt: new Date(),
+        cancelReason,
         createdAt: orderData.createdAt instanceof Timestamp ? orderData.createdAt.toDate() : new Date(),
         updatedAt: new Date(),
       };
@@ -1057,6 +1299,9 @@ export class FirestoreOrderRepository {
       preparedAt: data.preparedAt instanceof Timestamp ? data.preparedAt.toDate() : null,
       confirmedBy: data.confirmedBy || null,
       confirmedAt: data.confirmedAt instanceof Timestamp ? data.confirmedAt.toDate() : null,
+      cancelledBy: data.cancelledBy || null,
+      cancelledAt: data.cancelledAt instanceof Timestamp ? data.cancelledAt.toDate() : null,
+      cancelReason: data.cancelReason || null,
       createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
       updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
     };

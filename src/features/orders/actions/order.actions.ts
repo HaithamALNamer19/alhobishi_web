@@ -133,6 +133,35 @@ export async function adminConfirmOrderAction(
   });
 }
 
+export async function cancelOrderAction(
+  orderId: string,
+  reason?: string
+): Promise<Result<Order>> {
+  return runAction(async () => {
+    const session = await requirePermission(Permission.ORDERS_CANCEL);
+    const actorUser = await userRepository.findById(session.uid);
+    const actorName =
+      actorUser?.displayName ||
+      actorUser?.username ||
+      session.email?.split('@')[0] ||
+      'إدارة المتجر';
+
+    const order = await orderRepository.cancelOrder(
+      session.uid,
+      actorName,
+      orderId,
+      reason
+    );
+
+    revalidatePath(`/admin/orders/${orderId}`);
+    revalidatePath('/admin/orders/today');
+    revalidatePath('/admin/orders');
+    revalidatePath(`/account/orders/${orderId}`);
+    revalidatePath('/account');
+    return order;
+  });
+}
+
 export async function recordPaymentAction(params: {
   customerId: string;
   amount: number;

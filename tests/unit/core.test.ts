@@ -116,6 +116,10 @@ describe('Roles & Permissions', () => {
     expect(isBackOfficeRole(Role.CUSTOMER)).toBe(false);
 
     expect(can(Role.STAFF, Permission.ORDERS_PREPARE)).toBe(true);
+    expect(can(Role.STAFF, Permission.ORDERS_MARK_READY)).toBe(true);
+    expect(can(Role.STAFF, Permission.ORDERS_CANCEL)).toBe(true);
+    expect(can(Role.ADMIN, Permission.ORDERS_CANCEL)).toBe(true);
+    expect(can(Role.CUSTOMER, Permission.ORDERS_CANCEL)).toBe(false);
     expect(can(Role.STAFF, Permission.ORDERS_CONFIRM)).toBe(false); // Staff cannot confirm invoice / create debt
     expect(can(Role.ADMIN, Permission.ORDERS_CONFIRM)).toBe(true);
 

@@ -62,6 +62,7 @@ const STAFF_PERMISSIONS: Permission[] = [
   Permission.ORDERS_VIEW_ALL,
   Permission.ORDERS_PREPARE,
   Permission.ORDERS_MARK_READY,
+  Permission.ORDERS_CANCEL,
   Permission.INVENTORY_MANAGE,
 ];
 

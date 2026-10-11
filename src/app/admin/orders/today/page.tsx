@@ -14,6 +14,7 @@ import {
   Package,
   User,
   SlidersHorizontal,
+  Ban,
 } from 'lucide-react';
 
 export const metadata = {
@@ -32,6 +33,7 @@ export default async function TodayOrdersPage() {
   const preparingOrders = orders.filter((o) => o.status === 'PREPARING' || o.status === 'PARTIALLY_READY');
   const readyOrders = orders.filter((o) => o.status === 'READY');
   const confirmedOrders = orders.filter((o) => o.status === 'CONFIRMED' || o.status === 'COMPLETED');
+  const cancelledOrders = orders.filter((o) => o.status === 'CANCELLED');
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-16">
@@ -46,10 +48,16 @@ export default async function TodayOrdersPage() {
             متابعة طلبات اليوم ({todayStr}) وتجهيز الأصناف بندًا بندًا وتأكيد الجاهزية.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="indigo" className="font-mono font-bold text-xs">
-            إجمالي طلبات اليوم: {orders.length}
+            طلبات نشطة: {pendingOrders.length + preparingOrders.length + readyOrders.length}
           </Badge>
+          {cancelledOrders.length > 0 && (
+            <Badge variant="rose" className="font-mono font-bold text-xs gap-1">
+              <Ban className="w-3 h-3" />
+              ملغية: {cancelledOrders.length}
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -209,6 +217,50 @@ export default async function TodayOrdersPage() {
           </div>
         </div>
       </div>
+
+      {/* Cancelled Orders of Today */}
+      {cancelledOrders.length > 0 && (
+        <div className="bg-rose-50/50 p-6 rounded-3xl border border-rose-200/80 space-y-4">
+          <div className="flex items-center justify-between border-b border-rose-200/60 pb-3">
+            <div className="flex items-center gap-2">
+              <Ban className="w-4 h-4 text-rose-600" />
+              <h2 className="font-bold text-sm text-rose-950">طلبات ملغية اليوم ({cancelledOrders.length})</h2>
+            </div>
+            <span className="text-xs text-rose-600">تم تحرير حجز المخزون لجميع هذه الطلبات</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cancelledOrders.map((o) => (
+              <Link
+                key={o.id}
+                href={`/admin/orders/${o.id}`}
+                className="block bg-white p-4 rounded-2xl border border-rose-200 hover:border-rose-400 hover:shadow-sm transition-all text-right space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold font-mono text-sm text-slate-900">{o.orderNumber}</span>
+                  <Badge variant="rose" className="text-[10px]">ملغي</Badge>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                  <User className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{o.customerName}</span>
+                </div>
+                {o.cancelReason && (
+                  <p className="text-[11px] text-rose-700 truncate">
+                    السبب: {o.cancelReason}
+                  </p>
+                )}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                  <span className="font-mono text-slate-400 line-through">{formatMoney(o.totalAmount)}</span>
+                  <span className="text-rose-700 font-bold flex items-center gap-1 text-[11px]">
+                    <span>عرض التفاصيل</span>
+                    <ArrowLeft className="w-3 h-3" />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

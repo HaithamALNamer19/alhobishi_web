@@ -51,6 +51,9 @@ export interface Order {
   preparedAt: Date | null;
   confirmedBy: string | null;
   confirmedAt: Date | null;
+  cancelledBy?: string | null;
+  cancelledAt?: Date | null;
+  cancelReason?: string | null;
 
   createdAt: Date;
   updatedAt: Date;
@@ -70,7 +73,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 export const ORDER_ITEM_STATUS_LABELS: Record<OrderItemStatus, string> = {
   pending: 'بانتظار التجهيز',
   prepared: 'تم التجهيز بالكامل',
-  partial: 'تم تجهيز جزء من الكمية',
+  partial: 'تجهيز جزئي',
   unavailable: 'غير متوفر',
 };
 
