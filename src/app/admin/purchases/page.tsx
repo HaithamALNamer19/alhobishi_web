@@ -1,38 +1,80 @@
-import React from 'react';
-import Link from 'next/link';
-import { Receipt, Plus, Building2, ShoppingBag } from 'lucide-react';
-import { Button } from '@/shared/ui/button';
-import { Card } from '@/shared/ui/card';
+import React, { Suspense } from 'react';
+import { connection } from 'next/server';
+import { requireSession } from '@/core/auth/require-auth';
+import { isBackOfficeRole } from '@/core/auth/roles';
+import { redirect } from 'next/navigation';
+import { purchasingRepository } from '@/features/purchasing/infrastructure/firestore-purchasing.repository';
+import {
+  PurchasesManager,
+  type SerializedPurchaseInvoice,
+} from '@/features/purchasing/components/purchases-manager';
+import type { SerializedSupplier } from '@/features/purchasing/components/suppliers-manager';
 
 export const metadata = {
-  title: 'فواتير الشراء | إدارة المتجر',
+  title: 'فواتير الشراء والتوريد | إدارة المتجر',
 };
 
-export default function PurchasesPage() {
-  return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2.5">
-            <Receipt className="w-7 h-7 text-blue-700" />
-            <span>فواتير الشراء والمشتريات</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            تسجيل فواتير الشراء من الموردين، زيادة كميات المخزون وحساب تكلفة البضاعة.
-          </p>
-        </div>
-      </div>
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-12 text-center">
-        <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-4 border border-blue-100">
-          <Receipt className="w-8 h-8" />
-        </div>
-        <h3 className="text-base font-bold text-slate-900 mb-1">دورة المشتريات وفواتير التوريد</h3>
-        <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
-          قسم فواتير الشراء جاهز، وسيتم ربطه مباشرة بمجموعة المشتريات وحسابات الموردين وتحديث المخزون عبر المعاملات المالية (runTransaction).
-        </p>
-      </div>
-    </div>
-  );
+interface PurchasesPageProps {
+  searchParams?: Promise<{ supplierId?: string }>;
 }
 
+export default async function PurchasesPage({ searchParams }: PurchasesPageProps) {
+  await connection();
+  const session = await requireSession();
+  if (!session || !isBackOfficeRole(session.role)) {
+    redirect('/login?from=/admin/purchases');
+  }
+
+  const resolvedParams = searchParams ? await searchParams : {};
+  const supplierId = resolvedParams?.supplierId || null;
+
+  const [rawPurchases, rawSuppliers] = await Promise.all([
+    purchasingRepository.listPurchases(100),
+    purchasingRepository.listSuppliers(100),
+  ]);
+
+  const serializedPurchases: SerializedPurchaseInvoice[] = (rawPurchases || []).map((p) => ({
+    id: p.id,
+    invoice_number: p.invoice_number,
+    supplier_id: p.supplier_id,
+    supplier_name: p.supplier_name || 'مورد',
+    purchase_date: p.purchase_date instanceof Date ? p.purchase_date.toISOString() : new Date().toISOString(),
+    items: (p.items || []).map((it) => ({
+      product_id: it.product_id,
+      product_name: it.product_name || 'صنف',
+      quantity: Number(it.quantity) || 0,
+      cost_price: Number(it.cost_price) || 0,
+    })),
+    total_amount: Number(p.total_amount) || 0,
+    createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : new Date().toISOString(),
+  }));
+
+  const serializedSuppliers: SerializedSupplier[] = (rawSuppliers || []).map((s) => ({
+    id: s.id,
+    name: s.name || '',
+    phone: s.phone || '',
+    company_name: s.company_name || '',
+    balance: Number(s.balance) || 0,
+    createdAt: s.createdAt instanceof Date ? s.createdAt.toISOString() : new Date().toISOString(),
+  }));
+
+  return (
+    <Suspense
+      fallback={
+        <div className="p-16 text-center text-slate-400 text-sm">
+          <div className="inline-block w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-3" />
+          <p>جاري تحميل فواتير الشراء والتوريد...</p>
+        </div>
+      }
+    >
+      <PurchasesManager
+        initialPurchases={serializedPurchases}
+        suppliers={serializedSuppliers}
+        defaultSupplierId={supplierId}
+      />
+    </Suspense>
+  );
+}

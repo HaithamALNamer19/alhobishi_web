@@ -267,7 +267,7 @@ export class FirestorePurchasingRepository {
     supplier_id: string;
     return_date?: Date;
     items: PurchaseReturnItem[];
-  }): Promise<{ returnId: string; totalAmount: number }> {
+  }): Promise<{ returnId: string; returnNumber: string; totalAmount: number }> {
     if (!params.items || params.items.length === 0) {
       throw new Error('يجب اختيار صنف واحد على الأقل لمردود المشتريات.');
     }
@@ -275,8 +275,10 @@ export class FirestorePurchasingRepository {
     return this.db.runTransaction(async (tx) => {
       // 1. ALL READS FIRST
       const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(params.supplier_id);
-      const [supplierSnap, productSnaps] = await Promise.all([
+      const counterRef = this.db.collection(Collections.COUNTERS).doc('purchase_returns');
+      const [supplierSnap, counterSnap, productSnaps] = await Promise.all([
         tx.get(supplierRef),
+        tx.get(counterRef),
         Promise.all(
           params.items.map((it) =>
             tx.get(this.db.collection(Collections.PRODUCTS).doc(it.product_id))
@@ -296,10 +298,17 @@ export class FirestorePurchasingRepository {
         totalAmount += item.quantity * Number(item.cost_price || 0);
       }
 
+      const currentSeq = counterSnap.exists ? (counterSnap.data()?.seq || 0) : 0;
+      const nextSeq = currentSeq + 1;
+      const currentYear = businessYear(new Date());
+      const returnNumber = `RET-PUR-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
+
       const returnRef = this.db.collection(Collections.PURCHASE_RETURNS).doc();
       const returnId = returnRef.id;
 
       // 2. ALL WRITES AFTER READS
+      tx.set(counterRef, { seq: nextSeq, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+
       for (let i = 0; i < params.items.length; i++) {
         const item = params.items[i];
         const prodRef = productSnaps[i].ref;
@@ -329,6 +338,7 @@ export class FirestorePurchasingRepository {
 
       // Save Purchase Return Document
       tx.set(returnRef, {
+        return_number: returnNumber,
         purchase_id: params.purchase_id || null,
         supplier_id: params.supplier_id,
         supplier_name: supplierSnap.data()?.name || '',
@@ -352,6 +362,7 @@ export class FirestorePurchasingRepository {
 
       return {
         returnId,
+        returnNumber,
         totalAmount,
       };
     });
@@ -368,6 +379,7 @@ export class FirestorePurchasingRepository {
       const d = doc.data();
       return {
         id: doc.id,
+        return_number: d.return_number || doc.id,
         purchase_id: d.purchase_id || '',
         supplier_id: d.supplier_id,
         supplier_name: d.supplier_name || '',

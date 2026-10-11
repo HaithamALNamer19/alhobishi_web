@@ -3,14 +3,25 @@
 import { getCurrentSession } from '@/core/auth/require-auth';
 import { isBackOfficeRole } from '@/core/auth/roles';
 import { purchasingRepository } from '../infrastructure/firestore-purchasing.repository';
-import type { PurchaseItem, PurchaseReturnItem } from '../domain/purchasing';
+import type {
+  Supplier,
+  PurchaseInvoice,
+  PurchaseReturn,
+  StockMovement,
+  PurchaseItem,
+  PurchaseReturnItem,
+} from '../domain/purchasing';
+
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { message: string } };
 
 export async function createSupplierAction(data: {
   name: string;
   phone: string;
   company_name: string;
   initialBalance?: number;
-}) {
+}): Promise<ActionResult<Supplier>> {
   try {
     const session = await getCurrentSession();
     if (!session || !isBackOfficeRole(session.role)) {
@@ -28,7 +39,7 @@ export async function createSupplierAction(data: {
   }
 }
 
-export async function listSuppliersAction() {
+export async function listSuppliersAction(): Promise<ActionResult<Supplier[]>> {
   try {
     const session = await getCurrentSession();
     if (!session || !isBackOfficeRole(session.role)) {
@@ -47,7 +58,7 @@ export async function createPurchaseInvoiceAction(params: {
   invoice_number?: string;
   purchase_date?: string;
   items: PurchaseItem[];
-}) {
+}): Promise<ActionResult<{ purchaseId: string; invoiceNumber: string; totalAmount: number }>> {
   try {
     const session = await getCurrentSession();
     if (!session || !isBackOfficeRole(session.role)) {
@@ -73,12 +84,26 @@ export async function createPurchaseInvoiceAction(params: {
   }
 }
 
+export async function listPurchasesAction(): Promise<ActionResult<PurchaseInvoice[]>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح.' } };
+    }
+
+    const purchases = await purchasingRepository.listPurchases();
+    return { ok: true, data: purchases };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل جلب فواتير الشراء.' } };
+  }
+}
+
 export async function createPurchaseReturnAction(params: {
   purchase_id?: string;
   supplier_id: string;
   return_date?: string;
   items: PurchaseReturnItem[];
-}) {
+}): Promise<ActionResult<{ returnId: string; returnNumber: string; totalAmount: number }>> {
   try {
     const session = await getCurrentSession();
     if (!session || !isBackOfficeRole(session.role)) {
@@ -104,7 +129,21 @@ export async function createPurchaseReturnAction(params: {
   }
 }
 
-export async function listStockMovementsAction() {
+export async function listPurchaseReturnsAction(): Promise<ActionResult<PurchaseReturn[]>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح.' } };
+    }
+
+    const returns = await purchasingRepository.listPurchaseReturns();
+    return { ok: true, data: returns };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل جلب فواتير مردود المشتريات.' } };
+  }
+}
+
+export async function listStockMovementsAction(): Promise<ActionResult<StockMovement[]>> {
   try {
     const session = await getCurrentSession();
     if (!session || !isBackOfficeRole(session.role)) {

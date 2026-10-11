@@ -34,6 +34,7 @@ export interface PurchaseReturnItem {
 
 export interface PurchaseReturn {
   id: string;
+  return_number?: string;
   purchase_id: string;
   supplier_id: string;
   supplier_name?: string;
