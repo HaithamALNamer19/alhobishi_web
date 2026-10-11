@@ -62,7 +62,7 @@ export interface Order {
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   DRAFT: 'مسودة',
   PENDING: 'بانتظار التجهيز',
-  PREPARING: 'جاري التجهيز',
+  PREPARING: 'قيد التجهيز',
   PARTIALLY_READY: 'جاهز جزئيًا',
   READY: 'جاهز للاستلام (مقفل)',
   CONFIRMED: 'معتمد (قُيدت المديونية)',

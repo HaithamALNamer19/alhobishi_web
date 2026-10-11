@@ -107,10 +107,6 @@ export function OrderPrepView({ initialOrder, isAdmin }: OrderPrepViewProps) {
     });
   };
 
-  const handleQuickComplete = (item: OrderItem) => {
-    handleUpdateItem(item.variantId, item.requestedQty, 'prepared');
-  };
-
   const handleMarkReady = () => {
     startTransition(async () => {
       try {
@@ -375,38 +371,6 @@ export function OrderPrepView({ initialOrder, isAdmin }: OrderPrepViewProps) {
                     <option value="partial">تجهيز جزئي</option>
                     <option value="unavailable">غير متوفر</option>
                   </select>
-
-                  {/* Quick Action Buttons */}
-                  {!isLocked && (
-                    <div className="flex items-center gap-1.5">
-                      {item.status !== 'prepared' && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleQuickComplete(item)}
-                          disabled={isPending}
-                          className="h-8 text-xs gap-1 text-emerald-800 border-emerald-200 hover:bg-emerald-50"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          <span>تجهيز كامل</span>
-                        </Button>
-                      )}
-                      {item.status !== 'unavailable' && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleUpdateItem(item.variantId, 0, 'unavailable')}
-                          disabled={isPending}
-                          className="h-8 text-xs gap-1 text-rose-700 border-rose-200 hover:bg-rose-50"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          <span>غير متوفر</span>
-                        </Button>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             );

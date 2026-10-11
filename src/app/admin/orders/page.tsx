@@ -23,10 +23,9 @@ interface AdminOrdersPageProps {
 const STATUS_TABS: Array<{ id: string | null; label: string }> = [
   { id: null, label: 'الكل' },
   { id: 'PENDING', label: 'بانتظار التجهيز' },
-  { id: 'PREPARING', label: 'جاري التجهيز' },
+  { id: 'PREPARING', label: 'قيد التجهيز' },
   { id: 'READY', label: 'جاهز للاستلام' },
   { id: 'CONFIRMED', label: 'معتمد' },
-  { id: 'COMPLETED', label: 'مكتمل ومسلّم' },
   { id: 'CANCELLED', label: 'ملغي' },
 ];
 
@@ -47,7 +46,6 @@ export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageP
     PREPARING: allOrdersList.filter((o) => o.status === 'PREPARING' || o.status === 'PARTIALLY_READY').length,
     READY: allOrdersList.filter((o) => o.status === 'READY').length,
     CONFIRMED: allOrdersList.filter((o) => o.status === 'CONFIRMED').length,
-    COMPLETED: allOrdersList.filter((o) => o.status === 'COMPLETED').length,
     CANCELLED: allOrdersList.filter((o) => o.status === 'CANCELLED').length,
   };
 
