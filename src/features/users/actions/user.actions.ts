@@ -64,6 +64,11 @@ export async function updateUserStatusAction(
       adminUser.email || 'Admin'
     );
 
+    if (input.newStatus === 'disabled') {
+      const { revokeUserSessions } = await import('@/features/auth/infrastructure/session');
+      await revokeUserSessions(input.targetUid).catch(() => {});
+    }
+
     const { revalidatePath } = await import('next/cache');
     revalidatePath('/admin/customers');
     revalidatePath('/account');

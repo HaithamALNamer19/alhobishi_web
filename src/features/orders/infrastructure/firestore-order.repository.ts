@@ -95,15 +95,14 @@ export class FirestoreOrderRepository {
     if (customerIds.length === 0) return;
 
     try {
-      const userDocs = await Promise.allSettled(
-        customerIds.map((id) => this.db.collection(Collections.USERS).doc(id).get())
-      );
+      const refs = customerIds.map((id) => this.db.collection(Collections.USERS).doc(id));
+      const snapshots = await this.db.getAll(...refs);
       const nameMap = new Map<string, string>();
-      userDocs.forEach((res) => {
-        if (res.status === 'fulfilled' && res.value.exists) {
-          const u = res.value.data()!;
-          if (u.displayName) {
-            nameMap.set(res.value.id, u.displayName);
+      snapshots.forEach((doc) => {
+        if (doc.exists) {
+          const u = doc.data();
+          if (u?.displayName) {
+            nameMap.set(doc.id, u.displayName);
           }
         }
       });

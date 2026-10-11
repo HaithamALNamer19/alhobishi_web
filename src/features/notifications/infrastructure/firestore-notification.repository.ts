@@ -87,22 +87,21 @@ export class FirestoreNotificationRepository {
   async getUnreadCount(userId: string, isBackOffice = false): Promise<number> {
     const targetUserIds = this.getUserIdsFilter(userId, isBackOffice);
 
-    let snap: FirebaseFirestore.QuerySnapshot;
+    let query: FirebaseFirestore.Query;
     if (targetUserIds.length === 1) {
-      snap = await this.db
+      query = this.db
         .collection(Collections.NOTIFICATIONS)
         .where('userId', '==', targetUserIds[0])
-        .where('isRead', '==', false)
-        .get();
+        .where('isRead', '==', false);
     } else {
-      snap = await this.db
+      query = this.db
         .collection(Collections.NOTIFICATIONS)
         .where('userId', 'in', targetUserIds)
-        .where('isRead', '==', false)
-        .get();
+        .where('isRead', '==', false);
     }
 
-    return snap.size;
+    const snap = await query.count().get();
+    return snap.data().count;
   }
 
   async markAsRead(notificationId: string): Promise<void> {
