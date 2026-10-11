@@ -6,7 +6,7 @@ import { formatMoney } from '@/core/domain/money';
 import { Badge, RoleBadge } from '@/shared/ui/badge';
 import { UrlPagination } from '@/shared/ui/url-pagination';
 import { ORDER_STATUS_LABELS, type OrderStatus } from '@/features/orders/domain/order';
-import { ClipboardList, ArrowLeft, CalendarCheck2 } from 'lucide-react';
+import { ClipboardList, ArrowLeft, CalendarCheck2, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 
 export const metadata = {
@@ -20,20 +20,47 @@ interface AdminOrdersPageProps {
   searchParams: Promise<{ page?: string; status?: string }>;
 }
 
+const STATUS_TABS: Array<{ id: string | null; label: string }> = [
+  { id: null, label: 'الكل' },
+  { id: 'PENDING', label: 'بانتظار التجهيز' },
+  { id: 'PREPARING', label: 'جاري التجهيز' },
+  { id: 'READY', label: 'جاهز للاستلام' },
+  { id: 'CONFIRMED', label: 'معتمد' },
+  { id: 'COMPLETED', label: 'مكتمل ومسلّم' },
+  { id: 'CANCELLED', label: 'ملغي' },
+];
+
 export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageProps) {
   await connection();
   const PAGE_SIZE = 15;
   const { page: pageStr, status } = await searchParams;
   const currentPage = Math.max(1, parseInt(pageStr || '1', 10) || 1);
 
-  const allOrders = await orderRepository.listAll({
-    status: status as OrderStatus | undefined,
+  // Fetch all orders to compute tab counts accurately
+  const allOrdersList = await orderRepository.listAll({
     limit: 1000,
   });
 
-  const totalOrders = allOrders.length;
+  const counts: Record<string, number> = {
+    ALL: allOrdersList.length,
+    PENDING: allOrdersList.filter((o) => o.status === 'PENDING').length,
+    PREPARING: allOrdersList.filter((o) => o.status === 'PREPARING' || o.status === 'PARTIALLY_READY').length,
+    READY: allOrdersList.filter((o) => o.status === 'READY').length,
+    CONFIRMED: allOrdersList.filter((o) => o.status === 'CONFIRMED').length,
+    COMPLETED: allOrdersList.filter((o) => o.status === 'COMPLETED').length,
+    CANCELLED: allOrdersList.filter((o) => o.status === 'CANCELLED').length,
+  };
+
+  const filteredOrders = status
+    ? allOrdersList.filter((o) => {
+        if (status === 'PREPARING') return o.status === 'PREPARING' || o.status === 'PARTIALLY_READY';
+        return o.status === status;
+      })
+    : allOrdersList;
+
+  const totalOrders = filteredOrders.length;
   const totalPages = Math.ceil(totalOrders / PAGE_SIZE) || 1;
-  const orders = allOrders.slice(
+  const orders = filteredOrders.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE
   );
@@ -67,11 +94,62 @@ export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageP
         </Link>
       </div>
 
+      {/* Filter Tabs by Status */}
+      <div className="bg-white p-3 sm:p-4 rounded-3xl border border-slate-200/80 shadow-xs flex items-center gap-2 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 pl-3 border-l border-slate-200 shrink-0">
+          <SlidersHorizontal className="w-4 h-4 text-slate-400" />
+          <span>تصفية الحالة:</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {STATUS_TABS.map((tab) => {
+            const isActive = tab.id === null ? !status : status === tab.id;
+            const count = tab.id === null ? counts.ALL : (counts[tab.id] ?? 0);
+            const href = tab.id ? `/admin/orders?status=${tab.id}` : '/admin/orders';
+
+            return (
+              <Link
+                key={tab.label}
+                href={href}
+                className={`px-3.5 py-1.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/70'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : 'bg-slate-200/80 text-slate-600'
+                  }`}
+                >
+                  {count}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Orders Table */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
         {orders.length === 0 ? (
-          <div className="p-16 text-center text-slate-400 text-sm">
-            لا توجد طلبات مسجلة بعد في النظام
+          <div className="p-16 text-center text-slate-400 text-sm space-y-3">
+            <p>
+              {status
+                ? `لا توجد طلبات مسجلة بحالة "${ORDER_STATUS_LABELS[status as OrderStatus] || status}" حالياً`
+                : 'لا توجد طلبات مسجلة بعد في النظام'}
+            </p>
+            {status && (
+              <div>
+                <Link href="/admin/orders">
+                  <Button variant="outline" size="sm" className="text-xs">
+                    عرض جميع الطلبات
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         ) : (
           <>
