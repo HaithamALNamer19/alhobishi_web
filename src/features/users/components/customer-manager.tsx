@@ -130,9 +130,9 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
     if (statusFilter && (u.status || 'active') !== statusFilter) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
-      const matchName = u.displayName.toLowerCase().includes(q);
-      const matchUser = u.username.toLowerCase().includes(q);
-      const matchPhone = u.phone?.includes(q);
+      const matchName = (u.displayName || '').toLowerCase().includes(q);
+      const matchUser = (u.username || '').toLowerCase().includes(q);
+      const matchPhone = (u.phone || '').includes(q);
       if (!matchName && !matchUser && !matchPhone) return false;
     }
     return true;
@@ -472,16 +472,13 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
                           )}
 
                           {/* View Statement Button */}
-                          <Link href={`/admin/customers/${u.uid}/statement`}>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-[11px] h-7 px-2 text-slate-700 border-slate-200 hover:bg-slate-100 gap-1"
-                              title="عرض كشف الحساب المالي وفواتيره وسنداته"
-                            >
-                              <FileText className="w-3.5 h-3.5 text-blue-700" />
-                              <span>كشف الحساب</span>
-                            </Button>
+                          <Link
+                            href={`/admin/customers/${u.uid}/statement`}
+                            className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 text-[11px] h-7 px-2 gap-1 select-none"
+                            title="عرض كشف الحساب المالي وفواتيره وسنداته"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-blue-700" />
+                            <span>كشف الحساب</span>
                           </Link>
 
                           {/* Record Payment Button */}
@@ -531,14 +528,14 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
       </div>
 
       {/* Role Selection Dialog */}
-      <Dialog
-        isOpen={!!roleModalUser}
-        onClose={() => setRoleModalUser(null)}
-        maxWidth="lg"
-        title="تعديل دور وصلاحيات المستخدم"
-        description={`تحديد صلاحيات حساب "${roleModalUser?.displayName}" (@${roleModalUser?.username})`}
-      >
-        {roleModalUser && (
+      {roleModalUser && (
+        <Dialog
+          isOpen={!!roleModalUser}
+          onClose={() => setRoleModalUser(null)}
+          maxWidth="lg"
+          title="تعديل دور وصلاحيات المستخدم"
+          description={`تحديد صلاحيات حساب "${roleModalUser?.displayName}" (@${roleModalUser?.username})`}
+        >
           <div className="space-y-4 pt-1">
             {/* Current Info */}
             <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs">
@@ -644,37 +641,39 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
               </Button>
             </div>
           </div>
-        )}
-      </Dialog>
+        </Dialog>
+      )}
 
       {/* Account Status Confirmation */}
-      <ConfirmDialog
-        isOpen={!!statusTarget}
-        onClose={() => setStatusTarget(null)}
-        onConfirm={handleConfirmStatusChange}
-        title={
-          statusTarget?.newStatus === 'disabled'
-            ? `إيقاف حساب: ${statusTarget?.user.displayName}`
-            : `تنشيط حساب: ${statusTarget?.user.displayName}`
-        }
-        description={
-          statusTarget?.newStatus === 'disabled'
-            ? `هل أنت متأكد من رغبتك في إيقاف وتعطيل حساب "${statusTarget?.user.displayName}"؟ لن يتمكن من تسجيل الدخول إلى المتجر وسيتم إيقاف كافة جلساته الحالية فوراً.`
-            : `هل تريد إعادة تنشيط حساب "${statusTarget?.user.displayName}"؟ سيتمكن المستخدم من تسجيل الدخول واستخدام المتجر بشكل طبيعي.`
-        }
-        confirmLabel={statusTarget?.newStatus === 'disabled' ? 'تأكيد إيقاف الحساب' : 'تأكيد تنشيط الحساب'}
-        cancelLabel="إلغاء"
-        variant={statusTarget?.newStatus === 'disabled' ? 'danger' : 'primary'}
-        isLoading={isPending}
-      />
+      {statusTarget && (
+        <ConfirmDialog
+          isOpen={!!statusTarget}
+          onClose={() => setStatusTarget(null)}
+          onConfirm={handleConfirmStatusChange}
+          title={
+            statusTarget?.newStatus === 'disabled'
+              ? `إيقاف حساب: ${statusTarget?.user.displayName}`
+              : `تنشيط حساب: ${statusTarget?.user.displayName}`
+          }
+          description={
+            statusTarget?.newStatus === 'disabled'
+              ? `هل أنت متأكد من رغبتك في إيقاف وتعطيل حساب "${statusTarget?.user.displayName}"؟ لن يتمكن من تسجيل الدخول إلى المتجر وسيتم إيقاف كافة جلساته الحالية فوراً.`
+              : `هل تريد إعادة تنشيط حساب "${statusTarget?.user.displayName}"؟ سيتمكن المستخدم من تسجيل الدخول واستخدام المتجر بشكل طبيعي.`
+          }
+          confirmLabel={statusTarget?.newStatus === 'disabled' ? 'تأكيد إيقاف الحساب' : 'تأكيد تنشيط الحساب'}
+          cancelLabel="إلغاء"
+          variant={statusTarget?.newStatus === 'disabled' ? 'danger' : 'primary'}
+          isLoading={isPending}
+        />
+      )}
 
       {/* Record Payment Dialog */}
-      <Dialog
-        isOpen={!!paymentUser}
-        onClose={() => setPaymentUser(null)}
-        title={`تسجيل سند قبض لحساب: ${paymentUser?.displayName}`}
-      >
-        {paymentUser && (
+      {paymentUser && (
+        <Dialog
+          isOpen={!!paymentUser}
+          onClose={() => setPaymentUser(null)}
+          title={`تسجيل سند قبض لحساب: ${paymentUser?.displayName}`}
+        >
           <form onSubmit={handleRecordPayment} className="space-y-4">
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs space-y-1">
               <div className="flex justify-between">
@@ -754,29 +753,31 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
               </Button>
             </div>
           </form>
-        )}
-      </Dialog>
+        </Dialog>
+      )}
 
       {/* Sales Return Dialog */}
-      <CreateReturnDialog
-        isOpen={Boolean(returnUser)}
-        onClose={() => setReturnUser(null)}
-        preselectedCustomer={
-          returnUser
-            ? {
-                uid: returnUser.uid,
-                displayName: returnUser.displayName || returnUser.username,
-                role: returnUser.role,
-                phone: returnUser.phone,
-                balance: returnUser.account?.balance ?? 0,
-              }
-            : null
-        }
-        onSuccess={() => {
-          setReturnUser(null);
-          router.refresh();
-        }}
-      />
+      {Boolean(returnUser) && (
+        <CreateReturnDialog
+          isOpen={Boolean(returnUser)}
+          onClose={() => setReturnUser(null)}
+          preselectedCustomer={
+            returnUser
+              ? {
+                  uid: returnUser.uid,
+                  displayName: returnUser.displayName || returnUser.username,
+                  role: returnUser.role,
+                  phone: returnUser.phone,
+                  balance: returnUser.account?.balance ?? 0,
+                }
+              : null
+          }
+          onSuccess={() => {
+            setReturnUser(null);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

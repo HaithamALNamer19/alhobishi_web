@@ -115,7 +115,7 @@ export class FirestoreUserRepository {
   async findById(uid: string): Promise<UserProfile | null> {
     const doc = await this.db.collection(Collections.USERS).doc(uid).get();
     if (!doc.exists) return null;
-    return this.mapDoc(doc.data()!);
+    return this.mapDoc(doc.data()!, doc.id);
   }
 
   async findByUsername(username: string): Promise<UserProfile | null> {
@@ -135,7 +135,7 @@ export class FirestoreUserRepository {
       query = query.orderBy('createdAt', 'desc').limit(limit);
     }
     const snap = await query.get();
-    let users = snap.docs.map((d) => this.mapDoc(d.data()));
+    let users = snap.docs.map((d) => this.mapDoc(d.data(), d.id));
     if (role) {
       users = users.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit);
     }
@@ -238,19 +238,19 @@ export class FirestoreUserRepository {
     }
   }
 
-  private mapDoc(data: FirebaseFirestore.DocumentData): UserProfile {
+  private mapDoc(data: FirebaseFirestore.DocumentData, docId?: string): UserProfile {
     return {
-      uid: data.uid,
-      username: data.username,
-      displayName: data.displayName,
-      phone: data.phone,
-      role: data.role,
-      status: data.status,
+      uid: data.uid || docId || '',
+      username: data.username || '',
+      displayName: data.displayName || data.username || 'مستخدم',
+      phone: data.phone || '',
+      role: data.role || Role.CUSTOMER,
+      status: data.status || 'active',
       account: {
-        balance: data.balance ?? data.account?.balance ?? 0,
-        totalDebit: data.account?.totalDebit ?? 0,
-        totalCredit: data.account?.totalCredit ?? 0,
-        lastSeq: data.account?.lastSeq ?? 0,
+        balance: Number(data.balance ?? data.account?.balance ?? 0),
+        totalDebit: Number(data.account?.totalDebit ?? 0),
+        totalCredit: Number(data.account?.totalCredit ?? 0),
+        lastSeq: Number(data.account?.lastSeq ?? 0),
         lastTransactionAt:
           typeof data.account?.lastTransactionAt?.toDate === 'function'
             ? data.account.lastTransactionAt.toDate()
@@ -259,8 +259,8 @@ export class FirestoreUserRepository {
               : null,
       },
       stats: {
-        ordersCount: data.stats?.ordersCount ?? 0,
-        openOrdersCount: data.stats?.openOrdersCount ?? 0,
+        ordersCount: Number(data.stats?.ordersCount ?? 0),
+        openOrdersCount: Number(data.stats?.openOrdersCount ?? 0),
       },
       wholesaleSince:
         typeof data.wholesaleSince?.toDate === 'function'

@@ -302,6 +302,8 @@ export function CreateReturnDialog({
     });
   };
 
+  if (!isOpen) return null;
+
   return (
     <Dialog isOpen={isOpen} onClose={onClose} maxWidth="4xl" hideCloseButton>
       <div className="space-y-5 text-right font-sans" dir="rtl">
