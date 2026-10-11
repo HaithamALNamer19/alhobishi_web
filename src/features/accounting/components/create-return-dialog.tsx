@@ -272,10 +272,10 @@ export function CreateReturnDialog({
   });
 
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} title="" className="max-w-4xl w-full">
+    <Dialog isOpen={isOpen} onClose={onClose} maxWidth="4xl" hideCloseButton>
       <div className="space-y-5 text-right font-sans" dir="rtl">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div className="sticky -top-5 sm:-top-6 -mt-5 sm:-mt-6 -mx-5 sm:-mx-6 px-5 sm:px-6 py-3.5 bg-white/95 backdrop-blur-xs border-b border-slate-200 flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <span className="p-2.5 bg-rose-50 text-rose-700 rounded-2xl border border-rose-200">
               <RotateCcw className="w-6 h-6" />
@@ -720,3 +720,4 @@ export function CreateReturnDialog({
     </Dialog>
   );
 }
+

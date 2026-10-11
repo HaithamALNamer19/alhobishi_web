@@ -180,3 +180,4 @@ export function PrintableReturnInvoice({ returnDoc }: PrintableReturnInvoiceProp
     </div>
   );
 }
+
