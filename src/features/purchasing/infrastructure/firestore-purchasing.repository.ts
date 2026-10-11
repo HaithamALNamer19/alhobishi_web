@@ -133,6 +133,105 @@ export class FirestorePurchasingRepository {
     };
   }
 
+  async updateSupplier(
+    id: string,
+    data: { name: string; phone: string; company_name: string }
+  ): Promise<Supplier> {
+    const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(id);
+    const supplierSnap = await supplierRef.get();
+    if (!supplierSnap.exists) {
+      throw new Error('المورد المحدد غير موجود.');
+    }
+
+    const trimmedName = (data.name || '').trim();
+    const trimmedPhone = (data.phone || '').trim();
+    const trimmedCompany = (data.company_name || '').trim();
+
+    if (!trimmedName) {
+      throw new Error('يرجى إدخال اسم المورد.');
+    }
+    if (!trimmedPhone) {
+      throw new Error('يرجى إدخال رقم هاتف المورد.');
+    }
+
+    await supplierRef.update({
+      name: trimmedName,
+      phone: trimmedPhone,
+      company_name: trimmedCompany,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const d = supplierSnap.data()!;
+    return {
+      id,
+      name: trimmedName,
+      phone: trimmedPhone,
+      company_name: trimmedCompany,
+      balance: Number(d.balance || 0),
+      createdAt: toDate(d.createdAt),
+    };
+  }
+
+  async deleteSupplier(id: string): Promise<void> {
+    const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(id);
+    const supplierSnap = await supplierRef.get();
+    if (!supplierSnap.exists) {
+      throw new Error('المورد غير موجود أو تم حذفه مسبقاً.');
+    }
+
+    const supplierData = supplierSnap.data()!;
+    const balance = Number(supplierData.balance || 0);
+
+    // 1. Check if supplier has any purchases
+    const purchasesSnap = await this.db
+      .collection(Collections.PURCHASES)
+      .where('supplier_id', '==', id)
+      .limit(1)
+      .get();
+
+    if (!purchasesSnap.empty) {
+      throw new Error('لا يمكن حذف المورد لوجود فواتير شراء مسجلة باسمه في النظام.');
+    }
+
+    // 2. Check if supplier has any purchase returns
+    const returnsSnap = await this.db
+      .collection(Collections.PURCHASE_RETURNS)
+      .where('supplier_id', '==', id)
+      .limit(1)
+      .get();
+
+    if (!returnsSnap.empty) {
+      throw new Error('لا يمكن حذف المورد لوجود مردودات مشتريات مسجلة باسمه في النظام.');
+    }
+
+    // 3. Check if supplier has any payment vouchers
+    const paymentsSnap = await this.db
+      .collection(Collections.SUPPLIER_PAYMENTS)
+      .where('supplier_id', '==', id)
+      .limit(1)
+      .get();
+
+    if (!paymentsSnap.empty) {
+      throw new Error('لا يمكن حذف المورد لوجود سندات صرف مسجلة باسمه في النظام.');
+    }
+
+    // 4. Check if supplier has non-zero balance
+    if (balance !== 0) {
+      throw new Error('لا يمكن حذف المورد لأن لديه رصيداً مالياً مسجلاً.');
+    }
+
+    // 5. Clean up any initial balance transaction and delete supplier doc
+    const initTxSnap = await this.db
+      .collection(Collections.SUPPLIER_TRANSACTIONS)
+      .where('supplier_id', '==', id)
+      .get();
+
+    const batch = this.db.batch();
+    initTxSnap.forEach((doc) => batch.delete(doc.ref));
+    batch.delete(supplierRef);
+    await batch.commit();
+  }
+
   // ==========================================
   // 2. PURCHASES INVOICES (runTransaction)
   // ==========================================

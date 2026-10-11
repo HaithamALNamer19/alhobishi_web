@@ -56,6 +56,56 @@ export async function listSuppliersAction(): Promise<ActionResult<Supplier[]>> {
   }
 }
 
+export async function updateSupplierAction(data: {
+  id: string;
+  name: string;
+  phone: string;
+  company_name: string;
+}): Promise<ActionResult<Supplier>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح لك بتعديل بيانات الموردين.' } };
+    }
+
+    if (!data.id) {
+      return { ok: false, error: { message: 'معرف المورد غير محدد.' } };
+    }
+    if (!data.name?.trim()) {
+      return { ok: false, error: { message: 'يرجى إدخال اسم المورد.' } };
+    }
+    if (!data.phone?.trim()) {
+      return { ok: false, error: { message: 'يرجى إدخال رقم هاتف المورد.' } };
+    }
+
+    const updated = await purchasingRepository.updateSupplier(data.id, data);
+    revalidatePath('/admin/suppliers');
+    revalidatePath(`/admin/suppliers/${data.id}/statement`);
+    return { ok: true, data: updated };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل تعديل بيانات المورد.' } };
+  }
+}
+
+export async function deleteSupplierAction(id: string): Promise<ActionResult<void>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح لك بحذف الموردين.' } };
+    }
+
+    if (!id) {
+      return { ok: false, error: { message: 'معرف المورد غير محدد.' } };
+    }
+
+    await purchasingRepository.deleteSupplier(id);
+    revalidatePath('/admin/suppliers');
+    return { ok: true, data: undefined };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل حذف المورد.' } };
+  }
+}
+
 export async function createPurchaseInvoiceAction(params: {
   supplier_id: string;
   invoice_number?: string;

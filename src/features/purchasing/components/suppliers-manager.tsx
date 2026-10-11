@@ -14,13 +14,20 @@ import {
   Loader2,
   FileText,
   UserCheck,
+  Pencil,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Dialog } from '@/shared/ui/dialog';
 import { Badge } from '@/shared/ui/badge';
 import { formatMoney } from '@/core/domain/money';
-import { createSupplierAction } from '../actions/purchasing.actions';
+import {
+  createSupplierAction,
+  updateSupplierAction,
+  deleteSupplierAction,
+} from '../actions/purchasing.actions';
 import type { Supplier } from '../domain/purchasing';
 
 export interface SerializedSupplier {
@@ -48,6 +55,83 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
   const [newCompany, setNewCompany] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newBalance, setNewBalance] = useState('0');
+
+  // Edit Supplier State
+  const [editingSupplier, setEditingSupplier] = useState<SerializedSupplier | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCompany, setEditCompany] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+
+  // Delete Supplier State
+  const [deletingSupplier, setDeletingSupplier] = useState<SerializedSupplier | null>(null);
+
+  const handleStartEdit = (s: SerializedSupplier) => {
+    setEditingSupplier(s);
+    setEditName(s.name);
+    setEditCompany(s.company_name || '');
+    setEditPhone(s.phone || '');
+  };
+
+  const handleUpdateSupplier = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSupplier) return;
+    if (!editName.trim()) {
+      toast.error('يرجى إدخال اسم المورد.');
+      return;
+    }
+    if (!editPhone.trim()) {
+      toast.error('يرجى إدخال رقم هاتف المورد.');
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await updateSupplierAction({
+        id: editingSupplier.id,
+        name: editName.trim(),
+        company_name: editCompany.trim(),
+        phone: editPhone.trim(),
+      });
+
+      if (!res.ok) {
+        toast.error(res.error.message || 'فشل تعديل بيانات المورد.');
+        return;
+      }
+
+      toast.success(`تم تعديل بيانات المورد "${editName}" بنجاح!`);
+      setSuppliers((prev) =>
+        prev.map((item) =>
+          item.id === editingSupplier.id
+            ? {
+                ...item,
+                name: editName.trim(),
+                company_name: editCompany.trim(),
+                phone: editPhone.trim(),
+              }
+            : item
+        )
+      );
+      setEditingSupplier(null);
+      router.refresh();
+    });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deletingSupplier) return;
+
+    startTransition(async () => {
+      const res = await deleteSupplierAction(deletingSupplier.id);
+
+      if (!res.ok) {
+        toast.error(res.error.message || 'فشل حذف المورد.');
+        return;
+      }
+
+      toast.success(`تم حذف المورد "${deletingSupplier.name}" بنجاح.`);
+      setSuppliers((prev) => prev.filter((item) => item.id !== deletingSupplier.id));
+      setDeletingSupplier(null);
+      router.refresh();
+    });
+  };
 
   // Filter suppliers
   const filteredSuppliers = suppliers.filter((s) => {
@@ -241,7 +325,7 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
                       </td>
 
                       <td className="py-4 px-4 text-left">
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           <Link
                             href={`/admin/suppliers/${s.id}/statement`}
                             className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-[11px] h-7 px-2.5 gap-1.5 select-none"
@@ -250,6 +334,26 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
                             <FileText className="w-3.5 h-3.5 text-blue-600" />
                             <span>كشف حساب</span>
                           </Link>
+
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(s)}
+                            className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-[11px] h-7 px-2 gap-1 select-none cursor-pointer"
+                            title="تعديل بيانات المورد"
+                          >
+                            <Pencil className="w-3.5 h-3.5 text-amber-600" />
+                            <span>تعديل</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setDeletingSupplier(s)}
+                            className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 text-[11px] h-7 px-2 gap-1 select-none cursor-pointer"
+                            title="حذف المورد"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                            <span>حذف</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -320,6 +424,113 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
               </Button>
             </div>
           </form>
+        </Dialog>
+      )}
+
+      {/* Edit Supplier Dialog */}
+      {editingSupplier && (
+        <Dialog
+          isOpen={Boolean(editingSupplier)}
+          onClose={() => setEditingSupplier(null)}
+          title={`تعديل بيانات المورد: ${editingSupplier.name}`}
+          description="تعديل اسم المورد، اسم الشركة، ورقم الهاتف."
+          maxWidth="md"
+        >
+          <form onSubmit={handleUpdateSupplier} className="space-y-4 pt-2 text-right" dir="rtl">
+            <Input
+              label="اسم المورد أو المسؤول *"
+              placeholder="مثال: محمد عبدالله باوزير"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              required
+              autoFocus
+            />
+
+            <Input
+              label="اسم الشركة أو المؤسسة (اختياري)"
+              placeholder="مثال: شركة حضرموت للتجارة والاستيراد"
+              value={editCompany}
+              onChange={(e) => setEditCompany(e.target.value)}
+            />
+
+            <Input
+              label="رقم الهاتف أو الواتساب *"
+              placeholder="مثال: 777123456"
+              value={editPhone}
+              onChange={(e) => setEditPhone(e.target.value)}
+              dir="ltr"
+              required
+            />
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingSupplier(null)}
+                disabled={isPending}
+              >
+                إلغاء
+              </Button>
+              <Button type="submit" disabled={isPending} className="flex items-center gap-2">
+                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                <span>حفظ التعديلات</span>
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+
+      {/* Delete Supplier Confirmation Dialog */}
+      {deletingSupplier && (
+        <Dialog
+          isOpen={Boolean(deletingSupplier)}
+          onClose={() => setDeletingSupplier(null)}
+          title="تأكيد حذف المورد"
+          description="التحقق من سجل المورد وحذفه نهائياً من النظام."
+          maxWidth="md"
+        >
+          <div className="space-y-4 pt-2 text-right" dir="rtl">
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <p className="font-bold text-rose-950">
+                  هل أنت متأكد من رغبتك في حذف المورد «{deletingSupplier.name}»؟
+                </p>
+                <p className="text-rose-700">
+                  لا يمكن حذف المورد إذا كانت لديه أي معاملات مالية (فواتير شراء، مردودات، أو سندات صرف) مسجلة بالنظام.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDeletingSupplier(null)}
+                disabled={isPending}
+              >
+                إلغاء
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isPending}
+                className="bg-rose-700 hover:bg-rose-800 text-white font-bold flex items-center gap-2"
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>جاري التحقق والحذف...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>تأكيد الحذف</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </Dialog>
       )}
     </div>

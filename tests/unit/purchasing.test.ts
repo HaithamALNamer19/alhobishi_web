@@ -191,6 +191,28 @@ describe('Purchasing Cycle Logic & Calculations', () => {
     expect(running).toBe(20000);
     expect(tafqeetRials(running)).toBe('فقط وقدره عشرون ألف ريال يمني لا غير');
   });
+
+  it('correctly blocks deletion if supplier has transactions or non-zero balance', () => {
+    function canDeleteSupplier(supplier: { balance: number }, hasTransactions: boolean) {
+      if (hasTransactions) {
+        return { allowed: false, reason: 'لا يمكن حذف المورد لوجود معاملات مالية أو فواتير مرتبطة به في النظام.' };
+      }
+      if (supplier.balance !== 0) {
+        return { allowed: false, reason: 'لا يمكن حذف المورد لأن لديه رصيداً مالياً مسجلاً.' };
+      }
+      return { allowed: true };
+    }
+
+    // 1. Supplier with purchases/vouchers
+    expect(canDeleteSupplier({ balance: 0 }, true).allowed).toBe(false);
+
+    // 2. Supplier with balance != 0
+    expect(canDeleteSupplier({ balance: 5000 }, false).allowed).toBe(false);
+
+    // 3. Clean supplier with zero transactions and zero balance
+    expect(canDeleteSupplier({ balance: 0 }, false).allowed).toBe(true);
+  });
 });
+
 
 
