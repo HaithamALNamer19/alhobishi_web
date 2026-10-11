@@ -20,6 +20,10 @@ export const Collections = {
   SETTINGS: 'settings',
   BANNERS: 'banners',
   SALES_RETURNS: 'salesReturns',
+  SUPPLIERS: 'suppliers',
+  PURCHASES: 'purchases',
+  PURCHASE_RETURNS: 'purchase_returns',
+  STOCK_MOVEMENTS: 'stock_movements',
 } as const;
 
 export type CollectionName = (typeof Collections)[keyof typeof Collections];
