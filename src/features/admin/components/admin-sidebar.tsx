@@ -237,9 +237,36 @@ export function AdminSidebar({ session, isAdmin }: AdminSidebarProps) {
     },
   ];
 
+  const allNavHrefs = [
+    '/admin',
+    '/admin/orders/today',
+    '/admin/orders',
+    '/admin/returns',
+    '/admin/products',
+    '/admin/categories',
+    '/admin/inventory/movements',
+    '/admin/purchases',
+    '/admin/purchases/returns',
+    '/admin/suppliers',
+    '/admin/customers',
+    '/admin/payments',
+    '/admin/banners',
+    '/account/notifications',
+  ];
+
   const isLinkActive = (href: string) => {
+    if (pathname === href) return true;
     if (href === '/admin') return pathname === '/admin';
-    return pathname.startsWith(href);
+    if (pathname.startsWith(href + '/')) {
+      const hasMoreSpecificMatch = allNavHrefs.some(
+        (other) =>
+          other !== href &&
+          other.length > href.length &&
+          (pathname === other || pathname.startsWith(other + '/'))
+      );
+      return !hasMoreSpecificMatch;
+    }
+    return false;
   };
 
   // حالة فتح وإغلاق المجموعات (Accordion State)

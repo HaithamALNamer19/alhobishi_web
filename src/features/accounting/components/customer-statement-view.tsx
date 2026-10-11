@@ -135,13 +135,14 @@ export function CustomerStatementView({
     let invSum = 0;
     let paySum = 0;
     let retSum = 0;
-    for (const t of transactions) {
+    for (const t of transactions || []) {
+      const amt = Number(t.amount) || 0;
       if (t.type === 'INVOICE') {
-        invSum += t.amount;
+        invSum += amt;
       } else if (t.type === 'PAYMENT') {
-        paySum += Math.abs(t.amount);
+        paySum += Math.abs(amt);
       } else if (t.type === 'RETURN') {
-        retSum += Math.abs(t.amount);
+        retSum += Math.abs(amt);
       }
     }
     return { totalInvoices: invSum, totalPayments: paySum, totalReturns: retSum };
@@ -149,18 +150,19 @@ export function CustomerStatementView({
 
   // Filter Transactions
   const filteredTransactions = useMemo(() => {
-    return transactions.filter((t) => {
+    return (transactions || []).filter((t) => {
       if (typeFilter !== 'ALL' && t.type !== typeFilter) {
         return false;
       }
       if (!search.trim()) return true;
 
       const q = search.toLowerCase();
-      const descMatch = t.description.toLowerCase().includes(q);
-      const amountMatch = t.amount.toString().includes(q);
+      const descMatch = (t.description || '').toLowerCase().includes(q);
+      const amountMatch = (Number(t.amount) || 0).toString().includes(q);
       const idMatch =
         (t.orderId || '').toLowerCase().includes(q) ||
-        (t.paymentId || '').toLowerCase().includes(q);
+        (t.paymentId || '').toLowerCase().includes(q) ||
+        (t.returnId || '').toLowerCase().includes(q);
       let dateMatch = false;
       try {
         const d = new Date(t.createdAt);
@@ -557,14 +559,14 @@ export function CustomerStatementView({
                         <td className="py-3.5 px-4 font-mono text-slate-500 whitespace-nowrap">
                           {isValidDate ? (
                             <div>
-                              <span>
+                              <span suppressHydrationWarning>
                                 {dateObj.toLocaleDateString('ar-YE', {
                                   day: 'numeric',
                                   month: 'short',
                                   year: 'numeric',
                                 })}
                               </span>
-                              <span className="block text-[10px] text-slate-400">
+                              <span className="block text-[10px] text-slate-400" suppressHydrationWarning>
                                 {dateObj.toLocaleTimeString('ar-YE', {
                                   hour: '2-digit',
                                   minute: '2-digit',
@@ -737,43 +739,51 @@ export function CustomerStatementView({
       </div>
 
       {/* Invoice Detail Dialog */}
-      <InvoiceDetailDialog
-        isOpen={isInvoiceModalOpen}
-        onClose={() => setIsInvoiceModalOpen(false)}
-        order={selectedInvoice}
-        isLoading={isDocLoading}
-        onPrint={(ord) => handlePrint({ type: 'invoice', order: ord })}
-      />
+      {isInvoiceModalOpen && (
+        <InvoiceDetailDialog
+          isOpen={isInvoiceModalOpen}
+          onClose={() => setIsInvoiceModalOpen(false)}
+          order={selectedInvoice}
+          isLoading={isDocLoading}
+          onPrint={(ord) => handlePrint({ type: 'invoice', order: ord })}
+        />
+      )}
 
       {/* Receipt Detail Dialog */}
-      <ReceiptDetailDialog
-        isOpen={isReceiptModalOpen}
-        onClose={() => setIsReceiptModalOpen(false)}
-        payment={selectedPayment}
-        isLoading={isDocLoading}
-        onPrint={(pay) => handlePrint({ type: 'receipt', payment: pay })}
-      />
+      {isReceiptModalOpen && (
+        <ReceiptDetailDialog
+          isOpen={isReceiptModalOpen}
+          onClose={() => setIsReceiptModalOpen(false)}
+          payment={selectedPayment}
+          isLoading={isDocLoading}
+          onPrint={(pay) => handlePrint({ type: 'receipt', payment: pay })}
+        />
+      )}
 
       {/* Return Detail Dialog */}
-      <ReturnDetailDialog
-        isOpen={isReturnModalOpen}
-        onClose={() => setIsReturnModalOpen(false)}
-        returnDoc={selectedReturn}
-        onPrint={(doc) => handlePrint({ type: 'return', returnDoc: doc })}
-      />
+      {isReturnModalOpen && (
+        <ReturnDetailDialog
+          isOpen={isReturnModalOpen}
+          onClose={() => setIsReturnModalOpen(false)}
+          returnDoc={selectedReturn}
+          onPrint={(doc) => handlePrint({ type: 'return', returnDoc: doc })}
+        />
+      )}
 
       {/* Create Return Dialog */}
-      <CreateReturnDialog
-        isOpen={isCreateReturnOpen}
-        onClose={() => setIsCreateReturnOpen(false)}
-        preselectedCustomer={customer}
-        onSuccess={({ returnId }) => {
-          handleOpenReturn(returnId);
-        }}
-      />
+      {isCreateReturnOpen && (
+        <CreateReturnDialog
+          isOpen={isCreateReturnOpen}
+          onClose={() => setIsCreateReturnOpen(false)}
+          preselectedCustomer={customer}
+          onSuccess={({ returnId }) => {
+            handleOpenReturn(returnId);
+          }}
+        />
+      )}
 
-      {/* Printable Documents Root (Rendered via Portal onto document.body for clean isolation) */}
-      {mounted &&
+      {/* Printable Documents Root (Rendered via Portal onto document.body ONLY when actively printing) */}
+      {mounted && Boolean(activePrint) &&
         createPortal(
           <div className="print-only-portal">
             {activePrint?.type === 'invoice' ? (
@@ -782,7 +792,7 @@ export function CustomerStatementView({
               <PrintableReceipt payment={activePrint.payment} />
             ) : activePrint?.type === 'return' ? (
               <PrintableReturnInvoice returnDoc={activePrint.returnDoc} />
-            ) : (
+            ) : activePrint?.type === 'statement' ? (
               <PrintableStatement
                 customer={customer}
                 transactions={transactions}
@@ -791,7 +801,7 @@ export function CustomerStatementView({
                 totalReturns={totalReturns}
                 balance={balance}
               />
-            )}
+            ) : null}
           </div>,
           document.body
         )}

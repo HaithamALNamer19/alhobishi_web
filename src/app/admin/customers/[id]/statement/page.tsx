@@ -76,7 +76,7 @@ export default async function AdminCustomerStatementPage({ params }: AdminCustom
       >
         <CustomerStatementView
           customer={{
-            uid: customer.uid,
+            uid: customer.uid || id,
             displayName: customer.displayName || customer.username || 'العميل',
             username: customer.username || '',
             phone: customer.phone || '',
