@@ -7,6 +7,7 @@ import { categoryRepository } from '@/features/categories/infrastructure/firesto
 import { productRepository } from '@/features/products/infrastructure/firestore-product.repository';
 import { ProductCard } from '@/features/products/components/product-card';
 import { UrlPagination } from '@/shared/ui/url-pagination';
+import type { Product } from '@/features/products/domain/product';
 import { ChevronLeft, FolderTree, Home, Package, ArrowLeft } from 'lucide-react';
 
 interface CategoryPageProps {
@@ -34,7 +35,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   }
 
   let session = null;
-  let allProducts: any[] = [];
+  let allProducts: Product[] = [];
   try {
     const [sessionRes, productsRes] = await Promise.allSettled([
       getCurrentSession(),

@@ -9,6 +9,7 @@ import { categoryRepository } from '@/features/categories/infrastructure/firesto
 import { ProductGallery } from '@/features/products/components/product-gallery';
 import { VariantPicker } from '@/features/products/components/variant-picker';
 import { ProductCard } from '@/features/products/components/product-card';
+import type { Product } from '@/features/products/domain/product';
 import {
   ChevronLeft,
   Home,
@@ -51,7 +52,7 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
   }
 
   let category = null;
-  let relatedProductsList: any[] = [];
+  let relatedProductsList: Product[] = [];
   try {
     const [catRes, relRes] = await Promise.allSettled([
       categoryRepository.findById(product.categoryId),

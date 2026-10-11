@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { connection } from 'next/server';
 import { categoryRepository } from '@/features/categories/infrastructure/firestore-category.repository';
+import type { Category } from '@/features/categories/domain/category';
 import { ChevronLeft, Home, ArrowLeft } from 'lucide-react';
 
 export const metadata = {
@@ -14,7 +15,7 @@ export const revalidate = 0;
 
 export default async function CategoriesPage() {
   await connection();
-  let categories: any[] = [];
+  let categories: Category[] = [];
   try {
     categories = await categoryRepository.findAll(true);
   } catch (err) {

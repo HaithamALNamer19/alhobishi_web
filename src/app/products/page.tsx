@@ -6,6 +6,8 @@ import { productRepository } from '@/features/products/infrastructure/firestore-
 import { categoryRepository } from '@/features/categories/infrastructure/firestore-category.repository';
 import { ProductCard } from '@/features/products/components/product-card';
 import { UrlPagination } from '@/shared/ui/url-pagination';
+import type { Product } from '@/features/products/domain/product';
+import type { Category } from '@/features/categories/domain/category';
 import { Package, ChevronLeft, Home, Search, SlidersHorizontal, Sparkles } from 'lucide-react';
 
 export const metadata = {
@@ -27,7 +29,7 @@ export default async function ProductsCatalogPage({ searchParams }: ProductsPage
   const currentPage = Math.max(1, parseInt(pageStr || '1', 10) || 1);
 
   let session = null;
-  let categories: any[] = [];
+  let categories: Category[] = [];
   try {
     const [sessionRes, categoriesRes] = await Promise.allSettled([
       getCurrentSession(),
@@ -49,7 +51,7 @@ export default async function ProductsCatalogPage({ searchParams }: ProductsPage
     }
   }
 
-  let allProducts: any[] = [];
+  let allProducts: Product[] = [];
   try {
     allProducts = await productRepository.list({
       categoryId: activeCategoryId,
