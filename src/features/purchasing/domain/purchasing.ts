@@ -9,7 +9,9 @@ export interface Supplier {
 
 export interface PurchaseItem {
   product_id: string;
+  variant_id?: string;
   product_name?: string;
+  variant_label?: string;
   quantity: number;
   cost_price: number;
 }
@@ -27,7 +29,9 @@ export interface PurchaseInvoice {
 
 export interface PurchaseReturnItem {
   product_id: string;
+  variant_id?: string;
   product_name?: string;
+  variant_label?: string;
   quantity: number;
   cost_price: number;
 }

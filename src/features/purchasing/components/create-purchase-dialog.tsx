@@ -127,8 +127,11 @@ export function CreatePurchaseDialog({
       return;
     }
 
+    const varId = activeProduct.variantId || 'default';
     // Check if item already exists in draft
-    const existingIndex = invoiceItems.findIndex((it) => it.product_id === activeProduct.productId);
+    const existingIndex = invoiceItems.findIndex(
+      (it) => it.product_id === activeProduct.productId && (it.variant_id || 'default') === varId
+    );
     if (existingIndex >= 0) {
       const updated = [...invoiceItems];
       updated[existingIndex].quantity += qty;
@@ -139,7 +142,9 @@ export function CreatePurchaseDialog({
         ...prev,
         {
           product_id: activeProduct.productId,
-          product_name: activeProduct.variantLabel
+          variant_id: varId,
+          variant_label: activeProduct.variantLabel || undefined,
+          product_name: activeProduct.variantLabel && activeProduct.variantLabel !== 'الافتراضي'
             ? `${activeProduct.productName} (${activeProduct.variantLabel})`
             : activeProduct.productName,
           quantity: qty,

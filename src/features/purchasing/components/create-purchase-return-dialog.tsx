@@ -126,8 +126,10 @@ export function CreatePurchaseReturnDialog({
       return;
     }
 
-    // Check if item already exists in draft
-    const existingIndex = returnItems.findIndex((it) => it.product_id === activeProduct.productId);
+    const varId = activeProduct.variantId || 'default';
+    const existingIndex = returnItems.findIndex(
+      (it) => it.product_id === activeProduct.productId && (it.variant_id || 'default') === varId
+    );
     if (existingIndex >= 0) {
       const updated = [...returnItems];
       updated[existingIndex].quantity += qty;
@@ -138,7 +140,9 @@ export function CreatePurchaseReturnDialog({
         ...prev,
         {
           product_id: activeProduct.productId,
-          product_name: activeProduct.variantLabel
+          variant_id: varId,
+          variant_label: activeProduct.variantLabel || undefined,
+          product_name: activeProduct.variantLabel && activeProduct.variantLabel !== 'الافتراضي'
             ? `${activeProduct.productName} (${activeProduct.variantLabel})`
             : activeProduct.productName,
           quantity: qty,

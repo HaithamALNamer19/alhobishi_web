@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { getCurrentSession } from '@/core/auth/require-auth';
 import { isBackOfficeRole } from '@/core/auth/roles';
 import { purchasingRepository } from '../infrastructure/firestore-purchasing.repository';
@@ -33,6 +34,7 @@ export async function createSupplierAction(data: {
     }
 
     const supplier = await purchasingRepository.createSupplier(data);
+    revalidatePath('/admin/suppliers');
     return { ok: true, data: supplier };
   } catch (err: any) {
     return { ok: false, error: { message: err.message || 'فشل إضافة المورد.' } };
@@ -78,6 +80,12 @@ export async function createPurchaseInvoiceAction(params: {
       purchase_date: params.purchase_date ? new Date(params.purchase_date) : undefined,
     });
 
+    revalidatePath('/admin/products');
+    revalidatePath('/admin/purchases');
+    revalidatePath('/admin/inventory/movements');
+    revalidatePath('/products');
+    revalidatePath('/');
+
     return { ok: true, data: purchase };
   } catch (err: any) {
     return { ok: false, error: { message: err.message || 'فشل إنشاء فاتورة الشراء.' } };
@@ -122,6 +130,12 @@ export async function createPurchaseReturnAction(params: {
       ...params,
       return_date: params.return_date ? new Date(params.return_date) : undefined,
     });
+
+    revalidatePath('/admin/products');
+    revalidatePath('/admin/purchases/returns');
+    revalidatePath('/admin/inventory/movements');
+    revalidatePath('/products');
+    revalidatePath('/');
 
     return { ok: true, data: res };
   } catch (err: any) {

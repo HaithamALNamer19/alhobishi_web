@@ -3,6 +3,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/infrastructure/firebase/admin';
 import { Collections } from '@/infrastructure/firebase/collections';
 import { businessYear } from '@/core/domain/dates';
+import { computeStockState } from '@/features/products/domain/variant';
 import type {
   Supplier,
   PurchaseInvoice,
@@ -118,13 +119,24 @@ export class FirestorePurchasingRepository {
       const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(params.supplier_id);
       const counterRef = this.db.collection(Collections.COUNTERS).doc('purchases');
 
-      const [supplierSnap, counterSnap, productSnaps] = await Promise.all([
+      const [supplierSnap, counterSnap, loadedItems] = await Promise.all([
         tx.get(supplierRef),
         tx.get(counterRef),
         Promise.all(
-          params.items.map((it) =>
-            tx.get(this.db.collection(Collections.PRODUCTS).doc(it.product_id))
-          )
+          params.items.map(async (it) => {
+            const prodRef = this.db.collection(Collections.PRODUCTS).doc(it.product_id);
+            const variantId = it.variant_id?.trim() || 'default';
+            const varRef = prodRef.collection(Collections.VARIANTS).doc(variantId);
+            const [prodSnap, varSnap] = await Promise.all([tx.get(prodRef), tx.get(varRef)]);
+            return {
+              item: it,
+              prodRef,
+              varRef,
+              prodSnap,
+              varSnap,
+              variantId,
+            };
+          })
         ),
       ]);
 
@@ -133,9 +145,9 @@ export class FirestorePurchasingRepository {
       }
 
       // Check products exist
-      for (let i = 0; i < productSnaps.length; i++) {
-        if (!productSnaps[i].exists) {
-          throw new Error(`المنتج بالمعرف ${params.items[i].product_id} غير موجود.`);
+      for (const { item, prodSnap } of loadedItems) {
+        if (!prodSnap.exists) {
+          throw new Error(`المنتج بالمعرف ${item.product_id} غير موجود.`);
         }
       }
 
@@ -163,23 +175,61 @@ export class FirestorePurchasingRepository {
       // 2a. Update sequential counter
       tx.set(counterRef, { seq: nextSeq, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
 
-      // 2b. Update stock for each product (current_stock = current_stock + qty) and record movement
-      for (let i = 0; i < params.items.length; i++) {
-        const item = params.items[i];
-        const prodRef = productSnaps[i].ref;
-        const prodData = productSnaps[i].data() || {};
+      // 2b. Update stock for variant subcollection, product document, and record movements
+      for (const { item, prodRef, varRef, prodSnap, varSnap, variantId } of loadedItems) {
+        const prodData = prodSnap.data() || {};
+        const vData = varSnap.exists ? varSnap.data()! : {};
 
-        const currentStock = Number(prodData.current_stock ?? prodData.stockQty ?? 0);
-        const newStock = currentStock + item.quantity;
+        const currentVarStock = Number(vData.stockQty ?? 0);
+        const currentReserved = Number(vData.reservedQty ?? 0);
+        const newVarStock = currentVarStock + item.quantity;
+        const newAvailable = Math.max(0, newVarStock - currentReserved);
+        const threshold = Number(vData.lowStockThreshold ?? 5);
+        const newStockState = computeStockState(newAvailable, threshold);
 
-        // Updating current_stock without overwriting any other product properties
+        // 1. Update variant document in subcollection
+        tx.set(
+          varRef,
+          {
+            id: variantId,
+            productId: item.product_id,
+            label: item.variant_label || vData.label || 'الافتراضي',
+            stockQty: newVarStock,
+            availableQty: newAvailable,
+            stockState: newStockState,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        // 2. Update product document
+        const currentProdStock = Number(prodData.current_stock ?? prodData.stockQty ?? 0);
+        const newProdStock = currentProdStock + item.quantity;
+
         tx.update(prodRef, {
-          current_stock: newStock,
+          current_stock: newProdStock,
+          stockQty: newProdStock,
           inStock: true,
+          hasStock: true,
           updatedAt: FieldValue.serverTimestamp(),
         });
 
-        // Record stock movement (PURCHASE_IN)
+        // 3. Record official inventory movement (for product details screen)
+        const invMoveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+        tx.set(invMoveRef, {
+          productId: item.product_id,
+          variantId,
+          type: 'RESTOCK',
+          delta: item.quantity,
+          stockAfter: newVarStock,
+          reservedAfter: currentReserved,
+          orderId: finalInvoiceNumber,
+          reason: `فاتورة شراء رقم ${finalInvoiceNumber}`,
+          actorId: null,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        // 4. Record stock movement (PURCHASE_IN)
         const moveRef = this.db.collection(Collections.STOCK_MOVEMENTS).doc();
         tx.set(moveRef, {
           product_id: item.product_id,
@@ -201,7 +251,9 @@ export class FirestorePurchasingRepository {
           : FieldValue.serverTimestamp(),
         items: params.items.map((it) => ({
           product_id: it.product_id,
+          variant_id: it.variant_id || 'default',
           product_name: it.product_name || '',
+          variant_label: it.variant_label || '',
           quantity: it.quantity,
           cost_price: Number(it.cost_price || 0),
         })),
@@ -244,7 +296,16 @@ export class FirestorePurchasingRepository {
               : d.purchase_date instanceof Date
                 ? d.purchase_date
                 : new Date(),
-        items: Array.isArray(d.items) ? d.items : [],
+        items: Array.isArray(d.items)
+          ? d.items.map((it: any) => ({
+              product_id: it.product_id,
+              variant_id: it.variant_id || 'default',
+              product_name: it.product_name || '',
+              variant_label: it.variant_label || '',
+              quantity: Number(it.quantity || 0),
+              cost_price: Number(it.cost_price || 0),
+            }))
+          : [],
         total_amount: Number(d.total_amount || 0),
         createdAt:
           d.createdAt instanceof Timestamp
@@ -276,13 +337,24 @@ export class FirestorePurchasingRepository {
       // 1. ALL READS FIRST
       const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(params.supplier_id);
       const counterRef = this.db.collection(Collections.COUNTERS).doc('purchase_returns');
-      const [supplierSnap, counterSnap, productSnaps] = await Promise.all([
+      const [supplierSnap, counterSnap, loadedItems] = await Promise.all([
         tx.get(supplierRef),
         tx.get(counterRef),
         Promise.all(
-          params.items.map((it) =>
-            tx.get(this.db.collection(Collections.PRODUCTS).doc(it.product_id))
-          )
+          params.items.map(async (it) => {
+            const prodRef = this.db.collection(Collections.PRODUCTS).doc(it.product_id);
+            const variantId = it.variant_id?.trim() || 'default';
+            const varRef = prodRef.collection(Collections.VARIANTS).doc(variantId);
+            const [prodSnap, varSnap] = await Promise.all([tx.get(prodRef), tx.get(varRef)]);
+            return {
+              item: it,
+              prodRef,
+              varRef,
+              prodSnap,
+              varSnap,
+              variantId,
+            };
+          })
         ),
       ]);
 
@@ -309,22 +381,59 @@ export class FirestorePurchasingRepository {
       // 2. ALL WRITES AFTER READS
       tx.set(counterRef, { seq: nextSeq, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
 
-      for (let i = 0; i < params.items.length; i++) {
-        const item = params.items[i];
-        const prodRef = productSnaps[i].ref;
-        const prodData = productSnaps[i].data() || {};
+      for (const { item, prodRef, varRef, prodSnap, varSnap, variantId } of loadedItems) {
+        const prodData = prodSnap.data() || {};
+        const vData = varSnap.exists ? varSnap.data()! : {};
 
-        const currentStock = Number(prodData.current_stock ?? prodData.stockQty ?? 0);
-        const newStock = Math.max(0, currentStock - item.quantity);
+        const currentVarStock = Number(vData.stockQty ?? 0);
+        const currentReserved = Number(vData.reservedQty ?? 0);
+        const newVarStock = Math.max(0, currentVarStock - item.quantity);
+        const newAvailable = Math.max(0, newVarStock - currentReserved);
+        const threshold = Number(vData.lowStockThreshold ?? 5);
+        const newStockState = computeStockState(newAvailable, threshold);
 
-        // Deduct from current_stock
+        // 1. Update variant in subcollection
+        tx.set(
+          varRef,
+          {
+            id: variantId,
+            productId: item.product_id,
+            stockQty: newVarStock,
+            availableQty: newAvailable,
+            stockState: newStockState,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        // 2. Update product document
+        const currentProdStock = Number(prodData.current_stock ?? prodData.stockQty ?? 0);
+        const newProdStock = Math.max(0, currentProdStock - item.quantity);
+
         tx.update(prodRef, {
-          current_stock: newStock,
-          inStock: newStock > 0,
+          current_stock: newProdStock,
+          stockQty: newProdStock,
+          inStock: newVarStock > 0 || newProdStock > 0,
+          hasStock: newVarStock > 0 || newProdStock > 0,
           updatedAt: FieldValue.serverTimestamp(),
         });
 
-        // Record stock movement (PURCHASE_RETURN_OUT)
+        // 3. Record official inventory movement (for product details screen)
+        const invMoveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+        tx.set(invMoveRef, {
+          productId: item.product_id,
+          variantId,
+          type: 'RETURN',
+          delta: -item.quantity,
+          stockAfter: newVarStock,
+          reservedAfter: currentReserved,
+          orderId: returnNumber,
+          reason: `مردود مشتريات رقم ${returnNumber}`,
+          actorId: null,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        // 4. Record stock movement (PURCHASE_RETURN_OUT)
         const moveRef = this.db.collection(Collections.STOCK_MOVEMENTS).doc();
         tx.set(moveRef, {
           product_id: item.product_id,
@@ -347,7 +456,9 @@ export class FirestorePurchasingRepository {
           : FieldValue.serverTimestamp(),
         items: params.items.map((it) => ({
           product_id: it.product_id,
+          variant_id: it.variant_id || 'default',
           product_name: it.product_name || '',
+          variant_label: it.variant_label || '',
           quantity: it.quantity,
           cost_price: Number(it.cost_price || 0),
         })),
@@ -391,7 +502,16 @@ export class FirestorePurchasingRepository {
               : d.return_date instanceof Date
                 ? d.return_date
                 : new Date(),
-        items: Array.isArray(d.items) ? d.items : [],
+        items: Array.isArray(d.items)
+          ? d.items.map((it: any) => ({
+              product_id: it.product_id,
+              variant_id: it.variant_id || 'default',
+              product_name: it.product_name || '',
+              variant_label: it.variant_label || '',
+              quantity: Number(it.quantity || 0),
+              cost_price: Number(it.cost_price || 0),
+            }))
+          : [],
         total_amount: Number(d.total_amount || 0),
         createdAt:
           d.createdAt instanceof Timestamp

@@ -85,4 +85,55 @@ describe('Purchasing Cycle Logic & Calculations', () => {
     currentStock = Math.max(0, currentStock - returnedQty);
     expect(currentStock).toBe(0);
   });
+
+  it('correctly updates variant stockQty, availableQty, and stockState on purchase and return', async () => {
+    const { computeStockState, computeAvailableQty } = await import('@/features/products/domain/variant');
+
+    // Initial state: variant has 0 stock, 0 reserved, threshold 5 -> 'out'
+    let stockQty = 0;
+    const reservedQty = 0;
+    let availableQty = computeAvailableQty(stockQty, reservedQty);
+    let state = computeStockState(availableQty, 5);
+
+    expect(stockQty).toBe(0);
+    expect(availableQty).toBe(0);
+    expect(state).toBe('out');
+
+    // Receive purchase of 3 units (below threshold 5)
+    stockQty += 3;
+    availableQty = computeAvailableQty(stockQty, reservedQty);
+    state = computeStockState(availableQty, 5);
+
+    expect(stockQty).toBe(3);
+    expect(availableQty).toBe(3);
+    expect(state).toBe('low');
+
+    // Receive purchase of 10 more units -> 13 units (above threshold 5)
+    stockQty += 10;
+    availableQty = computeAvailableQty(stockQty, reservedQty);
+    state = computeStockState(availableQty, 5);
+
+    expect(stockQty).toBe(13);
+    expect(availableQty).toBe(13);
+    expect(state).toBe('in_stock');
+
+    // Return 10 units -> 3 units (drops back to 'low')
+    stockQty -= 10;
+    availableQty = computeAvailableQty(stockQty, reservedQty);
+    state = computeStockState(availableQty, 5);
+
+    expect(stockQty).toBe(3);
+    expect(availableQty).toBe(3);
+    expect(state).toBe('low');
+
+    // Return 3 units -> 0 units (drops to 'out')
+    stockQty -= 3;
+    availableQty = computeAvailableQty(stockQty, reservedQty);
+    state = computeStockState(availableQty, 5);
+
+    expect(stockQty).toBe(0);
+    expect(availableQty).toBe(0);
+    expect(state).toBe('out');
+  });
 });
+

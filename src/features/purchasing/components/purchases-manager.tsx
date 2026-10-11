@@ -328,3 +328,4 @@ export function PurchasesManager({
     </div>
   );
 }
+
