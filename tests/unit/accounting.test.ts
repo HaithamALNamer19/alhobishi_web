@@ -195,5 +195,58 @@ describe('Product Search Query Logic for Sales Returns', () => {
   });
 });
 
+describe('Customer Search Logic for Sales Returns', () => {
+  const customerList = [
+    { uid: 'u1', displayName: 'أحمد محمد الحبشي', username: 'ahmed_h', phone: '771234567', role: 'wholesale' },
+    { uid: 'u2', displayName: 'محمد علي الحبيشي', username: 'm_habishi', phone: '777654321', role: 'customer' },
+    { uid: 'u3', displayName: 'سالم عبدالله باوزير', username: 'salem_b', phone: '733112233', role: 'customer' },
+  ];
+
+  it('hides customers by default (< 2 chars) and searches by Arabic name, username, and phone', async () => {
+    const { normalizeArabic } = await import('@/core/text/arabic-normalize');
+
+    const searchCustomers = (rawQ: string) => {
+      const q = rawQ.trim();
+      if (q.length < 2) return [];
+
+      const normQ = normalizeArabic(q).toLowerCase();
+      const cleanLowerQ = q.toLowerCase();
+
+      return customerList.filter((u) => {
+        const name = (u.displayName || '').toLowerCase();
+        const normName = normalizeArabic(u.displayName || '').toLowerCase();
+        const username = (u.username || '').toLowerCase();
+        const normUsername = normalizeArabic(u.username || '').toLowerCase();
+        const phone = (u.phone || '').trim();
+
+        return (
+          name.includes(cleanLowerQ) ||
+          normName.includes(normQ) ||
+          username.includes(cleanLowerQ) ||
+          normUsername.includes(normQ) ||
+          phone.includes(q)
+        );
+      });
+    };
+
+    // Hidden when empty or < 2 characters
+    expect(searchCustomers('').length).toBe(0);
+    expect(searchCustomers('أ').length).toBe(0);
+    expect(searchCustomers('  ').length).toBe(0);
+
+    // Matches with Arabic normalization (احمد -> أحمد)
+    expect(searchCustomers('احمد').length).toBe(1);
+    expect(searchCustomers('احمد')[0].uid).toBe('u1');
+
+    // Matches by phone
+    expect(searchCustomers('777654').length).toBe(1);
+    expect(searchCustomers('777654')[0].uid).toBe('u2');
+
+    // Matches by username
+    expect(searchCustomers('salem_b').length).toBe(1);
+    expect(searchCustomers('salem_b')[0].uid).toBe('u3');
+  });
+});
+
 
 

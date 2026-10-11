@@ -23,17 +23,13 @@ import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import {
   searchStoreProductsAction,
+  searchStoreCustomersAction,
   createSalesReturnAction,
   type StoreProductReturnOption,
+  type StoreCustomerOption,
 } from '../actions/return.actions';
 
-export interface CustomerOption {
-  uid: string;
-  displayName: string;
-  role?: string;
-  phone?: string;
-  balance?: number;
-}
+export type CustomerOption = StoreCustomerOption;
 
 export interface InvoiceDraftItem {
   productId: string;
@@ -64,6 +60,8 @@ export function CreateReturnDialog({
     preselectedCustomer || null
   );
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [customerSearchResults, setCustomerSearchResults] = useState<CustomerOption[]>([]);
+  const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
 
   // Search products
   const [productSearchQuery, setProductSearchQuery] = useState('');
@@ -85,7 +83,10 @@ export function CreateReturnDialog({
   // Reset or initialize when modal opens/changes
   useEffect(() => {
     if (isOpen) {
-      setSelectedCustomer(preselectedCustomer || (customers.length === 1 ? customers[0] : null));
+      setSelectedCustomer(preselectedCustomer || null);
+      setCustomerSearchQuery('');
+      setCustomerSearchResults([]);
+      setIsSearchingCustomer(false);
       setProductSearchQuery('');
       setSearchResults([]);
       setActiveProduct(null);
@@ -94,7 +95,48 @@ export function CreateReturnDialog({
       setInvoiceItems([]);
       setReason('');
     }
-  }, [isOpen, preselectedCustomer, customers]);
+  }, [isOpen, preselectedCustomer]);
+
+  // Debounced customer search: hidden by default, results appear ONLY when searching (>= 2 chars)
+  useEffect(() => {
+    const q = customerSearchQuery.trim();
+    if (q.length < 2) {
+      setCustomerSearchResults([]);
+      setIsSearchingCustomer(false);
+      return;
+    }
+
+    setIsSearchingCustomer(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await searchStoreCustomersAction({ query: q });
+        if (res.ok && res.data.length > 0) {
+          setCustomerSearchResults(res.data);
+        } else {
+          // Fallback search within provided customers list if available
+          const normQ = q.toLowerCase();
+          const matches = (customers || []).filter(
+            (c) =>
+              c.displayName.toLowerCase().includes(normQ) ||
+              (c.phone || '').includes(q)
+          );
+          setCustomerSearchResults(matches);
+        }
+      } catch {
+        const normQ = q.toLowerCase();
+        const matches = (customers || []).filter(
+          (c) =>
+            c.displayName.toLowerCase().includes(normQ) ||
+            (c.phone || '').includes(q)
+        );
+        setCustomerSearchResults(matches);
+      } finally {
+        setIsSearchingCustomer(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [customerSearchQuery, customers]);
 
   // Debounced product search
   useEffect(() => {
@@ -260,17 +302,6 @@ export function CreateReturnDialog({
     });
   };
 
-  // Filter customers if searching
-  const filteredCustomers = customers.filter((c) => {
-    if (!customerSearchQuery.trim()) return true;
-    const q = customerSearchQuery.toLowerCase();
-    return (
-      c.displayName.toLowerCase().includes(q) ||
-      (c.phone || '').includes(q) ||
-      (c.role || '').toLowerCase().includes(q)
-    );
-  });
-
   return (
     <Dialog isOpen={isOpen} onClose={onClose} maxWidth="4xl" hideCloseButton>
       <div className="space-y-5 text-right font-sans" dir="rtl">
@@ -296,20 +327,29 @@ export function CreateReturnDialog({
         </div>
 
         {/* 1. Customer Selection */}
-        <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <User className="w-4 h-4 text-blue-700" />
               <span>العميل المستفيد من المردود:</span>
             </label>
             {selectedCustomer && !preselectedCustomer && (
               <button
                 type="button"
-                onClick={() => setSelectedCustomer(null)}
+                onClick={() => {
+                  setSelectedCustomer(null);
+                  setCustomerSearchQuery('');
+                  setCustomerSearchResults([]);
+                }}
                 className="text-[11px] text-blue-700 hover:underline font-bold"
               >
                 تغيير العميل
               </button>
+            )}
+            {!selectedCustomer && (
+              <span className="text-[11px] text-slate-500">
+                اكتب اسم العميل أو رقمه لإظهار النتائج
+              </span>
             )}
           </div>
 
@@ -346,42 +386,74 @@ export function CreateReturnDialog({
           ) : (
             <div className="space-y-2">
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+                <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
                 <Input
                   value={customerSearchQuery}
                   onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                  placeholder="ابحث عن العميل بالاسم أو رقم الهاتف..."
-                  className="pr-9 text-xs"
+                  placeholder="ابحث عن العميل بالاسم، رقم الهاتف، أو اسم المستخدم..."
+                  className="pr-10 text-xs bg-white py-2.5 font-medium"
                 />
-              </div>
-
-              <div className="max-h-36 overflow-y-auto space-y-1 bg-white p-1.5 rounded-xl border border-slate-200">
-                {filteredCustomers.length === 0 ? (
-                  <div className="p-3 text-center text-slate-400 text-xs">
-                    لا يوجد عميل مطابق للبحث
-                  </div>
-                ) : (
-                  filteredCustomers.map((c) => (
-                    <button
-                      key={c.uid}
-                      type="button"
-                      onClick={() => setSelectedCustomer(c)}
-                      className="w-full text-right p-2 rounded-lg hover:bg-blue-50 text-xs flex items-center justify-between transition-colors"
-                    >
-                      <div>
-                        <span className="font-bold text-slate-900 block">{c.displayName}</span>
-                        <span className="text-[10px] text-slate-500">
-                          {c.phone || 'بدون هاتف'} -{' '}
-                          {c.role === 'wholesale' ? 'جملة' : 'تجزئة'}
-                        </span>
-                      </div>
-                      <span className="font-mono text-slate-600 text-[11px]">
-                        {formatMoney(c.balance ?? 0)}
-                      </span>
-                    </button>
-                  ))
+                {isSearchingCustomer && (
+                  <Loader2 className="w-4 h-4 text-blue-600 animate-spin absolute left-3.5 top-3" />
                 )}
               </div>
+
+              {/* Customer Search Dropdown - ONLY appears when searching (>= 2 chars) */}
+              {customerSearchQuery.trim().length >= 2 && (
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm max-h-48 overflow-y-auto divide-y divide-slate-100">
+                  {isSearchingCustomer ? (
+                    <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                      <span>جاري البحث في حسابات العملاء...</span>
+                    </div>
+                  ) : customerSearchResults.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400">
+                      لا يوجد عميل مطابق لـ "{customerSearchQuery}"
+                    </div>
+                  ) : (
+                    customerSearchResults.map((c) => (
+                      <button
+                        key={c.uid}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCustomer(c);
+                          setCustomerSearchQuery('');
+                          setCustomerSearchResults([]);
+                        }}
+                        className="w-full text-right p-3 hover:bg-blue-50/70 flex items-center justify-between text-xs transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            {c.displayName.charAt(0)}
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 block">{c.displayName}</span>
+                            <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
+                              {c.phone && <span>{c.phone}</span>}
+                              <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[9px] font-bold text-slate-700">
+                                {c.role === 'wholesale' ? 'تاجر جملة' : 'عميل تجزئة'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-left font-mono">
+                          <span className="text-[10px] text-slate-400 block font-sans">
+                            الرصيد الحالي
+                          </span>
+                          <span
+                            className={`text-xs font-bold ${
+                              (c.balance ?? 0) > 0 ? 'text-amber-700' : 'text-slate-700'
+                            }`}
+                          >
+                            {formatMoney(c.balance ?? 0)}
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

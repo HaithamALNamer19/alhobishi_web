@@ -256,20 +256,33 @@ export class FirestoreLedgerRepository {
     }
 
     return this.db.runTransaction(async (tx) => {
-      // 1. Read Customer
+      // 1. ALL READS FIRST (Firestore requires all reads before any writes)
       const userRef = this.db.collection(Collections.USERS).doc(params.customerId);
-      const userSnap = await tx.get(userRef);
+      const counterRef = this.db.collection(Collections.COUNTERS).doc('sales_returns');
+
+      const [userSnap, counterSnap, loadedVariants] = await Promise.all([
+        tx.get(userRef),
+        tx.get(counterRef),
+        Promise.all(
+          params.items.map(async (item) => {
+            const prodRef = this.db.collection(Collections.PRODUCTS).doc(item.productId);
+            const varRef = prodRef.collection(Collections.VARIANTS).doc(item.variantId);
+            const [prodSnap, varSnap] = await Promise.all([tx.get(prodRef), tx.get(varRef)]);
+            return { item, prodRef, varRef, prodSnap, varSnap };
+          })
+        ),
+      ]);
 
       if (!userSnap.exists) {
         throw new AppError(ErrorCode.NOT_FOUND, { message: 'حساب العميل غير موجود.' });
       }
 
       const userData = userSnap.data()!;
-      const currentBalance = (userData.balance ?? 0) as Money;
+      const currentBalance = Number(userData.balance ?? userData.account?.balance ?? 0) as Money;
       const customerName = userData.displayName || userData.username || 'عميل';
       const customerPhone = userData.phone || '';
 
-      // 2. Calculate Total Return Amount
+      // 2. Calculate Total Return Amount in Memory
       let totalAmount = 0;
       for (const item of params.items) {
         if (item.quantity <= 0) {
@@ -283,28 +296,18 @@ export class FirestoreLedgerRepository {
       // Return reduces customer balance/debt
       const newBalance = (currentBalance - totalMoney) as Money;
 
-      // 3. Sequential Counter for Sales Returns
-      const counterRef = this.db.collection(Collections.COUNTERS).doc('sales_returns');
-      const counterSnap = await tx.get(counterRef);
+      // 3. Compute Sequential Counter and Return Number
       const currentSeq = counterSnap.exists ? (counterSnap.data()?.seq || 0) : 0;
       const nextSeq = currentSeq + 1;
-      tx.set(counterRef, { seq: nextSeq, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-
       const currentYear = businessYear(new Date());
       const returnNumber = `RET-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
 
-      // 4. Pre-read variants for inventory restoration
-      const loadedVariants = await Promise.all(
-        params.items.map(async (item) => {
-          const prodRef = this.db.collection(Collections.PRODUCTS).doc(item.productId);
-          const varRef = prodRef.collection(Collections.VARIANTS).doc(item.variantId);
-          const varSnap = await tx.get(varRef);
-          return { item, prodRef, varRef, varSnap };
-        })
-      );
+      // 4. ALL WRITES START HERE (No reads below this point)
+      // 4a. Update Counter
+      tx.set(counterRef, { seq: nextSeq, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
 
-      // Restore inventory and write movements
-      for (const { item, prodRef, varRef, varSnap } of loadedVariants) {
+      // 4b. Restore inventory and write movements
+      for (const { item, prodRef, varRef, prodSnap, varSnap } of loadedVariants) {
         if (varSnap.exists) {
           const vData = varSnap.data()!;
           const currentStock = (vData.stockQty ?? 0) as number;
@@ -339,10 +342,34 @@ export class FirestoreLedgerRepository {
             actorId: params.actorId,
             createdAt: FieldValue.serverTimestamp(),
           });
+        } else if (prodSnap.exists) {
+          const pData = prodSnap.data()!;
+          const currentStock = (pData.stockQty ?? 0) as number;
+          const newStock = currentStock + item.quantity;
+
+          tx.update(prodRef, {
+            stockQty: newStock,
+            hasStock: true,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          const moveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+          tx.set(moveRef, {
+            productId: item.productId,
+            variantId: item.variantId || 'default',
+            type: 'RETURN',
+            delta: item.quantity,
+            stockAfter: newStock,
+            reservedAfter: 0,
+            orderId: returnNumber,
+            reason: `مردود مبيعات للعميل ${customerName} (فاتورة ${returnNumber})`,
+            actorId: params.actorId,
+            createdAt: FieldValue.serverTimestamp(),
+          });
         }
       }
 
-      // 5. Create Sales Return Document
+      // 4c. Create Sales Return Document
       const retRef = this.db.collection(Collections.SALES_RETURNS).doc();
       const returnItems = params.items.map((i) => ({
         productId: i.productId,
@@ -370,7 +397,7 @@ export class FirestoreLedgerRepository {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      // 6. Append Ledger Transaction
+      // 4d. Append Ledger Transaction
       const txRef = this.db.collection(Collections.ACCOUNT_TRANSACTIONS).doc();
       tx.set(txRef, {
         customerId: params.customerId,
@@ -386,13 +413,14 @@ export class FirestoreLedgerRepository {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      // 7. Update User Balance
+      // 4e. Update User Balance
       tx.update(userRef, {
         balance: newBalance,
+        'account.balance': newBalance,
         updatedAt: FieldValue.serverTimestamp(),
       });
 
-      // 8. Notification
+      // 4f. Notification
       const notifRef = this.db.collection(Collections.NOTIFICATIONS).doc();
       tx.set(notifRef, {
         userId: params.customerId,
@@ -404,7 +432,7 @@ export class FirestoreLedgerRepository {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      // 9. Audit Log
+      // 4g. Audit Log
       const auditRef = this.db.collection(Collections.AUDIT_LOGS).doc();
       tx.set(auditRef, {
         actorId: params.actorId,

@@ -17,6 +17,14 @@ import { type CreateSalesReturnInput, createSalesReturnSchema } from '../schemas
 
 export type { CreateSalesReturnInput } from '../schemas/return.schemas';
 
+export interface StoreCustomerOption {
+  uid: string;
+  displayName: string;
+  role: string;
+  phone?: string;
+  balance: number;
+}
+
 export interface StoreProductReturnOption {
   productId: string;
   productName: string;
@@ -206,6 +214,56 @@ export async function searchStoreProductsAction(params: {
   });
 }
 
+export async function searchStoreCustomersAction(params: {
+  query?: string;
+}): Promise<Result<StoreCustomerOption[]>> {
+  return runAction(async () => {
+    const session = await requireSession();
+    if (!isBackOfficeRole(session.role)) {
+      throw new AppError(ErrorCode.FORBIDDEN, { message: 'ليس لديك صلاحية للبحث عن العملاء.' });
+    }
+
+    const rawQ = (params.query || '').trim();
+    if (rawQ.length < 2) {
+      return [];
+    }
+
+    const normQ = normalizeArabic(rawQ).toLowerCase();
+    const cleanLowerQ = rawQ.toLowerCase();
+    const tokenQ = toSearchToken(rawQ);
+
+    const users = await userRepository.listUsers(undefined, 300);
+
+    const matches = users
+      .filter((u) => {
+        const name = (u.displayName || '').toLowerCase();
+        const normName = normalizeArabic(u.displayName || '').toLowerCase();
+        const username = (u.username || '').toLowerCase();
+        const normUsername = normalizeArabic(u.username || '').toLowerCase();
+        const phone = (u.phone || '').trim();
+
+        return (
+          name.includes(cleanLowerQ) ||
+          normName.includes(normQ) ||
+          username.includes(cleanLowerQ) ||
+          normUsername.includes(normQ) ||
+          phone.includes(rawQ) ||
+          (tokenQ && (normName.includes(tokenQ) || normUsername.includes(tokenQ)))
+        );
+      })
+      .map((u) => ({
+        uid: u.uid,
+        displayName: u.displayName || u.username || 'عميل',
+        role: u.role,
+        phone: u.phone || undefined,
+        balance: Number(u.account?.balance ?? 0),
+      }))
+      .slice(0, 25);
+
+    return matches;
+  });
+}
+
 export async function createSalesReturnAction(
   rawInput: CreateSalesReturnInput
 ): Promise<Result<{ returnId: string; returnNumber: string; newBalance: number; totalAmount: number }>> {
@@ -217,7 +275,7 @@ export async function createSalesReturnAction(
 
     const input = createSalesReturnSchema.parse(rawInput);
 
-    const actorUser = await userRepository.findById(session.uid);
+    const actorUser = await userRepository.findById(session.uid).catch(() => null);
     const actorName = actorUser?.displayName || actorUser?.username || 'مدير المتجر';
 
     const result = await ledgerRepository.recordSalesReturn({
