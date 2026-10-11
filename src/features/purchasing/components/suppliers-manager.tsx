@@ -13,8 +13,6 @@ import {
   Calendar,
   Loader2,
   FileText,
-  CreditCard,
-  Receipt,
   UserCheck,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
@@ -22,7 +20,6 @@ import { Input } from '@/shared/ui/input';
 import { Dialog } from '@/shared/ui/dialog';
 import { Badge } from '@/shared/ui/badge';
 import { formatMoney } from '@/core/domain/money';
-import { RecordSupplierPaymentDialog } from './record-supplier-payment-dialog';
 import { createSupplierAction } from '../actions/purchasing.actions';
 import type { Supplier } from '../domain/purchasing';
 
@@ -44,7 +41,6 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
   const [suppliers, setSuppliers] = useState<SerializedSupplier[]>(initialSuppliers);
   const [search, setSearch] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [paymentSupplier, setPaymentSupplier] = useState<SerializedSupplier | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // New Supplier Form State
@@ -245,7 +241,7 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
                       </td>
 
                       <td className="py-4 px-4 text-left">
-                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        <div className="flex items-center justify-end">
                           <Link
                             href={`/admin/suppliers/${s.id}/statement`}
                             className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-[11px] h-7 px-2.5 gap-1.5 select-none"
@@ -253,25 +249,6 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
                           >
                             <FileText className="w-3.5 h-3.5 text-blue-600" />
                             <span>كشف حساب</span>
-                          </Link>
-
-                          <button
-                            type="button"
-                            onClick={() => setPaymentSupplier(s)}
-                            className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-emerald-200 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 text-[11px] h-7 px-2.5 gap-1.5 select-none cursor-pointer"
-                            title="تسجيل سند صرف / سداد دفعة للمورد"
-                          >
-                            <CreditCard className="w-3.5 h-3.5 text-emerald-700" />
-                            <span>سند صرف</span>
-                          </button>
-
-                          <Link
-                            href={`/admin/purchases?supplierId=${s.id}`}
-                            className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 text-[11px] h-7 px-2.5 gap-1.5 select-none"
-                            title="إنشاء فاتورة شراء لهذا المورد"
-                          >
-                            <Receipt className="w-3.5 h-3.5 text-blue-600" />
-                            <span>فاتورة شراء</span>
                           </Link>
                         </div>
                       </td>
@@ -344,18 +321,6 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
             </div>
           </form>
         </Dialog>
-      )}
-
-      {/* Record Payment Voucher Dialog */}
-      {paymentSupplier && (
-        <RecordSupplierPaymentDialog
-          isOpen={Boolean(paymentSupplier)}
-          onClose={() => setPaymentSupplier(null)}
-          supplier={paymentSupplier}
-          onSuccess={() => {
-            router.refresh();
-          }}
-        />
       )}
     </div>
   );
