@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   RotateCcw,
@@ -53,8 +54,13 @@ export function AdminReturnsManager({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState<SerializedReturnDetail | null>(null);
   const [printDoc, setPrintDoc] = useState<SerializedReturnDetail | null>(null);
+  const [mounted, setMounted] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 15;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Filter returns
   const filteredReturns = useMemo(() => {
@@ -90,9 +96,22 @@ export function AdminReturnsManager({
 
   const handlePrint = (doc: SerializedReturnDetail) => {
     setPrintDoc(doc);
+    document.body.classList.add('print-active');
+    const originalTitle = document.title;
+    document.title = ' ';
+
+    const handleAfterPrint = () => {
+      document.title = originalTitle;
+      document.body.classList.remove('print-active');
+      setPrintDoc(null);
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+
+    window.addEventListener('afterprint', handleAfterPrint);
+
     setTimeout(() => {
       window.print();
-    }, 150);
+    }, 200);
   };
 
   return (
@@ -348,12 +367,15 @@ export function AdminReturnsManager({
         onPrint={handlePrint}
       />
 
-      {/* Hidden Print Portal */}
-      {printDoc && (
-        <div className="hidden print:block fixed inset-0 bg-white z-50">
-          <PrintableReturnInvoice returnDoc={printDoc} />
-        </div>
-      )}
+      {/* Printable Document Root (Rendered via Portal onto document.body for clean isolation) */}
+      {mounted &&
+        printDoc &&
+        createPortal(
+          <div className="print-only-portal">
+            <PrintableReturnInvoice returnDoc={printDoc} />
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
