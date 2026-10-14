@@ -469,6 +469,158 @@ export class FirestorePurchasingRepository {
     });
   }
 
+  async updatePurchaseInvoice(params: {
+    purchaseId: string;
+    invoice_number?: string;
+    purchase_date?: Date;
+  }): Promise<{ purchaseId: string; invoiceNumber: string }> {
+    const purchaseRef = this.db.collection(Collections.PURCHASES).doc(params.purchaseId);
+    const snap = await purchaseRef.get();
+    if (!snap.exists) {
+      throw new Error('فاتورة الشراء غير موجودة.');
+    }
+
+    const updates: any = {
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (params.invoice_number?.trim()) {
+      updates.invoice_number = params.invoice_number.trim();
+    }
+    if (params.purchase_date) {
+      updates.purchase_date = Timestamp.fromDate(params.purchase_date);
+    }
+
+    await purchaseRef.update(updates);
+
+    if (updates.invoice_number) {
+      const txSnap = await this.db
+        .collection(Collections.SUPPLIER_TRANSACTIONS)
+        .where('reference_id', '==', params.purchaseId)
+        .get();
+
+      const batch = this.db.batch();
+      txSnap.forEach((doc) => {
+        batch.update(doc.ref, {
+          reference_number: updates.invoice_number,
+          description: `فاتورة شراء رقم ${updates.invoice_number}`,
+        });
+      });
+      await batch.commit();
+    }
+
+    return {
+      purchaseId: params.purchaseId,
+      invoiceNumber: updates.invoice_number || snap.data()?.invoice_number,
+    };
+  }
+
+  async deletePurchaseInvoice(purchaseId: string): Promise<void> {
+    await this.db.runTransaction(async (tx) => {
+      const purchaseRef = this.db.collection(Collections.PURCHASES).doc(purchaseId);
+      const purchaseSnap = await tx.get(purchaseRef);
+      if (!purchaseSnap.exists) {
+        throw new Error('فاتورة الشراء غير موجودة أو تم حذفها مسبقاً.');
+      }
+
+      const pData = purchaseSnap.data()!;
+      const supplierId = pData.supplier_id;
+      const totalAmount = Number(pData.total_amount || 0);
+      const invoiceNumber = pData.invoice_number || purchaseId;
+      const items: PurchaseItem[] = Array.isArray(pData.items) ? pData.items : [];
+
+      const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(supplierId);
+      const supplierSnap = await tx.get(supplierRef);
+
+      const loadedItems = await Promise.all(
+        items.map(async (it) => {
+          const prodRef = this.db.collection(Collections.PRODUCTS).doc(it.product_id);
+          const variantId = it.variant_id?.trim() || 'default';
+          const varRef = prodRef.collection(Collections.VARIANTS).doc(variantId);
+          const [prodSnap, varSnap] = await Promise.all([tx.get(prodRef), tx.get(varRef)]);
+          return { item: it, prodRef, varRef, prodSnap, varSnap, variantId };
+        })
+      );
+
+      // Deduct stock that was added by this purchase invoice
+      for (const { item, prodRef, varRef, prodSnap, varSnap, variantId } of loadedItems) {
+        if (prodSnap.exists && varSnap.exists) {
+          const prodData = prodSnap.data() || {};
+          const vData = varSnap.data() || {};
+
+          const currentVarStock = Number(vData.stockQty ?? 0);
+          const currentReserved = Number(vData.reservedQty ?? 0);
+          const newVarStock = Math.max(0, currentVarStock - item.quantity);
+          const newAvailable = Math.max(0, newVarStock - currentReserved);
+          const threshold = Number(vData.lowStockThreshold ?? 5);
+          const newStockState = computeStockState(newAvailable, threshold);
+
+          tx.set(
+            varRef,
+            {
+              stockQty: newVarStock,
+              availableQty: newAvailable,
+              stockState: newStockState,
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          const currentProdStock = Number(prodData.current_stock ?? prodData.stockQty ?? 0);
+          const newProdStock = Math.max(0, currentProdStock - item.quantity);
+          tx.update(prodRef, {
+            current_stock: newProdStock,
+            stockQty: newProdStock,
+            inStock: newVarStock > 0 || newProdStock > 0,
+            hasStock: newVarStock > 0 || newProdStock > 0,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          // Record inventory movement for audit
+          const invMoveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+          tx.set(invMoveRef, {
+            productId: item.product_id,
+            variantId,
+            type: 'ADJUSTMENT',
+            delta: -item.quantity,
+            stockAfter: newVarStock,
+            reservedAfter: currentReserved,
+            orderId: invoiceNumber,
+            reason: `حذف فاتورة شراء رقم ${invoiceNumber}`,
+            actorId: null,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      // Deduct totalAmount from supplier balance
+      if (supplierSnap.exists) {
+        tx.update(supplierRef, {
+          balance: FieldValue.increment(-totalAmount),
+        });
+      }
+
+      // Delete purchase doc
+      tx.delete(purchaseRef);
+    });
+
+    // Clean up outside transaction
+    const [txSnap, stockMoveSnap] = await Promise.all([
+      this.db
+        .collection(Collections.SUPPLIER_TRANSACTIONS)
+        .where('reference_id', '==', purchaseId)
+        .get(),
+      this.db
+        .collection(Collections.STOCK_MOVEMENTS)
+        .where('reference_id', '==', purchaseId)
+        .get(),
+    ]);
+
+    const batch = this.db.batch();
+    txSnap.forEach((d) => batch.delete(d.ref));
+    stockMoveSnap.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+
   // ==========================================
   // 3. PURCHASE RETURNS (runTransaction)
   // ==========================================
@@ -843,6 +995,119 @@ export class FirestorePurchasingRepository {
       recorded_by: d.recorded_by || 'إدارة المشتريات',
       createdAt: toDate(d.createdAt),
     };
+  }
+
+  async updateSupplierPayment(params: {
+    paymentId: string;
+    amount: number;
+    payment_method: SupplierPaymentMethod;
+    reference_number?: string | null;
+    bank_or_exchange?: string | null;
+    notes?: string | null;
+  }): Promise<{ paymentId: string; voucherNumber: string }> {
+    const newAmount = Number(params.amount);
+    if (!newAmount || newAmount <= 0) {
+      throw new Error('مبلغ السند يجب أن يكون أكبر من الصفر.');
+    }
+
+    const result = await this.db.runTransaction(async (tx) => {
+      const paymentRef = this.db.collection(Collections.SUPPLIER_PAYMENTS).doc(params.paymentId);
+      const paymentSnap = await tx.get(paymentRef);
+      if (!paymentSnap.exists) {
+        throw new Error('سند الصرف غير موجود.');
+      }
+
+      const pData = paymentSnap.data()!;
+      const supplierId = pData.supplier_id;
+      const oldAmount = Number(pData.amount || 0);
+      const voucherNumber = pData.voucher_number || params.paymentId;
+
+      const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(supplierId);
+      const supplierSnap = await tx.get(supplierRef);
+
+      // Delta: if oldAmount was 100 and newAmount is 150, diff is +50 => supplier balance decreases by 50
+      const diff = newAmount - oldAmount;
+      if (supplierSnap.exists && diff !== 0) {
+        tx.update(supplierRef, {
+          balance: FieldValue.increment(-diff),
+        });
+      }
+
+      tx.update(paymentRef, {
+        amount: newAmount,
+        payment_method: params.payment_method,
+        reference_number: params.reference_number?.trim() || null,
+        bank_or_exchange: params.bank_or_exchange?.trim() || null,
+        notes: params.notes?.trim() || null,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      return {
+        paymentId: params.paymentId,
+        voucherNumber,
+      };
+    });
+
+    // Also update any matching SUPPLIER_TRANSACTIONS record for reference
+    const txSnap = await this.db
+      .collection(Collections.SUPPLIER_TRANSACTIONS)
+      .where('reference_id', '==', params.paymentId)
+      .get();
+
+    if (!txSnap.empty) {
+      const batch = this.db.batch();
+      txSnap.forEach((doc) => {
+        batch.update(doc.ref, {
+          amount: -newAmount,
+          debit: newAmount,
+          payment_method: params.payment_method,
+          bank_or_exchange: params.bank_or_exchange?.trim() || null,
+          notes: params.notes?.trim() || null,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      });
+      await batch.commit();
+    }
+
+    return result;
+  }
+
+  async deleteSupplierPayment(paymentId: string): Promise<void> {
+    await this.db.runTransaction(async (tx) => {
+      const paymentRef = this.db.collection(Collections.SUPPLIER_PAYMENTS).doc(paymentId);
+      const paymentSnap = await tx.get(paymentRef);
+      if (!paymentSnap.exists) {
+        throw new Error('سند الصرف غير موجود أو تم حذفه مسبقاً.');
+      }
+
+      const pData = paymentSnap.data()!;
+      const supplierId = pData.supplier_id;
+      const amount = Number(pData.amount || 0);
+
+      const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(supplierId);
+      const supplierSnap = await tx.get(supplierRef);
+
+      // Revert the deduction: supplier balance increases by amount
+      if (supplierSnap.exists && amount > 0) {
+        tx.update(supplierRef, {
+          balance: FieldValue.increment(amount),
+        });
+      }
+
+      tx.delete(paymentRef);
+    });
+
+    // Clean up SUPPLIER_TRANSACTIONS
+    const txSnap = await this.db
+      .collection(Collections.SUPPLIER_TRANSACTIONS)
+      .where('reference_id', '==', paymentId)
+      .get();
+
+    if (!txSnap.empty) {
+      const batch = this.db.batch();
+      txSnap.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
   }
 
   async getSupplierStatement(supplierId: string): Promise<SupplierStatement> {

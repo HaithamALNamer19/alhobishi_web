@@ -12,6 +12,7 @@ import type {
   StockMovement,
   PurchaseItem,
   PurchaseReturnItem,
+  SupplierPaymentMethod,
 } from '../domain/purchasing';
 
 export type ActionResult<T> =
@@ -322,4 +323,127 @@ export async function getSupplierPaymentAction(
     return { ok: false, error: { message: err.message || 'فشل جلب بيانات سند الصرف.' } };
   }
 }
+
+export async function updatePurchaseInvoiceAction(params: {
+  purchaseId: string;
+  invoice_number?: string;
+  purchase_date?: string;
+  supplierId?: string;
+}): Promise<ActionResult<{ purchaseId: string; invoiceNumber: string }>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح لك بتعديل فواتير الشراء.' } };
+    }
+
+    if (!params.purchaseId) {
+      return { ok: false, error: { message: 'معرف فاتورة الشراء غير محدد.' } };
+    }
+
+    const res = await purchasingRepository.updatePurchaseInvoice({
+      purchaseId: params.purchaseId,
+      invoice_number: params.invoice_number,
+      purchase_date: params.purchase_date ? new Date(params.purchase_date) : undefined,
+    });
+
+    revalidatePath('/admin/purchases');
+    if (params.supplierId) {
+      revalidatePath(`/admin/suppliers/${params.supplierId}/statement`);
+    }
+    revalidatePath('/admin/suppliers');
+    return { ok: true, data: res };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل تعديل فاتورة الشراء.' } };
+  }
+}
+
+export async function deletePurchaseInvoiceAction(params: {
+  purchaseId: string;
+  supplierId?: string;
+}): Promise<ActionResult<void>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح لك بحذف فواتير الشراء.' } };
+    }
+
+    if (!params.purchaseId) {
+      return { ok: false, error: { message: 'معرف فاتورة الشراء غير محدد.' } };
+    }
+
+    await purchasingRepository.deletePurchaseInvoice(params.purchaseId);
+
+    revalidatePath('/admin/purchases');
+    revalidatePath('/admin/products');
+    revalidatePath('/admin/inventory/movements');
+    revalidatePath('/products');
+    revalidatePath('/');
+    if (params.supplierId) {
+      revalidatePath(`/admin/suppliers/${params.supplierId}/statement`);
+    }
+    revalidatePath('/admin/suppliers');
+
+    return { ok: true, data: undefined };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل حذف فاتورة الشراء وتحديث المخزون.' } };
+  }
+}
+
+export async function updateSupplierPaymentAction(params: {
+  paymentId: string;
+  amount: number;
+  payment_method: SupplierPaymentMethod;
+  reference_number?: string | null;
+  bank_or_exchange?: string | null;
+  notes?: string | null;
+  supplierId?: string;
+}): Promise<ActionResult<{ paymentId: string; voucherNumber: string }>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح لك بتعديل سندات الصرف.' } };
+    }
+
+    if (!params.paymentId) {
+      return { ok: false, error: { message: 'معرف سند الصرف غير محدد.' } };
+    }
+
+    const res = await purchasingRepository.updateSupplierPayment(params);
+
+    if (params.supplierId) {
+      revalidatePath(`/admin/suppliers/${params.supplierId}/statement`);
+    }
+    revalidatePath('/admin/suppliers');
+    return { ok: true, data: res };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل تعديل سند الصرف.' } };
+  }
+}
+
+export async function deleteSupplierPaymentAction(params: {
+  paymentId: string;
+  supplierId?: string;
+}): Promise<ActionResult<void>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح لك بحذف سندات الصرف.' } };
+    }
+
+    if (!params.paymentId) {
+      return { ok: false, error: { message: 'معرف سند الصرف غير محدد.' } };
+    }
+
+    await purchasingRepository.deleteSupplierPayment(params.paymentId);
+
+    if (params.supplierId) {
+      revalidatePath(`/admin/suppliers/${params.supplierId}/statement`);
+    }
+    revalidatePath('/admin/suppliers');
+    return { ok: true, data: undefined };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل حذف سند الصرف.' } };
+  }
+}
+
 

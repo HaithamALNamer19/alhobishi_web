@@ -18,6 +18,8 @@ import {
   Receipt,
   RotateCcw,
   Sparkles,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
@@ -28,6 +30,9 @@ import { RecordSupplierPaymentDialog } from './record-supplier-payment-dialog';
 import { SupplierPaymentVoucherDialog } from './supplier-payment-voucher-dialog';
 import { PrintableSupplierVoucher } from './printable-supplier-voucher';
 import { PrintableSupplierStatement } from './printable-supplier-statement';
+import { EditPurchaseInvoiceDialog } from './edit-purchase-invoice-dialog';
+import { EditSupplierPaymentDialog } from './edit-supplier-payment-dialog';
+import { DeleteTransactionConfirmDialog } from './delete-transaction-confirm-dialog';
 
 export interface SerializedSupplierStatementProps {
   supplier: {
@@ -95,6 +100,9 @@ export function SupplierStatementView({
   const [selectedVoucher, setSelectedVoucher] = useState<any | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [selectedReturn, setSelectedReturn] = useState<any | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<any | null>(null);
+  const [editingPayment, setEditingPayment] = useState<any | null>(null);
+  const [deletingTransaction, setDeletingTransaction] = useState<any | null>(null);
 
   // Print state
   const [activePrint, setActivePrint] = useState<PrintJob | null>(null);
@@ -458,7 +466,7 @@ export function SupplierStatementView({
                       </td>
 
                       <td className="py-3.5 px-4 text-left">
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-1">
                           {(isPurchase || isReturn || isPayment) && (
                             <button
                               type="button"
@@ -488,10 +496,55 @@ export function SupplierStatementView({
                                   createdAt: tx.createdAt,
                                 })
                               }
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
                               title="طباعة سند الصرف"
                             >
                               <Printer className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {(isPurchase || isPayment) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isPurchase) {
+                                  setEditingInvoice({
+                                    id: tx.reference_id || tx.id,
+                                    invoice_number: tx.reference_number || tx.id,
+                                    supplier_name: supplier.name,
+                                    total_amount: tx.credit,
+                                    createdAt: tx.createdAt,
+                                    items: tx.items || [],
+                                  });
+                                } else if (isPayment) {
+                                  setEditingPayment({
+                                    id: tx.reference_id || tx.id,
+                                    voucher_number: tx.reference_number || tx.id,
+                                    supplier_id: supplier.id,
+                                    supplier_name: supplier.name,
+                                    amount: tx.debit,
+                                    payment_method: tx.payment_method || 'CASH',
+                                    reference_number: tx.reference_number || null,
+                                    bank_or_exchange: tx.bank_or_exchange || null,
+                                    notes: tx.notes || null,
+                                  });
+                                }
+                              }}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                              title="تعديل المستند"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {(isPurchase || isPayment) && (
+                            <button
+                              type="button"
+                              onClick={() => setDeletingTransaction(tx)}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+                              title="حذف المستند"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                         </div>
@@ -700,6 +753,45 @@ export function SupplierStatementView({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Purchase Invoice Dialog */}
+      {editingInvoice && (
+        <EditPurchaseInvoiceDialog
+          isOpen={Boolean(editingInvoice)}
+          onClose={() => setEditingInvoice(null)}
+          invoice={editingInvoice}
+          supplierId={supplier.id}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
+
+      {/* Edit Supplier Payment Dialog */}
+      {editingPayment && (
+        <EditSupplierPaymentDialog
+          isOpen={Boolean(editingPayment)}
+          onClose={() => setEditingPayment(null)}
+          payment={editingPayment}
+          supplierId={supplier.id}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
+
+      {/* Delete Transaction Confirm Dialog */}
+      {deletingTransaction && (
+        <DeleteTransactionConfirmDialog
+          isOpen={Boolean(deletingTransaction)}
+          onClose={() => setDeletingTransaction(null)}
+          transaction={deletingTransaction}
+          supplierId={supplier.id}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
       )}
 
       {/* Print Portal */}
