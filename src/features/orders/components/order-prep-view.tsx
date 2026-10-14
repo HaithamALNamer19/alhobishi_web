@@ -45,12 +45,26 @@ import {
 interface OrderPrepViewProps {
   initialOrder: Order;
   isAdmin: boolean;
+  returnUrl?: string;
 }
 
-export function OrderPrepView({ initialOrder, isAdmin }: OrderPrepViewProps) {
+export function OrderPrepView({ initialOrder, isAdmin, returnUrl }: OrderPrepViewProps) {
   const router = useRouter();
   const [order, setOrder] = useState<Order>(initialOrder);
   const [isPending, startTransition] = useTransition();
+
+  const fallbackUrl = '/admin/orders';
+  const targetBackUrl = returnUrl || fallbackUrl;
+
+  const handleBack = (e: React.MouseEvent) => {
+    if (returnUrl) {
+      return;
+    }
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      e.preventDefault();
+      router.back();
+    }
+  };
 
   // Confirmation dialogs
   const [confirmReadyOpen, setConfirmReadyOpen] = useState(false);
@@ -157,8 +171,10 @@ export function OrderPrepView({ initialOrder, isAdmin }: OrderPrepViewProps) {
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link
-            href="/admin/orders/today"
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+            href={targetBackUrl}
+            onClick={handleBack}
+            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            title="الرجوع"
           >
             <ArrowRight className="w-5 h-5" />
           </Link>

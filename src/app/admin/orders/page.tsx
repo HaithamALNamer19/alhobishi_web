@@ -71,6 +71,8 @@ export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageP
     return `/admin/orders${qs ? `?${qs}` : ''}`;
   };
 
+  const currentUrl = buildPageHref(currentPage);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-16">
       {/* Header */}
@@ -207,7 +209,7 @@ export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageP
                     </td>
 
                     <td className="py-4 px-4 text-left">
-                      <Link href={`/admin/orders/${o.id}`}>
+                      <Link href={`/admin/orders/${o.id}?returnUrl=${encodeURIComponent(currentUrl)}`}>
                         <Button variant="outline" size="sm" className="text-xs h-8">
                           <span>فتح التجهيز</span>
                           <ArrowLeft className="w-3.5 h-3.5 mr-1" />

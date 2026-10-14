@@ -47,6 +47,7 @@ export async function customerUpdateOrderAction(
     revalidatePath('/account');
     revalidatePath(`/admin/orders/${orderId}`);
     revalidatePath('/admin/orders/today');
+    revalidatePath('/admin/orders');
     return order;
   });
 }
@@ -78,6 +79,7 @@ export async function staffUpdateItemPrepAction(
 
     revalidatePath(`/admin/orders/${orderId}`);
     revalidatePath('/admin/orders/today');
+    revalidatePath('/admin/orders');
     return order;
   });
 }

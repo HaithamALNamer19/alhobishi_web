@@ -436,7 +436,7 @@ export default async function AdminDashboardPage() {
                     </td>
                     <td className="py-3.5 px-4 text-left">
                       <Link
-                        href={`/admin/orders/${o.id}`}
+                        href={`/admin/orders/${o.id}?returnUrl=${encodeURIComponent('/admin')}`}
                         className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-800 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors"
                       >
                         <span>فتح الطلب</span>

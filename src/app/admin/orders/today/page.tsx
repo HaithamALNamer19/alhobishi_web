@@ -82,7 +82,7 @@ export default async function TodayOrdersPage() {
               pendingOrders.map((o) => (
                 <Link
                   key={o.id}
-                  href={`/admin/orders/${o.id}`}
+                  href={`/admin/orders/${o.id}?returnUrl=${encodeURIComponent('/admin/orders/today')}`}
                   className="block bg-white p-4 rounded-2xl border border-slate-200 hover:border-blue-600 hover:shadow-md transition-all text-right space-y-2.5"
                 >
                   <div className="flex items-center justify-between">
@@ -134,7 +134,7 @@ export default async function TodayOrdersPage() {
               preparingOrders.map((o) => (
                 <Link
                   key={o.id}
-                  href={`/admin/orders/${o.id}`}
+                  href={`/admin/orders/${o.id}?returnUrl=${encodeURIComponent('/admin/orders/today')}`}
                   className="block bg-white p-4 rounded-2xl border border-slate-200 hover:border-indigo-500 hover:shadow-md transition-all text-right space-y-2.5"
                 >
                   <div className="flex items-center justify-between">
@@ -185,7 +185,7 @@ export default async function TodayOrdersPage() {
               readyOrders.map((o) => (
                 <Link
                   key={o.id}
-                  href={`/admin/orders/${o.id}`}
+                  href={`/admin/orders/${o.id}?returnUrl=${encodeURIComponent('/admin/orders/today')}`}
                   className="block bg-white p-4 rounded-2xl border border-blue-200 bg-blue-50/20 hover:border-blue-600 hover:shadow-md transition-all text-right space-y-2.5"
                 >
                   <div className="flex items-center justify-between">
@@ -233,7 +233,7 @@ export default async function TodayOrdersPage() {
             {cancelledOrders.map((o) => (
               <Link
                 key={o.id}
-                href={`/admin/orders/${o.id}`}
+                href={`/admin/orders/${o.id}?returnUrl=${encodeURIComponent('/admin/orders/today')}`}
                 className="block bg-white p-4 rounded-2xl border border-rose-200 hover:border-rose-400 hover:shadow-sm transition-all text-right space-y-2"
               >
                 <div className="flex items-center justify-between">

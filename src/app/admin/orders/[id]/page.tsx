@@ -11,12 +11,15 @@ export const revalidate = 0;
 
 interface AdminOrderPageProps {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ returnUrl?: string; from?: string }>;
 }
 
-export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
+export default async function AdminOrderPage({ params, searchParams }: AdminOrderPageProps) {
   await connection();
   const session = await getCurrentSession();
   const { id } = await params;
+  const sParams = searchParams ? await searchParams : undefined;
+  const returnUrl = sParams?.returnUrl || (sParams?.from === 'all' ? '/admin/orders' : undefined);
 
   const order = await orderRepository.findById(id);
   if (!order) {
@@ -27,7 +30,7 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <OrderPrepView initialOrder={order} isAdmin={isAdmin} />
+      <OrderPrepView initialOrder={order} isAdmin={isAdmin} returnUrl={returnUrl} />
     </div>
   );
 }
