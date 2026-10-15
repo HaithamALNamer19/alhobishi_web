@@ -22,6 +22,7 @@ import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import { searchStoreProductsAction, type StoreProductReturnOption } from '@/features/accounting/actions/return.actions';
 import { createPurchaseInvoiceAction } from '../actions/purchasing.actions';
+import { QuickCreateProductDialog } from './quick-create-product-dialog';
 import type { SerializedSupplier } from './suppliers-manager';
 import type { PurchaseItem } from '../domain/purchasing';
 
@@ -48,6 +49,7 @@ export function CreatePurchaseDialog({
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<StoreProductReturnOption[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isQuickProductOpen, setIsQuickProductOpen] = useState(false);
 
   // Active item staging before adding
   const [activeProduct, setActiveProduct] = useState<StoreProductReturnOption | null>(null);
@@ -109,6 +111,35 @@ export function CreatePurchaseDialog({
     setActiveQty(1);
     // Suggest defaultPrice or 0
     setActiveCostPrice(prod.defaultPrice || 0);
+    setProductSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleQuickProductCreated = ({
+    product,
+    suggestedCostPrice,
+  }: {
+    product: any;
+    suggestedCostPrice: number;
+  }) => {
+    const defaultVariant = product.variants?.[0];
+    const varId = defaultVariant?.id || 'default';
+    const varLabel = defaultVariant?.label || 'الافتراضي';
+
+    const option: StoreProductReturnOption = {
+      productId: product.id,
+      productName: product.name,
+      variantId: varId,
+      variantLabel: varLabel,
+      defaultPrice: suggestedCostPrice > 0 ? suggestedCostPrice : (product.retailPrice || 0),
+      availableStock: 0,
+      sku: defaultVariant?.sku || product.sku || null,
+      barcode: defaultVariant?.barcode || product.barcode || null,
+    };
+
+    setActiveProduct(option);
+    setActiveQty(1);
+    setActiveCostPrice(suggestedCostPrice > 0 ? suggestedCostPrice : (product.retailPrice || 0));
     setProductSearchQuery('');
     setSearchResults([]);
   };
@@ -274,9 +305,21 @@ export function CreatePurchaseDialog({
 
         {/* Product Search & Staging Box */}
         <div className="bg-white p-4 rounded-2xl border border-blue-200/70 shadow-xs space-y-3">
-          <label className="block text-xs font-bold text-slate-800">
-            البحث عن صنف وإضافته للفاتورة:
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-bold text-slate-800">
+              البحث عن صنف وإضافته للفاتورة:
+            </label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsQuickProductOpen(true)}
+              className="h-7 px-2.5 text-xs text-blue-700 border-blue-200 hover:bg-blue-50 font-bold gap-1 rounded-lg"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>إضافة منتج جديد</span>
+            </Button>
+          </div>
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
             <input
@@ -290,6 +333,27 @@ export function CreatePurchaseDialog({
               <Loader2 className="w-4 h-4 text-blue-600 animate-spin absolute left-3 top-1/2 -translate-y-1/2" />
             )}
           </div>
+
+          {/* No Results Fallback with Shortcut */}
+          {!isSearching && productSearchQuery.trim().length >= 2 && searchResults.length === 0 && (
+            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-900">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  لم يتم العثور على أي صنف باسم: <strong>&quot;{productSearchQuery}&quot;</strong>
+                </span>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setIsQuickProductOpen(true)}
+                className="h-7 px-3 text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold gap-1 rounded-lg"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>إضافة كمنتج جديد الآن</span>
+              </Button>
+            </div>
+          )}
 
           {/* Search Results Dropdown */}
           {searchResults.length > 0 && (
@@ -463,6 +527,14 @@ export function CreatePurchaseDialog({
           </div>
         </div>
       </div>
+
+      {/* Quick Create Product Dialog */}
+      <QuickCreateProductDialog
+        isOpen={isQuickProductOpen}
+        onClose={() => setIsQuickProductOpen(false)}
+        initialName={productSearchQuery.trim()}
+        onSuccess={handleQuickProductCreated}
+      />
     </Dialog>
   );
 }
