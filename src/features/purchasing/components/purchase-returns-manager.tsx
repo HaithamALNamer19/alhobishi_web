@@ -11,8 +11,6 @@ import {
   Calendar,
   Eye,
   Printer,
-  Package,
-  CreditCard,
   FileText,
   X,
 } from 'lucide-react';
@@ -68,12 +66,6 @@ export function PurchaseReturnsManager({
     return matchNumber || matchSupplier || matchPurchaseId;
   });
 
-  const totalReturnsAmount = returns.reduce((sum, r) => sum + (Number(r.total_amount) || 0), 0);
-  const totalItemsCount = returns.reduce(
-    (sum, r) => sum + (r.items || []).reduce((s, it) => s + (it.quantity || 0), 0),
-    0
-  );
-
   const [mounted, setMounted] = useState(false);
   const [printDoc, setPrintDoc] = useState<SerializedPurchaseReturn | null>(null);
 
@@ -123,45 +115,6 @@ export function PurchaseReturnsManager({
             <Plus className="w-4 h-4" />
             <span>إنشاء مردود مشتريات جديد</span>
           </Button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
-              <Undo2 className="w-4 h-4 text-rose-600" />
-              <span>عدد فواتير المردود</span>
-            </span>
-            <div className="text-xl font-black font-mono text-slate-900 tracking-tight">
-              {returns.length} مردود
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
-              <Package className="w-4 h-4 text-amber-600" />
-              <span>إجمالي القطع المرجعة</span>
-            </span>
-            <div className="text-xl font-black font-mono text-amber-700 tracking-tight">
-              {totalItemsCount} قطعة
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
-              <CreditCard className="w-4 h-4 text-rose-600" />
-              <span>إجمالي مبالغ المردودات</span>
-            </span>
-            <div className="text-xl font-black font-mono text-rose-700 tracking-tight">
-              {formatMoney(totalReturnsAmount)}
-            </div>
-          </div>
         </div>
       </div>
 
