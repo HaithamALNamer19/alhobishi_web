@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   Undo2,
@@ -21,6 +22,7 @@ import { Dialog } from '@/shared/ui/dialog';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import { CreatePurchaseReturnDialog } from './create-purchase-return-dialog';
+import { PrintablePurchaseReturnInvoice } from './printable-purchase-return-invoice';
 import type { SerializedSupplier } from './suppliers-manager';
 
 export interface SerializedPurchaseReturn {
@@ -72,82 +74,31 @@ export function PurchaseReturnsManager({
     0
   );
 
+  const [mounted, setMounted] = useState(false);
+  const [printDoc, setPrintDoc] = useState<SerializedPurchaseReturn | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const handlePrint = (ret: SerializedPurchaseReturn) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    setPrintDoc(ret);
+    document.body.classList.add('print-active');
+    const originalTitle = document.title;
+    document.title = ' ';
 
-    const itemsHtml = (ret.items || [])
-      .map(
-        (it, idx) => `
-        <tr>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${idx + 1}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">${it.product_name || 'صنف'}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${it.quantity}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatMoney(it.cost_price)}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: left; font-weight: bold;">${formatMoney(it.quantity * it.cost_price)}</td>
-        </tr>
-      `
-      )
-      .join('');
+    const handleAfterPrint = () => {
+      document.title = originalTitle;
+      document.body.classList.remove('print-active');
+      setPrintDoc(null);
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
-        <head>
-          <title>فاتورة مردود مشتريات #${ret.return_number}</title>
-          <style>
-            body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 24px; direction: rtl; }
-            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 12px; margin-bottom: 20px; }
-            .header h1 { margin: 0; font-size: 20px; }
-            .meta { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 13px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
-            th { background: #f5f5f5; border: 1px solid #ddd; padding: 8px; }
-            .total { text-align: left; font-size: 16px; font-weight: bold; margin-top: 10px; }
-            .tafqeet { font-size: 12px; color: #555; text-align: left; margin-top: 4px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>مردود مشتريات</h1>
-            <p>سند إرجاع بضاعة إلى المورد</p>
-          </div>
-          <div class="meta">
-            <div>
-              <strong>رقم المردود:</strong> ${ret.return_number}<br>
-              <strong>المورد:</strong> ${ret.supplier_name}<br>
-              ${ret.purchase_id ? `<strong>المرجع:</strong> ${ret.purchase_id}<br>` : ''}
-            </div>
-            <div style="text-align: left;">
-              <strong>التاريخ:</strong> ${new Date(ret.return_date).toLocaleDateString('ar-YE')}<br>
-            </div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>الصنف</th>
-                <th>الكمية</th>
-                <th>سعر التكلفة</th>
-                <th>الإجمالي</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-          </table>
-          <div class="total">
-            الإجمالي النهائي: ${formatMoney(ret.total_amount)}
-          </div>
-          <div class="tafqeet">
-            فقط: ${tafqeetRials(ret.total_amount)}
-          </div>
-          <script>
-            window.onload = function() { window.print(); }
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    window.addEventListener('afterprint', handleAfterPrint);
+
+    setTimeout(() => {
+      window.print();
+    }, 200);
   };
 
   return (
@@ -429,6 +380,16 @@ export function PurchaseReturnsManager({
           router.refresh();
         }}
       />
+
+      {/* Printable Document Root (Rendered via Portal onto document.body for clean isolation and official styling) */}
+      {mounted &&
+        printDoc &&
+        createPortal(
+          <div className="print-only-portal">
+            <PrintablePurchaseReturnInvoice returnDoc={printDoc} />
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   Receipt,
@@ -17,6 +18,7 @@ import { Badge } from '@/shared/ui/badge';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import { CreatePurchaseDialog } from './create-purchase-dialog';
+import { PrintablePurchaseInvoice } from './printable-purchase-invoice';
 import type { SerializedSupplier } from './suppliers-manager';
 import type { PurchaseInvoice } from '../domain/purchasing';
 
@@ -61,106 +63,31 @@ export function PurchasesManager({
     return matchNumber || matchSupplier;
   });
 
+  const [mounted, setMounted] = useState(false);
+  const [printDoc, setPrintDoc] = useState<SerializedPurchaseInvoice | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const handlePrint = (invoice: SerializedPurchaseInvoice) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    setPrintDoc(invoice);
+    document.body.classList.add('print-active');
+    const originalTitle = document.title;
+    document.title = ' ';
 
-    const itemsHtml = (invoice.items || [])
-      .map(
-        (it, idx) => `
-        <tr>
-          <td style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center; color: #64748b;">${idx + 1}</td>
-          <td style="border: 1px solid #e2e8f0; padding: 8px 10px; font-weight: bold; color: #0f172a;">${it.product_name || 'صنف'}</td>
-          <td style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center; font-weight: bold; color: #1d4ed8;">${it.quantity}</td>
-          <td style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center; font-family: monospace;">${formatMoney(it.cost_price)}</td>
-          <td style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; font-weight: bold; font-family: monospace; color: #0f172a;">${formatMoney(it.quantity * it.cost_price)}</td>
-        </tr>
-      `
-      )
-      .join('');
+    const handleAfterPrint = () => {
+      document.title = originalTitle;
+      document.body.classList.remove('print-active');
+      setPrintDoc(null);
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
 
-    const totalUnits = (invoice.items || []).reduce((s, it) => s + (it.quantity || 0), 0);
-    const invoiceDate = new Date(invoice.purchase_date);
-    const formattedDate = !isNaN(invoiceDate.getTime())
-      ? invoiceDate.toLocaleDateString('ar-YE', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        })
-      : invoice.purchase_date;
+    window.addEventListener('afterprint', handleAfterPrint);
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
-        <head>
-          <title>فاتورة شراء وتوريد #${invoice.invoice_number}</title>
-          <meta charset="utf-8" />
-          <style>
-            @page { size: A4; margin: 15mm; }
-            * { box-sizing: border-box; }
-            body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; padding: 24px; direction: rtl; color: #0f172a; margin: 0; }
-            .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 18px; }
-            .header h1 { margin: 0; font-size: 22px; font-weight: 900; }
-            .header p { margin: 4px 0 0; font-size: 13px; color: #64748b; }
-            .meta { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 13px; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0; }
-            .meta-col { display: flex; flex-direction: column; gap: 5px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 13px; }
-            th { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 8px 10px; font-weight: 800; color: #334155; }
-            .summary-box { display: flex; justify-content: space-between; align-items: center; background: #eff6ff; border: 1px solid #bfdbfe; padding: 12px 16px; border-radius: 8px; margin-top: 14px; }
-            .total-title { font-size: 14px; font-weight: 800; color: #1e3a8a; }
-            .total-amount { font-size: 18px; font-weight: 900; font-family: monospace; color: #1d4ed8; }
-            .tafqeet { font-size: 12px; color: #475569; margin-top: 10px; padding: 8px 12px; background: #f8fafc; border-radius: 6px; }
-            .footer { margin-top: 36px; display: flex; justify-content: space-between; font-size: 13px; color: #334155; }
-            .signature { border-top: 1px dashed #94a3b8; width: 160px; text-align: center; padding-top: 6px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>فاتورة شراء وتوريد بضاعة</h1>
-            <p>سند توريد مخزني وتكلفة مشتريات</p>
-          </div>
-          <div class="meta">
-            <div class="meta-col">
-              <div><strong>رقم الفاتورة:</strong> <span style="font-family: monospace; font-weight: bold;">${invoice.invoice_number}</span></div>
-              <div><strong>المورد:</strong> ${invoice.supplier_name}</div>
-            </div>
-            <div class="meta-col" style="text-align: left;">
-              <div><strong>تاريخ الشراء:</strong> ${formattedDate}</div>
-              <div><strong>عدد الأصناف:</strong> ${(invoice.items || []).length} صنف (${totalUnits} قطعة)</div>
-            </div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 40px; text-align: center;">م</th>
-                <th style="text-align: right;">اسم الصنف</th>
-                <th style="width: 80px; text-align: center;">الكمية</th>
-                <th style="width: 130px; text-align: center;">سعر التكلفة</th>
-                <th style="width: 140px; text-align: left;">الإجمالي</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-          </table>
-          <div class="summary-box">
-            <span class="total-title">إجمالي مبلغ الفاتورة:</span>
-            <span class="total-amount">${formatMoney(invoice.total_amount)}</span>
-          </div>
-          <div class="tafqeet">
-            <strong>المبلغ كتابة:</strong> فقط ${tafqeetRials(invoice.total_amount)}
-          </div>
-          <div class="footer">
-            <div class="signature">توقيع المستلم (المستودع)</div>
-            <div class="signature">توقيع المسؤول المالي</div>
-          </div>
-          <script>
-            window.onload = function() { window.print(); }
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    setTimeout(() => {
+      window.print();
+    }, 200);
   };
 
   return (
@@ -400,6 +327,16 @@ export function PurchasesManager({
           </div>
         </div>
       )}
+
+      {/* Printable Document Root (Rendered via Portal onto document.body for clean isolation and official styling) */}
+      {mounted &&
+        printDoc &&
+        createPortal(
+          <div className="print-only-portal">
+            <PrintablePurchaseInvoice invoice={printDoc} />
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
