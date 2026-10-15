@@ -373,17 +373,6 @@ export function CreateReturnDialog({
                   </div>
                 </div>
               </div>
-
-              <div className="text-left font-mono">
-                <span className="text-[10px] text-slate-400 block font-sans">الرصيد الحالي</span>
-                <span
-                  className={`text-sm font-bold ${
-                    (selectedCustomer.balance ?? 0) > 0 ? 'text-amber-700' : 'text-slate-700'
-                  }`}
-                >
-                  {formatMoney(selectedCustomer.balance ?? 0)}
-                </span>
-              </div>
             </div>
           ) : (
             <div className="space-y-2">
@@ -439,18 +428,9 @@ export function CreateReturnDialog({
                           </div>
                         </div>
 
-                        <div className="text-left font-mono">
-                          <span className="text-[10px] text-slate-400 block font-sans">
-                            الرصيد الحالي
-                          </span>
-                          <span
-                            className={`text-xs font-bold ${
-                              (c.balance ?? 0) > 0 ? 'text-amber-700' : 'text-slate-700'
-                            }`}
-                          >
-                            {formatMoney(c.balance ?? 0)}
-                          </span>
-                        </div>
+                        <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg shrink-0">
+                          اختيار
+                        </span>
                       </button>
                     ))
                   )}

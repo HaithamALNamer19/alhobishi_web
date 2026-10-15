@@ -3,7 +3,6 @@ import { connection } from 'next/server';
 import { getCurrentSession } from '@/core/auth/require-auth';
 import { isBackOfficeRole } from '@/core/auth/roles';
 import { ledgerRepository } from '@/features/accounting/infrastructure/firestore-ledger.repository';
-import { userRepository } from '@/features/users/infrastructure/firestore-user.repository';
 import {
   AdminReturnsManager,
   type ReturnListItem,
@@ -23,17 +22,7 @@ export default async function AdminReturnsPage() {
   // 1. Fetch sales returns from repository (optimized limit to reduce reads)
   const rawReturns = await ledgerRepository.listSalesReturns(50);
 
-  // 2. Fetch customers for new return invoice selector
-  const users = await userRepository.listUsers(undefined, 50);
-  const customers = users.map((u) => ({
-    uid: u.uid,
-    displayName: u.displayName || u.username || 'عميل',
-    role: u.role,
-    phone: u.phone || undefined,
-    balance: Number(u.account?.balance) || 0,
-  }));
-
-  // 3. Serialize return items safely for Client Component
+  // 2. Serialize return items safely for Client Component
   const returnListItems: ReturnListItem[] = rawReturns.map((r) => {
     const totalUnits = (r.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
     const createdAtIso =
@@ -88,7 +77,7 @@ export default async function AdminReturnsPage() {
         </div>
       }
     >
-      <AdminReturnsManager initialReturns={returnListItems} customers={customers} />
+      <AdminReturnsManager initialReturns={returnListItems} />
     </Suspense>
   );
 }

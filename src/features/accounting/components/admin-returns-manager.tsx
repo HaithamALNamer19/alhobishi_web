@@ -41,12 +41,12 @@ export interface ReturnListItem {
 
 interface AdminReturnsManagerProps {
   initialReturns: ReturnListItem[];
-  customers: CustomerOption[];
+  customers?: CustomerOption[];
 }
 
 export function AdminReturnsManager({
   initialReturns,
-  customers,
+  customers = [],
 }: AdminReturnsManagerProps) {
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);

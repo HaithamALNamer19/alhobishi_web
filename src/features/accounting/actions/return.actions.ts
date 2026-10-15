@@ -22,7 +22,7 @@ export interface StoreCustomerOption {
   displayName: string;
   role: string;
   phone?: string;
-  balance: number;
+  balance?: number;
 }
 
 export interface StoreProductReturnOption {
@@ -231,10 +231,56 @@ export async function searchStoreCustomersAction(params: {
     const normQ = normalizeArabic(rawQ).toLowerCase();
     const cleanLowerQ = rawQ.toLowerCase();
     const tokenQ = toSearchToken(rawQ);
+    const db = adminDb();
 
-    const users = await userRepository.listUsers(undefined, 300);
+    let candidateUsers: any[] = [];
 
-    const matches = users
+    // 1. Efficient token-based query using searchKeywords array-contains
+    if (tokenQ) {
+      try {
+        const snap = await db
+          .collection(Collections.USERS)
+          .where('searchKeywords', 'array-contains', tokenQ)
+          .limit(20)
+          .get();
+        if (!snap.empty) {
+          candidateUsers = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+        }
+      } catch (err) {
+        console.warn('User searchKeywords query failed:', err);
+      }
+    }
+
+    // 2. Direct phone number search if query is numeric
+    if (/^\+?\d+$/.test(rawQ)) {
+      try {
+        const phoneSnap = await db
+          .collection(Collections.USERS)
+          .where('phone', '==', rawQ)
+          .limit(5)
+          .get();
+        if (!phoneSnap.empty) {
+          const phoneUsers = phoneSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+          for (const pu of phoneUsers) {
+            if (!candidateUsers.some((u) => u.uid === pu.uid)) {
+              candidateUsers.push(pu);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('User phone query failed:', err);
+      }
+    }
+
+    // 3. Fallback: only if targeted search returned no results, fetch small batch (25)
+    if (candidateUsers.length === 0) {
+      const snap = await db.collection(Collections.USERS).limit(25).get();
+      if (!snap.empty) {
+        candidateUsers = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+      }
+    }
+
+    const matches = candidateUsers
       .filter((u) => {
         const name = (u.displayName || '').toLowerCase();
         const normName = normalizeArabic(u.displayName || '').toLowerCase();
@@ -256,9 +302,8 @@ export async function searchStoreCustomersAction(params: {
         displayName: u.displayName || u.username || 'عميل',
         role: u.role,
         phone: u.phone || undefined,
-        balance: Number(u.account?.balance ?? 0),
       }))
-      .slice(0, 25);
+      .slice(0, 20);
 
     return matches;
   });
