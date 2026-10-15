@@ -10,8 +10,6 @@ import {
   Calendar,
   Eye,
   Printer,
-  Package,
-  CreditCard,
   FileText,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
@@ -62,12 +60,6 @@ export function PurchasesManager({
     return matchNumber || matchSupplier;
   });
 
-  const totalPurchasesAmount = purchases.reduce((sum, p) => sum + (Number(p.total_amount) || 0), 0);
-  const totalItemsCount = purchases.reduce(
-    (sum, p) => sum + (p.items || []).reduce((s, it) => s + (it.quantity || 0), 0),
-    0
-  );
-
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-16">
       {/* Top Banner */}
@@ -90,45 +82,6 @@ export function PurchasesManager({
             <Plus className="w-4 h-4" />
             <span>إنشاء فاتورة شراء جديدة</span>
           </Button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
-              <Receipt className="w-4 h-4 text-blue-600" />
-              <span>عدد فواتير الشراء</span>
-            </span>
-            <div className="text-xl font-black font-mono text-slate-900 tracking-tight">
-              {purchases.length} فاتورة
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
-              <Package className="w-4 h-4 text-emerald-600" />
-              <span>إجمالي القطع الموردة</span>
-            </span>
-            <div className="text-xl font-black font-mono text-emerald-700 tracking-tight">
-              {totalItemsCount} قطعة
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
-              <CreditCard className="w-4 h-4 text-slate-600" />
-              <span>إجمالي مبالغ الشراء</span>
-            </span>
-            <div className="text-xl font-black font-mono text-slate-900 tracking-tight">
-              {formatMoney(totalPurchasesAmount)}
-            </div>
-          </div>
         </div>
       </div>
 

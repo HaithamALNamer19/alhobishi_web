@@ -31,9 +31,10 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
   const resolvedParams = searchParams ? await searchParams : {};
   const supplierId = resolvedParams?.supplierId || null;
 
+  // Optimize initial fetch limit to reduce Firestore reads
   const [rawPurchases, rawSuppliers] = await Promise.all([
-    purchasingRepository.listPurchases(100),
-    purchasingRepository.listSuppliers(100),
+    purchasingRepository.listPurchases(50),
+    purchasingRepository.listSuppliers(50),
   ]);
 
   const serializedPurchases: SerializedPurchaseInvoice[] = (rawPurchases || []).map((p) => ({
