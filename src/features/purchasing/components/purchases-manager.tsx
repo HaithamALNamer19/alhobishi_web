@@ -12,12 +12,14 @@ import {
   Eye,
   Printer,
   FileText,
+  Edit,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import { CreatePurchaseDialog } from './create-purchase-dialog';
+import { EditPurchaseInvoiceDialog } from './edit-purchase-invoice-dialog';
 import { PrintablePurchaseInvoice } from './printable-purchase-invoice';
 import type { SerializedSupplier } from './suppliers-manager';
 import type { PurchaseInvoice } from '../domain/purchasing';
@@ -54,6 +56,11 @@ export function PurchasesManager({
   const [search, setSearch] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(Boolean(defaultSupplierId));
   const [selectedInvoice, setSelectedInvoice] = useState<SerializedPurchaseInvoice | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<SerializedPurchaseInvoice | null>(null);
+
+  useEffect(() => {
+    setPurchases(initialPurchases);
+  }, [initialPurchases]);
 
   const filteredPurchases = purchases.filter((p) => {
     if (!search.trim()) return true;
@@ -213,6 +220,15 @@ export function PurchasesManager({
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => setEditingInvoice(p)}
+                            className="h-7 px-2.5 text-[11px] text-amber-700 border-amber-200 hover:bg-amber-50 gap-1"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            <span>تعديل</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handlePrint(p)}
                             className="h-7 px-2.5 text-[11px] text-slate-700 border-slate-200 hover:bg-slate-50 gap-1"
                           >
@@ -307,14 +323,28 @@ export function PurchasesManager({
             </div>
 
             <div className="flex items-center justify-between pt-2">
-              <Button
-                type="button"
-                onClick={() => handlePrint(selectedInvoice)}
-                className="text-xs bg-slate-900 hover:bg-slate-800 text-white font-bold gap-1.5 px-4"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>طباعة الفاتورة</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  onClick={() => handlePrint(selectedInvoice)}
+                  className="text-xs bg-slate-900 hover:bg-slate-800 text-white font-bold gap-1.5 px-4"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>طباعة الفاتورة</span>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const inv = selectedInvoice;
+                    setSelectedInvoice(null);
+                    setEditingInvoice(inv);
+                  }}
+                  className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold gap-1.5 px-4"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  <span>تعديل الفاتورة</span>
+                </Button>
+              </div>
               <Button
                 type="button"
                 variant="outline"
@@ -326,6 +356,19 @@ export function PurchasesManager({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Purchase Invoice Dialog */}
+      {editingInvoice && (
+        <EditPurchaseInvoiceDialog
+          isOpen={!!editingInvoice}
+          onClose={() => setEditingInvoice(null)}
+          invoice={editingInvoice}
+          supplierId={editingInvoice.supplier_id}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
       )}
 
       {/* Printable Document Root (Rendered via Portal onto document.body for clean isolation and official styling) */}

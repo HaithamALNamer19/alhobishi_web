@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   RotateCcw,
   Search,
@@ -14,6 +15,7 @@ import {
   Package,
   CreditCard,
   AlertCircle,
+  Edit,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -21,6 +23,7 @@ import { Pagination } from '@/shared/ui/pagination';
 import { formatMoney } from '@/core/domain/money';
 import { CreateReturnDialog, type CustomerOption } from './create-return-dialog';
 import { ReturnDetailDialog } from './return-detail-dialog';
+import { EditSalesReturnDialog } from './edit-sales-return-dialog';
 import { PrintableReturnInvoice } from './printable-return-invoice';
 import type { SerializedReturnDetail } from '../actions/return.actions';
 
@@ -48,9 +51,11 @@ export function AdminReturnsManager({
   initialReturns,
   customers = [],
 }: AdminReturnsManagerProps) {
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState<SerializedReturnDetail | null>(null);
+  const [editingReturn, setEditingReturn] = useState<SerializedReturnDetail | null>(null);
   const [printDoc, setPrintDoc] = useState<SerializedReturnDetail | null>(null);
   const [mounted, setMounted] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -251,6 +256,14 @@ export function AdminReturnsManager({
                           </button>
                           <button
                             type="button"
+                            onClick={() => setEditingReturn(r.rawDoc)}
+                            className="p-1.5 text-slate-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                            title="تعديل الفاتورة"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handlePrint(r.rawDoc)}
                             className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
                             title="طباعة الفاتورة"
@@ -299,7 +312,23 @@ export function AdminReturnsManager({
         onClose={() => setSelectedReturn(null)}
         returnDoc={selectedReturn}
         onPrint={handlePrint}
+        onEdit={(doc) => {
+          setSelectedReturn(null);
+          setEditingReturn(doc);
+        }}
       />
+
+      {/* Edit Return Dialog */}
+      {editingReturn && (
+        <EditSalesReturnDialog
+          isOpen={Boolean(editingReturn)}
+          onClose={() => setEditingReturn(null)}
+          returnDoc={editingReturn}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
 
       {/* Printable Document Root (Rendered via Portal onto document.body for clean isolation) */}
       {mounted &&

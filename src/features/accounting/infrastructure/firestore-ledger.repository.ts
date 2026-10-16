@@ -449,6 +449,236 @@ export class FirestoreLedgerRepository {
       return { returnId: retRef.id, returnNumber, newBalance, totalAmount: totalMoney };
     });
   }
+
+  async updateSalesReturn(params: {
+    returnId: string;
+    returnNumber?: string;
+    reason?: string | null;
+    createdAt?: Date;
+    items?: Array<{
+      productId: string;
+      productName: string;
+      variantId: string;
+      variantLabel: string;
+      quantity: number;
+      unitPrice: Money;
+    }>;
+    actorId: string;
+    actorName: string;
+  }): Promise<{ returnId: string; returnNumber: string; totalAmount: Money }> {
+    return this.db.runTransaction(async (tx) => {
+      const returnRef = this.db.collection(Collections.SALES_RETURNS).doc(params.returnId);
+      const snap = await tx.get(returnRef);
+      if (!snap.exists) {
+        throw new AppError(ErrorCode.NOT_FOUND, { message: 'فاتورة مردود المبيعات غير موجودة.' });
+      }
+
+      const rData = snap.data()!;
+      const customerId = rData.customerId;
+      const oldReturnNumber = rData.returnNumber || params.returnId;
+      const finalReturnNumber = params.returnNumber?.trim() || oldReturnNumber;
+      const oldTotal = Number(rData.totalAmount || 0);
+      const oldItems: SalesReturnItem[] = Array.isArray(rData.items) ? rData.items : [];
+
+      const userRef = this.db.collection(Collections.USERS).doc(customerId);
+      const userSnap = await tx.get(userRef);
+
+      if (!params.items) {
+        const updates: any = { updatedAt: FieldValue.serverTimestamp() };
+        if (params.returnNumber?.trim()) updates.returnNumber = params.returnNumber.trim();
+        if (params.reason !== undefined) updates.reason = params.reason;
+        if (params.createdAt) updates.createdAt = Timestamp.fromDate(params.createdAt);
+        tx.update(returnRef, updates);
+        return { returnId: params.returnId, returnNumber: finalReturnNumber, totalAmount: oldTotal as Money };
+      }
+
+      const newItems = params.items;
+      if (newItems.length === 0) {
+        throw new AppError(ErrorCode.EMPTY_ORDER, { message: 'يجب اختيار صنف واحد على الأقل للمردود.' });
+      }
+
+      const allItemKeys = new Set<string>();
+      const makeKey = (pId: string, vId?: string) => `${pId}:::${vId?.trim() || 'default'}`;
+
+      oldItems.forEach((i) => allItemKeys.add(makeKey(i.productId, i.variantId)));
+      newItems.forEach((i) => allItemKeys.add(makeKey(i.productId, i.variantId)));
+
+      const loadedKeys = Array.from(allItemKeys);
+      const docRefs = loadedKeys.map((key) => {
+        const [productId, variantId] = key.split(':::');
+        const prodRef = this.db.collection(Collections.PRODUCTS).doc(productId);
+        const varRef = prodRef.collection(Collections.VARIANTS).doc(variantId);
+        return { key, productId, variantId, prodRef, varRef };
+      });
+
+      const loadedDocs = await Promise.all(
+        docRefs.map(async (ref) => {
+          const [prodSnap, varSnap] = await Promise.all([tx.get(ref.prodRef), tx.get(ref.varRef)]);
+          return { ...ref, prodSnap, varSnap };
+        })
+      );
+
+      const docsMap = new Map(loadedDocs.map((d) => [d.key, d]));
+
+      // Sales return adds returned item back to stock.
+      // Net stock change = newReturnedQty - oldReturnedQty (if customer returns less, stock decreases)
+      const netChanges: any[] = [];
+      for (const key of loadedKeys) {
+        const d = docsMap.get(key)!;
+        const [productId, variantId] = key.split(':::');
+        const oldQty = oldItems
+          .filter((i) => makeKey(i.productId, i.variantId) === key)
+          .reduce((sum, i) => sum + Number(i.quantity || 0), 0);
+        const newQty = newItems
+          .filter((i) => makeKey(i.productId, i.variantId) === key)
+          .reduce((sum, i) => sum + Number(i.quantity || 0), 0);
+
+        const netStockChange = newQty - oldQty;
+        const prodData = d.prodSnap.data() || {};
+        const varData = d.varSnap.data() || {};
+
+        const currentVarStock = Number(varData.stockQty ?? 0);
+        const currentReserved = Number(varData.reservedQty ?? 0);
+        const newVarStock = currentVarStock + netStockChange;
+
+        if (newVarStock < 0) {
+          throw new AppError(ErrorCode.OUT_OF_STOCK, {
+            message: `لا يمكن تقليل كمية المردود للصنف "${prodData.name || productId}" بمقدار ${Math.abs(netStockChange)} لأن المخزون المتبقي حالياً لا يكفي.`,
+          });
+        }
+
+        const newAvailable = Math.max(0, newVarStock - currentReserved);
+        const threshold = Number(varData.lowStockThreshold ?? 5);
+        const newStockState = computeStockState(newAvailable, threshold);
+        const itemLabel =
+          newItems.find((i) => makeKey(i.productId, i.variantId) === key)?.productName ||
+          prodData.name ||
+          'صنف';
+
+        netChanges.push({
+          productId,
+          variantId,
+          prodRef: d.prodRef,
+          varRef: d.varRef,
+          prodData,
+          varData,
+          netStockChange,
+          newVarStock,
+          newAvailable,
+          newStockState,
+          itemLabel,
+        });
+      }
+
+      let newTotal = 0;
+      for (const item of newItems) {
+        const q = Number(item.quantity || 0);
+        const p = Number(item.unitPrice || 0);
+        if (q <= 0) throw new AppError(ErrorCode.INVALID_QUANTITY, { message: 'الكمية غير صالحة.' });
+        newTotal += q * p;
+      }
+      const totalMoney = assertMoney(newTotal);
+
+      // Return reduces customer balance/debt. Increasing return reduces balance further.
+      // customerBalanceDelta = -(newTotal - oldTotal)
+      const customerBalanceDelta = -(totalMoney - oldTotal);
+
+      for (const change of netChanges) {
+        if (change.netStockChange !== 0) {
+          tx.set(
+            change.varRef,
+            {
+              id: change.variantId,
+              productId: change.productId,
+              stockQty: change.newVarStock,
+              availableQty: change.newAvailable,
+              stockState: change.newStockState,
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          const currentProdStock = Number(change.prodData.current_stock ?? change.prodData.stockQty ?? 0);
+          const updatedProdStock = Math.max(0, currentProdStock + change.netStockChange);
+          tx.update(change.prodRef, {
+            current_stock: updatedProdStock,
+            stockQty: updatedProdStock,
+            inStock: updatedProdStock > 0 || change.newVarStock > 0,
+            hasStock: updatedProdStock > 0 || change.newVarStock > 0,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          const invMoveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+          tx.set(invMoveRef, {
+            productId: change.productId,
+            variantId: change.variantId,
+            type: 'RETURN',
+            delta: change.netStockChange,
+            stockAfter: change.newVarStock,
+            reservedAfter: Number(change.varData.reservedQty ?? 0),
+            orderId: finalReturnNumber,
+            reason: `تعديل مردود مبيعات رقم ${finalReturnNumber} (${change.netStockChange > 0 ? '+' : ''}${change.netStockChange})`,
+            actorId: params.actorId,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      if (customerBalanceDelta !== 0 && userSnap.exists) {
+        const userData = userSnap.data()!;
+        const currentBalance = Number(userData.balance ?? userData.account?.balance ?? 0) as Money;
+        const newBalance = (currentBalance + customerBalanceDelta) as Money;
+
+        tx.update(userRef, {
+          balance: newBalance,
+          'account.balance': newBalance,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        const txRef = this.db.collection(Collections.ACCOUNT_TRANSACTIONS).doc();
+        tx.set(txRef, {
+          customerId,
+          orderId: rData.orderId || null,
+          paymentId: null,
+          returnId: params.returnId,
+          type: 'RETURN',
+          amount: customerBalanceDelta,
+          previousBalance: currentBalance,
+          newBalance,
+          description: `تعديل إجمالي فاتورة مردود مبيعات رقم ${finalReturnNumber}`,
+          recordedBy: params.actorName,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      tx.set(
+        returnRef,
+        {
+          returnNumber: finalReturnNumber,
+          reason: params.reason !== undefined ? params.reason : (rData.reason || null),
+          items: newItems.map((i) => ({
+            productId: i.productId,
+            productName: i.productName,
+            variantId: i.variantId,
+            variantLabel: i.variantLabel || '-',
+            quantity: Number(i.quantity || 0),
+            unitPrice: Number(i.unitPrice || 0) as Money,
+            subtotal: (Number(i.quantity || 0) * Number(i.unitPrice || 0)) as Money,
+          })),
+          productIds: Array.from(new Set(newItems.map((i) => i.productId))),
+          totalAmount: totalMoney,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      return {
+        returnId: params.returnId,
+        returnNumber: finalReturnNumber,
+        totalAmount: totalMoney,
+      };
+    });
+  }
 }
 
 export const ledgerRepository = new FirestoreLedgerRepository();

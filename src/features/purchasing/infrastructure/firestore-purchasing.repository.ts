@@ -474,45 +474,481 @@ export class FirestorePurchasingRepository {
     purchaseId: string;
     invoice_number?: string;
     purchase_date?: Date;
-  }): Promise<{ purchaseId: string; invoiceNumber: string }> {
-    const purchaseRef = this.db.collection(Collections.PURCHASES).doc(params.purchaseId);
-    const snap = await purchaseRef.get();
-    if (!snap.exists) {
-      throw new Error('فاتورة الشراء غير موجودة.');
-    }
+    items?: PurchaseItem[];
+  }): Promise<{ purchaseId: string; invoiceNumber: string; totalAmount: number }> {
+    return this.db.runTransaction(async (tx) => {
+      const purchaseRef = this.db.collection(Collections.PURCHASES).doc(params.purchaseId);
+      const snap = await tx.get(purchaseRef);
+      if (!snap.exists) {
+        throw new Error('فاتورة الشراء غير موجودة.');
+      }
 
-    const updates: any = {
-      updatedAt: FieldValue.serverTimestamp(),
-    };
-    if (params.invoice_number?.trim()) {
-      updates.invoice_number = params.invoice_number.trim();
-    }
-    if (params.purchase_date) {
-      updates.purchase_date = Timestamp.fromDate(params.purchase_date);
-    }
+      const pData = snap.data()!;
+      const supplierId = pData.supplier_id;
+      const oldInvoiceNumber = pData.invoice_number || params.purchaseId;
+      const finalInvoiceNumber = params.invoice_number?.trim() || oldInvoiceNumber;
+      const oldTotal = Number(pData.total_amount || 0);
+      const oldItems: PurchaseItem[] = Array.isArray(pData.items) ? pData.items : [];
 
-    await purchaseRef.update(updates);
+      const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(supplierId);
+      const supplierSnap = await tx.get(supplierRef);
 
-    if (updates.invoice_number) {
-      const txSnap = await this.db
-        .collection(Collections.SUPPLIER_TRANSACTIONS)
-        .where('reference_id', '==', params.purchaseId)
-        .get();
+      // If items are NOT modified, only update metadata
+      if (!params.items) {
+        const updates: any = {
+          updatedAt: FieldValue.serverTimestamp(),
+        };
+        if (params.invoice_number?.trim()) {
+          updates.invoice_number = params.invoice_number.trim();
+        }
+        if (params.purchase_date) {
+          updates.purchase_date = Timestamp.fromDate(params.purchase_date);
+        }
+        tx.update(purchaseRef, updates);
+        return {
+          purchaseId: params.purchaseId,
+          invoiceNumber: finalInvoiceNumber,
+          totalAmount: oldTotal,
+        };
+      }
 
-      const batch = this.db.batch();
-      txSnap.forEach((doc) => {
-        batch.update(doc.ref, {
-          reference_number: updates.invoice_number,
-          description: `فاتورة شراء رقم ${updates.invoice_number}`,
-        });
+      // Comprehensive update: items, quantities, prices
+      const newItems = params.items;
+      if (newItems.length === 0) {
+        throw new Error('يجب أن تحتوي فاتورة الشراء على صنف واحد على الأقل.');
+      }
+
+      // 1. Collect all distinct (productId, variantId) keys
+      const allItemKeys = new Set<string>();
+      const makeKey = (pId: string, vId?: string) => `${pId}:::${vId?.trim() || 'default'}`;
+
+      oldItems.forEach((i) => allItemKeys.add(makeKey(i.product_id, i.variant_id)));
+      newItems.forEach((i) => allItemKeys.add(makeKey(i.product_id, i.variant_id)));
+
+      // 2. Load all affected products and variants in transaction (ALL READS FIRST)
+      const loadedKeys = Array.from(allItemKeys);
+      const docRefs = loadedKeys.map((key) => {
+        const [productId, variantId] = key.split(':::');
+        const prodRef = this.db.collection(Collections.PRODUCTS).doc(productId);
+        const varRef = prodRef.collection(Collections.VARIANTS).doc(variantId);
+        return { key, productId, variantId, prodRef, varRef };
       });
-      await batch.commit();
-    }
 
-    return {
-      purchaseId: params.purchaseId,
-      invoiceNumber: updates.invoice_number || snap.data()?.invoice_number,
-    };
+      const loadedDocs = await Promise.all(
+        docRefs.map(async (ref) => {
+          const [prodSnap, varSnap] = await Promise.all([tx.get(ref.prodRef), tx.get(ref.varRef)]);
+          return { ...ref, prodSnap, varSnap };
+        })
+      );
+
+      const docsMap = new Map(loadedDocs.map((d) => [d.key, d]));
+
+      // 3. Compute net stock changes and validate stock sufficiency
+      const netChanges: Array<{
+        key: string;
+        productId: string;
+        variantId: string;
+        prodRef: FirebaseFirestore.DocumentReference;
+        varRef: FirebaseFirestore.DocumentReference;
+        prodData: any;
+        varData: any;
+        oldQty: number;
+        newQty: number;
+        netStockChange: number;
+        newVarStock: number;
+        newAvailable: number;
+        newStockState: string;
+        itemLabel: string;
+      }> = [];
+
+      for (const key of loadedKeys) {
+        const d = docsMap.get(key)!;
+        const [productId, variantId] = key.split(':::');
+        const oldQty = oldItems
+          .filter((i) => makeKey(i.product_id, i.variant_id) === key)
+          .reduce((sum, i) => sum + Number(i.quantity || 0), 0);
+        const newQty = newItems
+          .filter((i) => makeKey(i.product_id, i.variant_id) === key)
+          .reduce((sum, i) => sum + Number(i.quantity || 0), 0);
+
+        const netStockChange = newQty - oldQty;
+        const prodData = d.prodSnap.data() || {};
+        const varData = d.varSnap.data() || {};
+
+        const currentVarStock = Number(varData.stockQty ?? 0);
+        const currentReserved = Number(varData.reservedQty ?? 0);
+        const newVarStock = currentVarStock + netStockChange;
+
+        if (newVarStock < 0) {
+          throw new Error(
+            `لا يمكن إنقاص كمية الصنف "${prodData.name || productId}" بمقدار ${Math.abs(netStockChange)} لأن المخزون المتبقي حالياً (${currentVarStock}) أقل من المطلوب تنقيصه.`
+          );
+        }
+
+        const newAvailable = Math.max(0, newVarStock - currentReserved);
+        const threshold = Number(varData.lowStockThreshold ?? 5);
+        const newStockState = computeStockState(newAvailable, threshold);
+        const itemLabel =
+          newItems.find((i) => makeKey(i.product_id, i.variant_id) === key)?.product_name ||
+          prodData.name ||
+          'صنف';
+
+        netChanges.push({
+          key,
+          productId,
+          variantId,
+          prodRef: d.prodRef,
+          varRef: d.varRef,
+          prodData,
+          varData,
+          oldQty,
+          newQty,
+          netStockChange,
+          newVarStock,
+          newAvailable,
+          newStockState,
+          itemLabel,
+        });
+      }
+
+      // 4. Calculate new total amount and balance delta
+      let newTotal = 0;
+      for (const item of newItems) {
+        const q = Number(item.quantity || 0);
+        const c = Number(item.cost_price || 0);
+        if (q <= 0) throw new Error('يجب أن تكون كمية كل صنف أكبر من صفر.');
+        if (c < 0) throw new Error('لا يمكن أن يكون سعر التكلفة سالباً.');
+        newTotal += q * c;
+      }
+
+      const balanceDelta = newTotal - oldTotal;
+
+      // 5. Apply Writes: Update stock, movements, supplier, and purchase doc
+      for (const change of netChanges) {
+        if (change.netStockChange !== 0) {
+          tx.set(
+            change.varRef,
+            {
+              id: change.variantId,
+              productId: change.productId,
+              stockQty: change.newVarStock,
+              availableQty: change.newAvailable,
+              stockState: change.newStockState,
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          const currentProdStock = Number(change.prodData.current_stock ?? change.prodData.stockQty ?? 0);
+          const updatedProdStock = Math.max(0, currentProdStock + change.netStockChange);
+          tx.update(change.prodRef, {
+            current_stock: updatedProdStock,
+            stockQty: updatedProdStock,
+            inStock: updatedProdStock > 0 || change.newVarStock > 0,
+            hasStock: updatedProdStock > 0 || change.newVarStock > 0,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          const invMoveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+          tx.set(invMoveRef, {
+            productId: change.productId,
+            variantId: change.variantId,
+            type: change.netStockChange > 0 ? 'RESTOCK' : 'ADJUSTMENT',
+            delta: change.netStockChange,
+            stockAfter: change.newVarStock,
+            reservedAfter: Number(change.varData.reservedQty ?? 0),
+            orderId: finalInvoiceNumber,
+            reason: `تعديل فاتورة شراء رقم ${finalInvoiceNumber} (${change.netStockChange > 0 ? '+' : ''}${change.netStockChange})`,
+            actorId: null,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+
+          const moveRef = this.db.collection(Collections.STOCK_MOVEMENTS).doc();
+          tx.set(moveRef, {
+            product_id: change.productId,
+            product_name: change.itemLabel,
+            type: change.netStockChange > 0 ? 'PURCHASE_IN' : 'PURCHASE_RETURN_OUT',
+            quantity: Math.abs(change.netStockChange),
+            reference_id: params.purchaseId,
+            description: `تعديل كمية فاتورة شراء رقم ${finalInvoiceNumber}`,
+            timestamp: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      if (balanceDelta !== 0 && supplierSnap.exists) {
+        tx.update(supplierRef, {
+          balance: FieldValue.increment(balanceDelta),
+        });
+
+        const supTxRef = this.db.collection(Collections.SUPPLIER_TRANSACTIONS).doc();
+        tx.set(supTxRef, {
+          supplier_id: supplierId,
+          type: 'PURCHASE_EDIT',
+          amount: Math.abs(balanceDelta),
+          debit: balanceDelta < 0 ? Math.abs(balanceDelta) : 0,
+          credit: balanceDelta > 0 ? balanceDelta : 0,
+          balance_after: Number(supplierSnap.data()?.balance || 0) + balanceDelta,
+          description: `تعديل إجمالي فاتورة شراء رقم ${finalInvoiceNumber}`,
+          reference_id: params.purchaseId,
+          reference_number: finalInvoiceNumber,
+          recorded_by: 'إدارة المشتريات',
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      tx.set(
+        purchaseRef,
+        {
+          invoice_number: finalInvoiceNumber,
+          purchase_date: params.purchase_date
+            ? Timestamp.fromDate(params.purchase_date)
+            : pData.purchase_date,
+          items: newItems.map((it) => ({
+            product_id: it.product_id,
+            variant_id: it.variant_id || 'default',
+            product_name: it.product_name || '',
+            variant_label: it.variant_label || '',
+            quantity: Number(it.quantity || 0),
+            cost_price: Number(it.cost_price || 0),
+          })),
+          productIds: Array.from(new Set(newItems.map((it) => it.product_id))),
+          total_amount: newTotal,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      return {
+        purchaseId: params.purchaseId,
+        invoiceNumber: finalInvoiceNumber,
+        totalAmount: newTotal,
+      };
+    });
+  }
+
+  async updatePurchaseReturn(params: {
+    returnId: string;
+    return_number?: string;
+    return_date?: Date;
+    reason?: string | null;
+    items?: PurchaseReturnItem[];
+  }): Promise<{ returnId: string; returnNumber: string; totalAmount: number }> {
+    return this.db.runTransaction(async (tx) => {
+      const returnRef = this.db.collection(Collections.PURCHASE_RETURNS).doc(params.returnId);
+      const snap = await tx.get(returnRef);
+      if (!snap.exists) {
+        throw new Error('سند مردود المشتريات غير موجود.');
+      }
+
+      const rData = snap.data()!;
+      const supplierId = rData.supplier_id;
+      const oldReturnNumber = rData.return_number || params.returnId;
+      const finalReturnNumber = params.return_number?.trim() || oldReturnNumber;
+      const oldTotal = Number(rData.total_amount || 0);
+      const oldItems: PurchaseReturnItem[] = Array.isArray(rData.items) ? rData.items : [];
+
+      const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(supplierId);
+      const supplierSnap = await tx.get(supplierRef);
+
+      if (!params.items) {
+        const updates: any = { updatedAt: FieldValue.serverTimestamp() };
+        if (params.return_number?.trim()) updates.return_number = params.return_number.trim();
+        if (params.return_date) updates.return_date = Timestamp.fromDate(params.return_date);
+        if (params.reason !== undefined) updates.reason = params.reason;
+        tx.update(returnRef, updates);
+        return { returnId: params.returnId, returnNumber: finalReturnNumber, totalAmount: oldTotal };
+      }
+
+      const newItems = params.items;
+      if (newItems.length === 0) {
+        throw new Error('يجب أن يحتوي مردود المشتريات على صنف واحد على الأقل.');
+      }
+
+      const allItemKeys = new Set<string>();
+      const makeKey = (pId: string, vId?: string) => `${pId}:::${vId?.trim() || 'default'}`;
+
+      oldItems.forEach((i) => allItemKeys.add(makeKey(i.product_id, i.variant_id)));
+      newItems.forEach((i) => allItemKeys.add(makeKey(i.product_id, i.variant_id)));
+
+      const loadedKeys = Array.from(allItemKeys);
+      const docRefs = loadedKeys.map((key) => {
+        const [productId, variantId] = key.split(':::');
+        const prodRef = this.db.collection(Collections.PRODUCTS).doc(productId);
+        const varRef = prodRef.collection(Collections.VARIANTS).doc(variantId);
+        return { key, productId, variantId, prodRef, varRef };
+      });
+
+      const loadedDocs = await Promise.all(
+        docRefs.map(async (ref) => {
+          const [prodSnap, varSnap] = await Promise.all([tx.get(ref.prodRef), tx.get(ref.varRef)]);
+          return { ...ref, prodSnap, varSnap };
+        })
+      );
+
+      const docsMap = new Map(loadedDocs.map((d) => [d.key, d]));
+
+      // Purchase Return reduces warehouse stock.
+      // netStockChange = oldReturnedQty - newReturnedQty (more returned means less stock)
+      const netChanges: any[] = [];
+      for (const key of loadedKeys) {
+        const d = docsMap.get(key)!;
+        const [productId, variantId] = key.split(':::');
+        const oldQty = oldItems
+          .filter((i) => makeKey(i.product_id, i.variant_id) === key)
+          .reduce((sum, i) => sum + Number(i.quantity || 0), 0);
+        const newQty = newItems
+          .filter((i) => makeKey(i.product_id, i.variant_id) === key)
+          .reduce((sum, i) => sum + Number(i.quantity || 0), 0);
+
+        const netStockChange = oldQty - newQty;
+        const prodData = d.prodSnap.data() || {};
+        const varData = d.varSnap.data() || {};
+
+        const currentVarStock = Number(varData.stockQty ?? 0);
+        const currentReserved = Number(varData.reservedQty ?? 0);
+        const newVarStock = currentVarStock + netStockChange;
+
+        if (newVarStock < 0) {
+          throw new Error(
+            `لا يمكن زيادة كمية المردود للصنف "${prodData.name || productId}" بمقدار ${Math.abs(netStockChange)} لأن المخزون الحالي لا يكفي لإرجاعه.`
+          );
+        }
+
+        const newAvailable = Math.max(0, newVarStock - currentReserved);
+        const threshold = Number(varData.lowStockThreshold ?? 5);
+        const newStockState = computeStockState(newAvailable, threshold);
+        const itemLabel =
+          newItems.find((i) => makeKey(i.product_id, i.variant_id) === key)?.product_name ||
+          prodData.name ||
+          'صنف';
+
+        netChanges.push({
+          productId,
+          variantId,
+          prodRef: d.prodRef,
+          varRef: d.varRef,
+          prodData,
+          varData,
+          netStockChange,
+          newVarStock,
+          newAvailable,
+          newStockState,
+          itemLabel,
+        });
+      }
+
+      let newTotal = 0;
+      for (const item of newItems) {
+        const q = Number(item.quantity || 0);
+        const c = Number(item.cost_price || 0);
+        if (q <= 0) throw new Error('يجب أن تكون كمية كل صنف أكبر من صفر.');
+        newTotal += q * c;
+      }
+
+      // Return reduces supplier balance. Increasing return reduces balance further.
+      const supplierBalanceDelta = -(newTotal - oldTotal);
+
+      for (const change of netChanges) {
+        if (change.netStockChange !== 0) {
+          tx.set(
+            change.varRef,
+            {
+              id: change.variantId,
+              productId: change.productId,
+              stockQty: change.newVarStock,
+              availableQty: change.newAvailable,
+              stockState: change.newStockState,
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          const currentProdStock = Number(change.prodData.current_stock ?? change.prodData.stockQty ?? 0);
+          const updatedProdStock = Math.max(0, currentProdStock + change.netStockChange);
+          tx.update(change.prodRef, {
+            current_stock: updatedProdStock,
+            stockQty: updatedProdStock,
+            inStock: updatedProdStock > 0 || change.newVarStock > 0,
+            hasStock: updatedProdStock > 0 || change.newVarStock > 0,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          const invMoveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+          tx.set(invMoveRef, {
+            productId: change.productId,
+            variantId: change.variantId,
+            type: 'RETURN',
+            delta: change.netStockChange,
+            stockAfter: change.newVarStock,
+            reservedAfter: Number(change.varData.reservedQty ?? 0),
+            orderId: finalReturnNumber,
+            reason: `تعديل مردود مشتريات رقم ${finalReturnNumber} (${change.netStockChange > 0 ? '+' : ''}${change.netStockChange})`,
+            actorId: null,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+
+          const moveRef = this.db.collection(Collections.STOCK_MOVEMENTS).doc();
+          tx.set(moveRef, {
+            product_id: change.productId,
+            product_name: change.itemLabel,
+            type: change.netStockChange < 0 ? 'PURCHASE_RETURN_OUT' : 'PURCHASE_IN',
+            quantity: Math.abs(change.netStockChange),
+            reference_id: params.returnId,
+            description: `تعديل كمية مردود مشتريات رقم ${finalReturnNumber}`,
+            timestamp: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      if (supplierBalanceDelta !== 0 && supplierSnap.exists) {
+        tx.update(supplierRef, {
+          balance: FieldValue.increment(supplierBalanceDelta),
+        });
+
+        const supTxRef = this.db.collection(Collections.SUPPLIER_TRANSACTIONS).doc();
+        tx.set(supTxRef, {
+          supplier_id: supplierId,
+          type: 'PURCHASE_RETURN_EDIT',
+          amount: Math.abs(supplierBalanceDelta),
+          debit: supplierBalanceDelta < 0 ? Math.abs(supplierBalanceDelta) : 0,
+          credit: supplierBalanceDelta > 0 ? supplierBalanceDelta : 0,
+          balance_after: Number(supplierSnap.data()?.balance || 0) + supplierBalanceDelta,
+          description: `تعديل إجمالي مردود مشتريات رقم ${finalReturnNumber}`,
+          reference_id: params.returnId,
+          reference_number: finalReturnNumber,
+          recorded_by: 'إدارة المشتريات',
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      tx.set(
+        returnRef,
+        {
+          return_number: finalReturnNumber,
+          return_date: params.return_date ? Timestamp.fromDate(params.return_date) : rData.return_date,
+          reason: params.reason !== undefined ? params.reason : (rData.reason || null),
+          items: newItems.map((it) => ({
+            product_id: it.product_id,
+            variant_id: it.variant_id || 'default',
+            product_name: it.product_name || '',
+            variant_label: it.variant_label || '',
+            quantity: Number(it.quantity || 0),
+            cost_price: Number(it.cost_price || 0),
+          })),
+          productIds: Array.from(new Set(newItems.map((it) => it.product_id))),
+          total_amount: newTotal,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      return {
+        returnId: params.returnId,
+        returnNumber: finalReturnNumber,
+        totalAmount: newTotal,
+      };
+    });
   }
 
   async deletePurchaseInvoice(purchaseId: string): Promise<void> {

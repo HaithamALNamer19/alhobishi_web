@@ -436,3 +436,49 @@ export async function getSalesReturnDetailAction(
     };
   });
 }
+
+export async function updateSalesReturnAction(params: {
+  returnId: string;
+  returnNumber?: string;
+  reason?: string | null;
+  createdAt?: string;
+  items?: Array<{
+    productId: string;
+    productName: string;
+    variantId: string;
+    variantLabel: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
+}): Promise<Result<{ returnId: string; returnNumber: string; totalAmount: number }>> {
+  return runAction(async () => {
+    const session = await requireSession();
+    if (!isBackOfficeRole(session.role)) {
+      throw new AppError(ErrorCode.FORBIDDEN, { message: 'ليس لديك صلاحية لتعديل فواتير المردود.' });
+    }
+
+    if (!params.returnId) {
+      throw new AppError(ErrorCode.VALIDATION_FAILED, { message: 'معرف فاتورة المردود غير محدد.' });
+    }
+
+    const actorUser = await userRepository.findById(session.uid).catch(() => null);
+    const actorName = actorUser?.displayName || actorUser?.username || 'مدير المتجر';
+
+    const result = await ledgerRepository.updateSalesReturn({
+      returnId: params.returnId,
+      returnNumber: params.returnNumber,
+      reason: params.reason,
+      createdAt: params.createdAt ? new Date(params.createdAt) : undefined,
+      items: params.items?.map((i) => ({
+        ...i,
+        unitPrice: assertMoney(i.unitPrice),
+      })),
+      actorId: session.uid,
+      actorName,
+    });
+
+    revalidatePath('/admin/returns');
+    revalidatePath('/admin/customers');
+    return result;
+  });
+}

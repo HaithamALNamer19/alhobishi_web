@@ -328,8 +328,9 @@ export async function updatePurchaseInvoiceAction(params: {
   purchaseId: string;
   invoice_number?: string;
   purchase_date?: string;
+  items?: PurchaseItem[];
   supplierId?: string;
-}): Promise<ActionResult<{ purchaseId: string; invoiceNumber: string }>> {
+}): Promise<ActionResult<{ purchaseId: string; invoiceNumber: string; totalAmount: number }>> {
   try {
     const session = await getCurrentSession();
     if (!session || !isBackOfficeRole(session.role)) {
@@ -344,6 +345,7 @@ export async function updatePurchaseInvoiceAction(params: {
       purchaseId: params.purchaseId,
       invoice_number: params.invoice_number,
       purchase_date: params.purchase_date ? new Date(params.purchase_date) : undefined,
+      items: params.items,
     });
 
     revalidatePath('/admin/purchases');
@@ -354,6 +356,44 @@ export async function updatePurchaseInvoiceAction(params: {
     return { ok: true, data: res };
   } catch (err: any) {
     return { ok: false, error: { message: err.message || 'فشل تعديل فاتورة الشراء.' } };
+  }
+}
+
+export async function updatePurchaseReturnAction(params: {
+  returnId: string;
+  return_number?: string;
+  return_date?: string;
+  reason?: string | null;
+  items?: PurchaseReturnItem[];
+  supplierId?: string;
+}): Promise<ActionResult<{ returnId: string; returnNumber: string; totalAmount: number }>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح لك بتعديل مردودات المشتريات.' } };
+    }
+
+    if (!params.returnId) {
+      return { ok: false, error: { message: 'معرف سند المردود غير محدد.' } };
+    }
+
+    const res = await purchasingRepository.updatePurchaseReturn({
+      returnId: params.returnId,
+      return_number: params.return_number,
+      return_date: params.return_date ? new Date(params.return_date) : undefined,
+      reason: params.reason,
+      items: params.items,
+    });
+
+    revalidatePath('/admin/purchases/returns');
+    revalidatePath('/admin/purchases');
+    if (params.supplierId) {
+      revalidatePath(`/admin/suppliers/${params.supplierId}/statement`);
+    }
+    revalidatePath('/admin/suppliers');
+    return { ok: true, data: res };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل تعديل مردود المشتريات.' } };
   }
 }
 

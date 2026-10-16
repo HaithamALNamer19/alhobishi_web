@@ -5,7 +5,7 @@ import { Dialog } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
-import { RotateCcw, Printer, X, Calendar, User, FileText, CheckCircle2 } from 'lucide-react';
+import { RotateCcw, Printer, X, Calendar, User, FileText, CheckCircle2, Edit } from 'lucide-react';
 import type { SerializedReturnDetail } from '../actions/return.actions';
 
 interface ReturnDetailDialogProps {
@@ -13,6 +13,7 @@ interface ReturnDetailDialogProps {
   onClose: () => void;
   returnDoc: SerializedReturnDetail | null;
   onPrint?: (doc: SerializedReturnDetail) => void;
+  onEdit?: (doc: SerializedReturnDetail) => void;
 }
 
 export function ReturnDetailDialog({
@@ -20,6 +21,7 @@ export function ReturnDetailDialog({
   onClose,
   returnDoc,
   onPrint,
+  onEdit,
 }: ReturnDetailDialogProps) {
   if (!returnDoc) return null;
 
@@ -156,19 +158,31 @@ export function ReturnDetailDialog({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200">
+        <div className="flex items-center justify-between pt-2 border-t border-slate-200">
           <Button variant="outline" onClick={onClose} className="px-4 text-xs">
             إغلاق
           </Button>
-          {onPrint && (
-            <Button
-              onClick={() => onPrint(returnDoc)}
-              className="bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-2 text-xs"
-            >
-              <Printer className="w-4 h-4" />
-              <span>طباعة الفاتورة</span>
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {onEdit && (
+              <Button
+                type="button"
+                onClick={() => onEdit(returnDoc)}
+                className="bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1.5 text-xs font-bold px-4"
+              >
+                <Edit className="w-4 h-4" />
+                <span>تعديل الفاتورة</span>
+              </Button>
+            )}
+            {onPrint && (
+              <Button
+                onClick={() => onPrint(returnDoc)}
+                className="bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-2 text-xs font-bold px-4"
+              >
+                <Printer className="w-4 h-4" />
+                <span>طباعة الفاتورة</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </Dialog>

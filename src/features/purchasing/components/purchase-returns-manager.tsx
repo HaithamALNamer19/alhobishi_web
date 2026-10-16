@@ -13,6 +13,7 @@ import {
   Printer,
   FileText,
   X,
+  Edit,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
@@ -20,6 +21,7 @@ import { Dialog } from '@/shared/ui/dialog';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import { CreatePurchaseReturnDialog } from './create-purchase-return-dialog';
+import { EditPurchaseReturnDialog } from './edit-purchase-return-dialog';
 import { PrintablePurchaseReturnInvoice } from './printable-purchase-return-invoice';
 import type { SerializedSupplier } from './suppliers-manager';
 
@@ -56,6 +58,11 @@ export function PurchaseReturnsManager({
   const [search, setSearch] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(Boolean(defaultSupplierId));
   const [selectedReturn, setSelectedReturn] = useState<SerializedPurchaseReturn | null>(null);
+  const [editingReturn, setEditingReturn] = useState<SerializedPurchaseReturn | null>(null);
+
+  useEffect(() => {
+    setReturns(initialReturns);
+  }, [initialReturns]);
 
   const filteredReturns = returns.filter((r) => {
     if (!search.trim()) return true;
@@ -213,6 +220,16 @@ export function PurchaseReturnsManager({
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => setEditingReturn(ret)}
+                            className="h-8 px-2.5 text-xs text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded-lg flex items-center gap-1"
+                            title="تعديل المردود"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            <span>تعديل</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handlePrint(ret)}
                             className="h-8 px-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"
                             title="طباعة السند"
@@ -311,13 +328,26 @@ export function PurchaseReturnsManager({
                 </p>
               </div>
 
-              <Button
-                onClick={() => handlePrint(selectedReturn)}
-                className="bg-white text-slate-900 hover:bg-slate-100 font-bold text-xs rounded-xl flex items-center gap-1.5 px-4 h-9"
-              >
-                <Printer className="w-4 h-4" />
-                <span>طباعة السند</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => {
+                    const ret = selectedReturn;
+                    setSelectedReturn(null);
+                    setEditingReturn(ret);
+                  }}
+                  className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 px-4 h-9"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>تعديل السند</span>
+                </Button>
+                <Button
+                  onClick={() => handlePrint(selectedReturn)}
+                  className="bg-white text-slate-900 hover:bg-slate-100 font-bold text-xs rounded-xl flex items-center gap-1.5 px-4 h-9"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>طباعة السند</span>
+                </Button>
+              </div>
             </div>
           </div>
         </Dialog>
@@ -333,6 +363,19 @@ export function PurchaseReturnsManager({
           router.refresh();
         }}
       />
+
+      {/* Edit Return Dialog */}
+      {editingReturn && (
+        <EditPurchaseReturnDialog
+          isOpen={Boolean(editingReturn)}
+          onClose={() => setEditingReturn(null)}
+          returnDoc={editingReturn}
+          supplierId={editingReturn.supplier_id}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
 
       {/* Printable Document Root (Rendered via Portal onto document.body for clean isolation and official styling) */}
       {mounted &&
