@@ -705,7 +705,7 @@ export function CustomerStatementView({
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleOpenReturn(t.returnId!)}
-                                  className="h-7 px-2 text-[11px] text-rose-800 border-rose-200 hover:bg-rose-50 gap-1"
+                                  className="h-7 px-2 text-[11px] text-rose-800 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
                                   title="عرض تفاصيل المردود"
                                 >
                                   <Eye className="w-3.5 h-3.5 text-rose-700" />
@@ -715,10 +715,43 @@ export function CustomerStatementView({
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleQuickPrintReturn(t.returnId!)}
-                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100"
+                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100 cursor-pointer"
                                   title="طباعة فاتورة المردود مباشرة"
                                 >
                                   <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setDeletingTransaction(t)}
+                                  className="h-7 px-2 text-[11px] text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
+                                  title="حذف فاتورة المردود"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>حذف</span>
+                                </Button>
+                              </>
+                            ) : t.paymentId ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenReceipt(t.paymentId!)}
+                                  className="h-7 px-2 text-[11px] text-emerald-800 border-emerald-200 hover:bg-emerald-50 gap-1 cursor-pointer"
+                                  title="عرض تفاصيل السند"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-emerald-700" />
+                                  <span>السند</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setDeletingTransaction(t)}
+                                  className="h-7 px-2 text-[11px] text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
+                                  title="حذف السند المالي"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>حذف</span>
                                 </Button>
                               </>
                             ) : (

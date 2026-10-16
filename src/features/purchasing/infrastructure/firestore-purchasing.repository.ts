@@ -1607,14 +1607,15 @@ export class FirestorePurchasingRepository {
       const pData = paymentSnap.data()!;
       const supplierId = pData.supplier_id;
       const amount = Number(pData.amount || 0);
+      const isReceipt = pData.type === 'RECEIPT';
 
       const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(supplierId);
       const supplierSnap = await tx.get(supplierRef);
 
-      // Revert the deduction: supplier balance increases by amount
+      // Revert: If payment voucher (disbursement), adds amount. If receipt voucher (refund), subtracts amount.
       if (supplierSnap.exists && amount > 0) {
         tx.update(supplierRef, {
-          balance: FieldValue.increment(amount),
+          balance: FieldValue.increment(isReceipt ? -amount : amount),
         });
       }
 
@@ -1632,6 +1633,114 @@ export class FirestorePurchasingRepository {
       txSnap.forEach((doc) => batch.delete(doc.ref));
       await batch.commit();
     }
+  }
+
+  async deletePurchaseReturn(returnId: string): Promise<void> {
+    await this.db.runTransaction(async (tx) => {
+      const returnRef = this.db.collection(Collections.PURCHASE_RETURNS).doc(returnId);
+      const returnSnap = await tx.get(returnRef);
+      if (!returnSnap.exists) {
+        throw new Error('فاتورة مردود المشتريات غير موجودة أو تم حذفها مسبقاً.');
+      }
+
+      const rData = returnSnap.data()!;
+      const supplierId = rData.supplier_id;
+      const totalAmount = Number(rData.total_amount || 0);
+      const returnNumber = rData.return_number || returnId;
+      const items: PurchaseReturnItem[] = Array.isArray(rData.items) ? rData.items : [];
+
+      const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(supplierId);
+      const supplierSnap = await tx.get(supplierRef);
+
+      const loadedItems = await Promise.all(
+        items.map(async (it) => {
+          const prodRef = this.db.collection(Collections.PRODUCTS).doc(it.product_id);
+          const variantId = it.variant_id?.trim() || 'default';
+          const varRef = prodRef.collection(Collections.VARIANTS).doc(variantId);
+          const [prodSnap, varSnap] = await Promise.all([tx.get(prodRef), tx.get(varRef)]);
+          return { item: it, prodRef, varRef, prodSnap, varSnap, variantId };
+        })
+      );
+
+      // Restore stock that was returned to supplier (add it back to product and variant inventory)
+      for (const { item, prodRef, varRef, prodSnap, varSnap, variantId } of loadedItems) {
+        if (prodSnap.exists && varSnap.exists) {
+          const prodData = prodSnap.data() || {};
+          const vData = varSnap.data() || {};
+
+          const currentVarStock = Number(vData.stockQty ?? 0);
+          const currentReserved = Number(vData.reservedQty ?? 0);
+          const newVarStock = currentVarStock + item.quantity;
+          const newAvailable = Math.max(0, newVarStock - currentReserved);
+          const threshold = Number(vData.lowStockThreshold ?? 5);
+          const newStockState = computeStockState(newAvailable, threshold);
+
+          tx.set(
+            varRef,
+            {
+              stockQty: newVarStock,
+              availableQty: newAvailable,
+              stockState: newStockState,
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          const currentProdStock = Number(prodData.current_stock ?? prodData.stockQty ?? 0);
+          const newProdStock = currentProdStock + item.quantity;
+          tx.update(prodRef, {
+            current_stock: newProdStock,
+            stockQty: newProdStock,
+            inStock: newVarStock > 0 || newProdStock > 0,
+            hasStock: newVarStock > 0 || newProdStock > 0,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          // Record inventory movement for audit
+          const invMoveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+          tx.set(invMoveRef, {
+            productId: item.product_id,
+            variantId,
+            type: 'ADJUSTMENT',
+            delta: item.quantity,
+            stockAfter: newVarStock,
+            reservedAfter: currentReserved,
+            orderId: returnNumber,
+            reason: `إلغاء واسترجاع المخزون لحذف فاتورة مردود المشتريات رقم ${returnNumber}`,
+            actorId: null,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      // Revert supplier balance: return previously deducted totalAmount from supplier balance,
+      // so deleting the return restores totalAmount back into supplier balance
+      if (supplierSnap.exists && totalAmount > 0) {
+        tx.update(supplierRef, {
+          balance: FieldValue.increment(totalAmount),
+        });
+      }
+
+      // Delete purchase return document
+      tx.delete(returnRef);
+    });
+
+    // Clean up outside transaction
+    const [txSnap, stockMoveSnap] = await Promise.all([
+      this.db
+        .collection(Collections.SUPPLIER_TRANSACTIONS)
+        .where('reference_id', '==', returnId)
+        .get(),
+      this.db
+        .collection(Collections.STOCK_MOVEMENTS)
+        .where('reference_id', '==', returnId)
+        .get(),
+    ]);
+
+    const batch = this.db.batch();
+    txSnap.forEach((d) => batch.delete(d.ref));
+    stockMoveSnap.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
   }
 
   async getSupplierStatement(supplierId: string): Promise<SupplierStatement> {

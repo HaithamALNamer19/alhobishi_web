@@ -673,16 +673,28 @@ export function SupplierStatementView({
                             )}
 
                             {isReturn && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenDetail(tx)}
-                                className="h-7 px-2 text-[11px] text-rose-800 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
-                                title="عرض تفاصيل المردود"
-                              >
-                                <Eye className="w-3.5 h-3.5 text-rose-700" />
-                                <span>المردود</span>
-                              </Button>
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenDetail(tx)}
+                                  className="h-7 px-2 text-[11px] text-rose-800 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
+                                  title="عرض تفاصيل المردود"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-rose-700" />
+                                  <span>المردود</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setDeletingTransaction(tx)}
+                                  className="h-7 px-2 text-[11px] text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
+                                  title="حذف مردود المشتريات"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>حذف</span>
+                                </Button>
+                              </>
                             )}
                           </div>
                         </td>

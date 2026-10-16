@@ -486,4 +486,36 @@ export async function deleteSupplierPaymentAction(params: {
   }
 }
 
+export async function deletePurchaseReturnAction(params: {
+  returnId: string;
+  supplierId?: string;
+}): Promise<ActionResult<void>> {
+  try {
+    const session = await getCurrentSession();
+    if (!session || !isBackOfficeRole(session.role)) {
+      return { ok: false, error: { message: 'غير مصرح لك بحذف مردود المشتريات.' } };
+    }
+
+    if (!params.returnId) {
+      return { ok: false, error: { message: 'معرف مردود المشتريات غير محدد.' } };
+    }
+
+    await purchasingRepository.deletePurchaseReturn(params.returnId);
+
+    revalidatePath('/admin/purchases/returns');
+    revalidatePath('/admin/products');
+    revalidatePath('/admin/inventory/movements');
+    revalidatePath('/products');
+    revalidatePath('/');
+    if (params.supplierId) {
+      revalidatePath(`/admin/suppliers/${params.supplierId}/statement`);
+    }
+    revalidatePath('/admin/suppliers');
+
+    return { ok: true, data: undefined };
+  } catch (err: any) {
+    return { ok: false, error: { message: err.message || 'فشل حذف مردود المشتريات وتحديث المخزون.' } };
+  }
+}
+
 

@@ -758,12 +758,13 @@ export class FirestoreLedgerRepository {
       const payRef = this.db.collection(Collections.PAYMENTS).doc(paymentId);
       const paySnap = await tx.get(payRef);
       if (!paySnap.exists) {
-        throw new AppError(ErrorCode.NOT_FOUND, { message: 'سند القبض غير موجود أو تم حذفه مسبقاً.' });
+        throw new AppError(ErrorCode.NOT_FOUND, { message: 'سند الدفع غير موجود أو تم حذفه مسبقاً.' });
       }
 
       const pData = paySnap.data()!;
       const customerId = pData.customerId;
       const amount = Number(pData.amount || 0) as Money;
+      const isDisbursement = pData.type === 'DISBURSEMENT';
 
       const userRef = this.db.collection(Collections.USERS).doc(customerId);
       const userSnap = await tx.get(userRef);
@@ -771,8 +772,8 @@ export class FirestoreLedgerRepository {
       if (userSnap.exists && amount > 0) {
         const userData = userSnap.data()!;
         const currentBalance = Number(userData.balance ?? userData.account?.balance ?? 0) as Money;
-        // Reverting payment increases customer debt by the payment amount
-        const newBalance = (currentBalance + amount) as Money;
+        // Reverting receipt increases customer debt; reverting disbursement decreases customer balance
+        const newBalance = (isDisbursement ? currentBalance - amount : currentBalance + amount) as Money;
 
         tx.update(userRef, {
           balance: newBalance,
@@ -785,10 +786,10 @@ export class FirestoreLedgerRepository {
         tx.set(auditRef, {
           actorId,
           actorName,
-          action: 'PAYMENT_DELETED',
+          action: isDisbursement ? 'DISBURSEMENT_DELETED' : 'PAYMENT_DELETED',
           entityType: 'payment',
           entityId: paymentId,
-          oldData: { amount, balance: currentBalance },
+          oldData: { amount, balance: currentBalance, type: pData.type },
           newData: { balance: newBalance },
           timestamp: FieldValue.serverTimestamp(),
         });
@@ -801,6 +802,129 @@ export class FirestoreLedgerRepository {
     const txSnap = await this.db
       .collection(Collections.ACCOUNT_TRANSACTIONS)
       .where('paymentId', '==', paymentId)
+      .get();
+
+    if (!txSnap.empty) {
+      const batch = this.db.batch();
+      txSnap.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
+  }
+
+  async deleteSalesReturn(returnId: string, actorId: string, actorName: string): Promise<void> {
+    await this.db.runTransaction(async (tx) => {
+      const returnRef = this.db.collection(Collections.SALES_RETURNS).doc(returnId);
+      const returnSnap = await tx.get(returnRef);
+      if (!returnSnap.exists) {
+        throw new AppError(ErrorCode.NOT_FOUND, { message: 'فاتورة مردود المبيعات غير موجودة أو تم حذفها مسبقاً.' });
+      }
+
+      const retData = returnSnap.data()!;
+      const customerId = retData.customerId;
+      const totalAmount = Number(retData.totalAmount || 0) as Money;
+      const returnNumber = retData.returnNumber || returnId;
+      const items: Array<{
+        productId: string;
+        variantId: string;
+        quantity: number;
+      }> = Array.isArray(retData.items) ? retData.items : [];
+
+      const userRef = this.db.collection(Collections.USERS).doc(customerId);
+      const userSnap = await tx.get(userRef);
+
+      const loadedVariants = await Promise.all(
+        items.map(async (item) => {
+          const prodRef = this.db.collection(Collections.PRODUCTS).doc(item.productId);
+          const variantId = item.variantId?.trim() || 'default';
+          const varRef = prodRef.collection(Collections.VARIANTS).doc(variantId);
+          const [prodSnap, varSnap] = await Promise.all([tx.get(prodRef), tx.get(varRef)]);
+          return { item, prodRef, varRef, prodSnap, varSnap, variantId };
+        })
+      );
+
+      // 1. Revert customer balance: Return credited customer (balance -= totalAmount),
+      // so deleting the return restores the debit/balance (balance += totalAmount)
+      if (userSnap.exists && totalAmount > 0) {
+        const userData = userSnap.data()!;
+        const currentBalance = Number(userData.balance ?? userData.account?.balance ?? 0) as Money;
+        const newBalance = (currentBalance + totalAmount) as Money;
+
+        tx.update(userRef, {
+          balance: newBalance,
+          'account.balance': newBalance,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      // 2. Revert stock (deduct returned stock that was added back)
+      for (const { item, prodRef, varRef, prodSnap, varSnap, variantId } of loadedVariants) {
+        if (varSnap.exists) {
+          const vData = varSnap.data() || {};
+          const currentStock = Number(vData.stockQty ?? 0);
+          const currentReserved = Number(vData.reservedQty ?? 0);
+          const threshold = Number(vData.lowStockThreshold ?? 5);
+
+          const newStock = Math.max(0, currentStock - item.quantity);
+          const newAvailable = Math.max(0, newStock - currentReserved);
+          const newStockState = computeStockState(newAvailable, threshold);
+
+          tx.update(varRef, {
+            stockQty: newStock,
+            availableQty: newAvailable,
+            stockState: newStockState,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          if (prodSnap.exists) {
+            const pData = prodSnap.data() || {};
+            const currentProdStock = Number(pData.current_stock ?? pData.stockQty ?? 0);
+            const newProdStock = Math.max(0, currentProdStock - item.quantity);
+            tx.update(prodRef, {
+              current_stock: newProdStock,
+              stockQty: newProdStock,
+              inStock: newStock > 0 || newProdStock > 0,
+              hasStock: newStock > 0 || newProdStock > 0,
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+          }
+
+          const moveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+          tx.set(moveRef, {
+            productId: item.productId,
+            variantId,
+            type: 'ADJUSTMENT',
+            delta: -item.quantity,
+            stockAfter: newStock,
+            reservedAfter: currentReserved,
+            orderId: returnNumber,
+            reason: `إلغاء وخصم المخزون لحذف فاتورة مردود المبيعات رقم ${returnNumber}`,
+            actorId,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      // 3. Delete sales return document
+      tx.delete(returnRef);
+
+      // 4. Audit Log
+      const auditRef = this.db.collection(Collections.AUDIT_LOGS).doc();
+      tx.set(auditRef, {
+        actorId,
+        actorName,
+        action: 'SALES_RETURN_DELETED',
+        entityType: 'salesReturn',
+        entityId: returnId,
+        oldData: { returnNumber, totalAmount },
+        newData: null,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+    });
+
+    // Clean up ACCOUNT_TRANSACTIONS
+    const txSnap = await this.db
+      .collection(Collections.ACCOUNT_TRANSACTIONS)
+      .where('returnId', '==', returnId)
       .get();
 
     if (!txSnap.empty) {

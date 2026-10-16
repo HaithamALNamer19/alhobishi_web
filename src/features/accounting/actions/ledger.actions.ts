@@ -252,5 +252,34 @@ export async function deleteCustomerPaymentAction(params: {
   });
 }
 
+export async function deleteCustomerSalesReturnAction(params: {
+  returnId: string;
+  customerId: string;
+}): Promise<Result<void>> {
+  return runAction(async () => {
+    const session = await requireSession();
+    if (!isBackOfficeRole(session.role)) {
+      throw new AppError(ErrorCode.FORBIDDEN, { message: 'غير مصرح لك بحذف فواتير المردود.' });
+    }
+
+    if (!params.returnId) {
+      throw new AppError(ErrorCode.VALIDATION_FAILED, { message: 'معرف فاتورة المردود غير محدد.' });
+    }
+
+    const currentActor = await userRepository.findById(session.uid).catch(() => null);
+    const actorName = currentActor?.displayName || currentActor?.username || 'إدارة المتجر';
+
+    await ledgerRepository.deleteSalesReturn(params.returnId, session.uid, actorName);
+
+    revalidatePath(`/admin/customers/${params.customerId}/statement`);
+    revalidatePath('/admin/customers');
+    revalidatePath('/admin/returns');
+    revalidatePath('/admin/inventory/movements');
+    revalidatePath('/admin/products');
+    revalidatePath('/account');
+    revalidatePath('/account/statement');
+  });
+}
+
 
 

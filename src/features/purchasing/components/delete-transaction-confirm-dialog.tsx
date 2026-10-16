@@ -9,6 +9,7 @@ import { toast } from '@/shared/ui/toast';
 import {
   deletePurchaseInvoiceAction,
   deleteSupplierPaymentAction,
+  deletePurchaseReturnAction,
 } from '../actions/purchasing.actions';
 
 interface DeleteTransactionConfirmDialogProps {
@@ -44,7 +45,8 @@ export function DeleteTransactionConfirmDialog({
   if (!transaction) return null;
 
   const isPurchase = transaction.type === 'PURCHASE';
-  const isPayment = transaction.type === 'PAYMENT';
+  const isReturn = transaction.type === 'PURCHASE_RETURN';
+  const isPayment = !isPurchase && !isReturn;
 
   const docId = transaction.reference_id || transaction.id;
   const docRef = transaction.reference_number || transaction.id;
@@ -63,6 +65,18 @@ export function DeleteTransactionConfirmDialog({
         }
 
         toast.success(`تم حذف فاتورة الشراء رقم ${docRef} وتحديث المخزون ورصيد المورد بنجاح.`);
+      } else if (isReturn) {
+        const res = await deletePurchaseReturnAction({
+          returnId: docId,
+          supplierId,
+        });
+
+        if (!res.ok) {
+          toast.error(res.error.message || 'فشل حذف مردود المشتريات.');
+          return;
+        }
+
+        toast.success(`تم حذف مردود المشتريات رقم ${docRef} وإعادة الأصناف للمخزون ورصيد المورد بنجاح.`);
       } else if (isPayment) {
         const res = await deleteSupplierPaymentAction({
           paymentId: docId,
@@ -70,11 +84,11 @@ export function DeleteTransactionConfirmDialog({
         });
 
         if (!res.ok) {
-          toast.error(res.error.message || 'فشل حذف سند الصرف.');
+          toast.error(res.error.message || 'فشل حذف السند المالي.');
           return;
         }
 
-        toast.success(`تم حذف سند الصرف رقم ${docRef} وإعادة المبلغ لرصيد المورد بنجاح.`);
+        toast.success(`تم حذف السند المالي رقم ${docRef} وتعديل رصيد المورد بنجاح.`);
       }
 
       onClose();
@@ -86,7 +100,13 @@ export function DeleteTransactionConfirmDialog({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title={isPurchase ? 'حذف فاتورة شراء نهائياً' : 'حذف سند صرف نهائياً'}
+      title={
+        isPurchase
+          ? 'حذف فاتورة شراء نهائياً'
+          : isReturn
+            ? 'حذف مردود مشتريات نهائياً'
+            : 'حذف سند صرف نهائياً'
+      }
       description="يرجى قراءة التحذير التالي بعناية قبل تأكيد عملية الحذف."
       maxWidth="md"
     >
@@ -110,10 +130,20 @@ export function DeleteTransactionConfirmDialog({
                 • خصم قيمة الفاتورة من رصيد المورد الدائن المستحق له.
               </p>
             )}
+            {isReturn && (
+              <p className="text-rose-700 leading-relaxed">
+                سيؤدي حذف مردود المشتريات رقم <span className="font-mono font-bold" dir="ltr">{docRef}</span> بمبلغ إجمالي{' '}
+                <span className="font-bold">{formatMoney(transaction.debit)}</span> إلى:{' '}
+                <br />
+                • استرجاع كميات الأصناف المرجعة وإضافتها تلقائياً إلى أرصدة المخزون الفعلي.
+                <br />
+                • إعادة قيد المبلغ كـ <span className="font-bold">مستحق للمورد</span> في حسابه التراكمي.
+              </p>
+            )}
             {isPayment && (
               <p className="text-rose-700 leading-relaxed">
                 سيؤدي حذف سند الصرف رقم <span className="font-mono font-bold" dir="ltr">{docRef}</span> بمبلغ{' '}
-                <span className="font-bold">{formatMoney(transaction.debit)}</span> إلى إلغاء قيد السداد وإعادة قيد المبلغ
+                <span className="font-bold">{formatMoney(transaction.debit || transaction.credit)}</span> إلى إلغاء قيد السداد وإعادة قيد المبلغ
                 كـ <span className="font-bold">مستحق للمورد</span> في حسابه التراكمي.
               </p>
             )}

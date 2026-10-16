@@ -9,6 +9,7 @@ import { toast } from '@/shared/ui/toast';
 import {
   deleteCustomerInvoiceAction,
   deleteCustomerPaymentAction,
+  deleteCustomerSalesReturnAction,
 } from '../actions/ledger.actions';
 
 interface DeleteCustomerTransactionConfirmDialogProps {
@@ -19,6 +20,7 @@ interface DeleteCustomerTransactionConfirmDialogProps {
     type: string;
     orderId?: string | null;
     paymentId?: string | null;
+    returnId?: string | null;
     amount: number;
     description: string;
   } | null;
@@ -38,9 +40,10 @@ export function DeleteCustomerTransactionConfirmDialog({
   if (!transaction) return null;
 
   const isInvoice = transaction.type === 'INVOICE' && Boolean(transaction.orderId);
-  const isPayment = transaction.type === 'PAYMENT' && Boolean(transaction.paymentId);
+  const isReturn = transaction.type === 'RETURN' || Boolean(transaction.returnId);
+  const isPayment = !isInvoice && !isReturn && (transaction.type === 'PAYMENT' || Boolean(transaction.paymentId));
 
-  const docId = transaction.orderId || transaction.paymentId || transaction.id;
+  const docId = transaction.orderId || transaction.returnId || transaction.paymentId || transaction.id;
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -57,18 +60,32 @@ export function DeleteCustomerTransactionConfirmDialog({
           }
 
           toast.success('تم حذف فاتورة المبيعات واسترجاع كميات المخزون وتعديل رصيد العميل بنجاح.');
-        } else if (isPayment && transaction.paymentId) {
-          const res = await deleteCustomerPaymentAction({
-            paymentId: transaction.paymentId,
+        } else if (isReturn && (transaction.returnId || transaction.id)) {
+          const retId = transaction.returnId || transaction.id;
+          const res = await deleteCustomerSalesReturnAction({
+            returnId: retId,
             customerId,
           });
 
           if (!res.ok) {
-            toast.error(res.error.message || 'فشل حذف سند القبض.');
+            toast.error(res.error.message || 'فشل حذف فاتورة مردود المبيعات.');
             return;
           }
 
-          toast.success('تم حذف سند القبض وإعادة قيد المبلغ كمديونية على العميل بنجاح.');
+          toast.success('تم حذف فاتورة مردود المبيعات وخصم المخزون وإعادة قيد المديونية بنجاح.');
+        } else if (isPayment && (transaction.paymentId || transaction.id)) {
+          const payId = transaction.paymentId || transaction.id;
+          const res = await deleteCustomerPaymentAction({
+            paymentId: payId,
+            customerId,
+          });
+
+          if (!res.ok) {
+            toast.error(res.error.message || 'فشل حذف السند المالي.');
+            return;
+          }
+
+          toast.success('تم حذف السند المالي وتعديل رصيد العميل بنجاح.');
         }
 
         onClose();
@@ -83,7 +100,13 @@ export function DeleteCustomerTransactionConfirmDialog({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title={isInvoice ? 'حذف فاتورة مبيعات نهائياً' : 'حذف سند قبض نهائياً'}
+      title={
+        isInvoice
+          ? 'حذف فاتورة مبيعات نهائياً'
+          : isReturn
+            ? 'حذف فاتورة مردود مبيعات نهائياً'
+            : 'حذف سند مالي نهائياً'
+      }
       description="يرجى قراءة التحذير التالي بعناية قبل تأكيد عملية الحذف."
       maxWidth="md"
     >
@@ -107,12 +130,21 @@ export function DeleteCustomerTransactionConfirmDialog({
                 • استرجاع الأصناف وإعادتها فوراً للمخزون الفعلي المتاح.
               </p>
             )}
+            {isReturn && (
+              <p className="text-rose-700 leading-relaxed">
+                سيؤدي حذف فاتورة المردود بمبلغ{' '}
+                <span className="font-bold">{formatMoney(Math.abs(transaction.amount))}</span> إلى:
+                <br />
+                • خصم كميات الأصناف المرجعة من المخزون المتاح وإلغاء استرجاعها.
+                <br />
+                • إعادة قيد المبلغ كـ <span className="font-bold">مديونية مستحقة</span> على العميل في كشف حسابه.
+              </p>
+            )}
             {isPayment && (
               <p className="text-rose-700 leading-relaxed">
-                سيؤدي حذف سند القبض بمبلغ{' '}
+                سيؤدي حذف السند المالي بمبلغ{' '}
                 <span className="font-bold">{formatMoney(Math.abs(transaction.amount))}</span> إلى إلغاء
-                قيد السداد وإعادة قيد المبلغ كـ <span className="font-bold">مديونية مستحقة</span> على
-                العميل في كشف حسابه.
+                القيد وتعديل رصيد العميل تلقائياً في كشف حسابه.
               </p>
             )}
           </div>
