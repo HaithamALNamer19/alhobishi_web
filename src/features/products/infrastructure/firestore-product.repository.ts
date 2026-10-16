@@ -735,7 +735,7 @@ export class FirestoreProductRepository {
     id: string,
     prodRef: FirebaseFirestore.DocumentReference
   ): Promise<void> {
-    // 1. Check current stock and reserved quantities in variants
+    // 1. Check current stock and reserved quantities in variants subcollection
     const variantsSnap = await prodRef.collection(Collections.VARIANTS).get();
     let totalStock = 0;
     let totalReserved = 0;
@@ -752,15 +752,15 @@ export class FirestoreProductRepository {
       });
     }
 
-    // 2. Parallel check across all transaction, return, movement, and cart collections
+    // 2. High-performance O(1) indexed queries using .limit(1) (costs at most 1 read per check)
+    // Every purchase, sales order, return, or stock adjustment logs immutable records to INVENTORY_MOVEMENTS and/or STOCK_MOVEMENTS.
     const [
       invMoveSnap,
       stockMoveSnap,
-      purchasesSnap,
       ordersSnap,
+      purchasesSnap,
       purRetSnap,
       salesRetSnap,
-      cartsSnap,
     ] = await Promise.all([
       this.db
         .collection(Collections.INVENTORY_MOVEMENTS)
@@ -773,31 +773,32 @@ export class FirestoreProductRepository {
         .limit(1)
         .get(),
       this.db
-        .collection(Collections.PURCHASES)
-        .select('items', 'invoice_number')
+        .collection(Collections.ORDERS)
+        .where('productIds', 'array-contains', id)
+        .limit(1)
         .get(),
       this.db
-        .collection(Collections.ORDERS)
-        .select('items', 'orderNumber')
+        .collection(Collections.PURCHASES)
+        .where('productIds', 'array-contains', id)
+        .limit(1)
         .get(),
       this.db
         .collection(Collections.PURCHASE_RETURNS)
-        .select('items', 'return_number')
+        .where('productIds', 'array-contains', id)
+        .limit(1)
         .get(),
       this.db
         .collection(Collections.SALES_RETURNS)
-        .select('items', 'returnNumber')
-        .get(),
-      this.db
-        .collection(Collections.CARTS)
-        .select('items')
+        .where('productIds', 'array-contains', id)
+        .limit(1)
         .get(),
     ]);
 
     if (!invMoveSnap.empty) {
+      const move = invMoveSnap.docs[0].data();
+      const reason = move.reason ? ` (${move.reason})` : '';
       throw new AppError(ErrorCode.VALIDATION_FAILED, {
-        message:
-          'يمنع حذف هذا المنتج لوجود ارتباطات بحركات مخزنية أو فواتير سابقة في النظام (مشتريات أو مبيعات أو مردودات أو تسويات). يمكنك إيقاف تفعيل المنتج أو أرشفته للحفاظ على سلامة القيود وسجل المعاملات.',
+        message: `يمنع حذف هذا المنتج لوجود ارتباطات بحركات مخزنية أو فواتير سابقة في النظام${reason}. يمكنك إيقاف تفعيل المنتج أو أرشفته للحفاظ على سلامة القيود وسجل المعاملات.`,
       });
     }
 
@@ -808,72 +809,40 @@ export class FirestoreProductRepository {
       });
     }
 
-    for (const doc of purchasesSnap.docs) {
-      const data = doc.data();
-      const items = Array.isArray(data.items) ? data.items : [];
-      const match = items.find(
-        (it: any) => it.product_id === id || it.productId === id
-      );
-      if (match) {
-        const invNum = data.invoice_number ? ` (رقم ${data.invoice_number})` : '';
-        throw new AppError(ErrorCode.VALIDATION_FAILED, {
-          message: `يمنع حذف هذا المنتج لأنه مسجل في فاتورة شراء سابقة${invNum}. يمنع حذف أي منتج مرتبط بفواتير المشتريات.`,
-        });
-      }
+    if (!purchasesSnap.empty) {
+      const invNum = purchasesSnap.docs[0].data().invoice_number
+        ? ` (رقم ${purchasesSnap.docs[0].data().invoice_number})`
+        : '';
+      throw new AppError(ErrorCode.VALIDATION_FAILED, {
+        message: `يمنع حذف هذا المنتج لأنه مسجل في فاتورة شراء سابقة${invNum}. يمنع حذف أي منتج مرتبط بفواتير المشتريات.`,
+      });
     }
 
-    for (const doc of ordersSnap.docs) {
-      const data = doc.data();
-      const items = Array.isArray(data.items) ? data.items : [];
-      const match = items.find(
-        (it: any) => it.productId === id || it.product_id === id
-      );
-      if (match) {
-        const ordNum = data.orderNumber ? ` (رقم ${data.orderNumber})` : '';
-        throw new AppError(ErrorCode.VALIDATION_FAILED, {
-          message: `يمنع حذف هذا المنتج لأنه مرتبط بطلب وفاتورة مبيعات سابقة${ordNum}. يمنع حذف أي منتج مرتبط بفواتير المبيعات.`,
-        });
-      }
+    if (!ordersSnap.empty) {
+      const ordNum = ordersSnap.docs[0].data().orderNumber
+        ? ` (رقم ${ordersSnap.docs[0].data().orderNumber})`
+        : '';
+      throw new AppError(ErrorCode.VALIDATION_FAILED, {
+        message: `يمنع حذف هذا المنتج لأنه مرتبط بطلب وفاتورة مبيعات سابقة${ordNum}. يمنع حذف أي منتج مرتبط بفواتير المبيعات.`,
+      });
     }
 
-    for (const doc of purRetSnap.docs) {
-      const data = doc.data();
-      const items = Array.isArray(data.items) ? data.items : [];
-      const match = items.find(
-        (it: any) => it.product_id === id || it.productId === id
-      );
-      if (match) {
-        const retNum = data.return_number ? ` (رقم ${data.return_number})` : '';
-        throw new AppError(ErrorCode.VALIDATION_FAILED, {
-          message: `يمنع حذف هذا المنتج لأنه مسجل في فاتورة مردود مشتريات سابقة${retNum}.`,
-        });
-      }
+    if (!purRetSnap.empty) {
+      const retNum = purRetSnap.docs[0].data().return_number
+        ? ` (رقم ${purRetSnap.docs[0].data().return_number})`
+        : '';
+      throw new AppError(ErrorCode.VALIDATION_FAILED, {
+        message: `يمنع حذف هذا المنتج لأنه مسجل في فاتورة مردود مشتريات سابقة${retNum}.`,
+      });
     }
 
-    for (const doc of salesRetSnap.docs) {
-      const data = doc.data();
-      const items = Array.isArray(data.items) ? data.items : [];
-      const match = items.find(
-        (it: any) => it.productId === id || it.product_id === id
-      );
-      if (match) {
-        const retNum = data.returnNumber ? ` (رقم ${data.returnNumber})` : '';
-        throw new AppError(ErrorCode.VALIDATION_FAILED, {
-          message: `يمنع حذف هذا المنتج لأنه مسجل في فاتورة مردود مبيعات سابقة${retNum}.`,
-        });
-      }
-    }
-
-    for (const doc of cartsSnap.docs) {
-      const data = doc.data();
-      const items = Array.isArray(data.items) ? data.items : [];
-      const match = items.find((it: any) => it.productId === id);
-      if (match) {
-        throw new AppError(ErrorCode.VALIDATION_FAILED, {
-          message:
-            'لا يمكن حذف هذا المنتج لأنه مضاف حالياً إلى سلة تسوق قيد الاستخدام لأحد العملاء.',
-        });
-      }
+    if (!salesRetSnap.empty) {
+      const retNum = salesRetSnap.docs[0].data().returnNumber
+        ? ` (رقم ${salesRetSnap.docs[0].data().returnNumber})`
+        : '';
+      throw new AppError(ErrorCode.VALIDATION_FAILED, {
+        message: `يمنع حذف هذا المنتج لأنه مسجل في فاتورة مردود مبيعات سابقة${retNum}.`,
+      });
     }
   }
 

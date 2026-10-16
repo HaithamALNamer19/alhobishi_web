@@ -388,6 +388,7 @@ export class FirestoreLedgerRepository {
         customerName,
         customerPhone,
         items: returnItems,
+        productIds: Array.from(new Set(returnItems.map((i) => i.productId))),
         totalAmount: totalMoney,
         reason: params.reason || null,
         orderId: params.orderId || null,

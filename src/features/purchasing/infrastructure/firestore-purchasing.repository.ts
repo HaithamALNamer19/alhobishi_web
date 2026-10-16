@@ -389,6 +389,7 @@ export class FirestorePurchasingRepository {
           quantity: it.quantity,
           cost_price: Number(it.cost_price || 0),
         })),
+        productIds: Array.from(new Set(params.items.map((it) => it.product_id))),
         total_amount: totalAmount,
         createdAt: FieldValue.serverTimestamp(),
       });
@@ -764,6 +765,7 @@ export class FirestorePurchasingRepository {
           quantity: it.quantity,
           cost_price: Number(it.cost_price || 0),
         })),
+        productIds: Array.from(new Set(params.items.map((it) => it.product_id))),
         total_amount: totalAmount,
         createdAt: FieldValue.serverTimestamp(),
       });

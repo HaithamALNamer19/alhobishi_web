@@ -331,6 +331,7 @@ export class FirestoreOrderRepository {
         status: 'PENDING' as OrderStatus,
         businessDate,
         items: orderItems,
+        productIds: Array.from(new Set(orderItems.map((it) => it.productId))),
         totalAmount,
         customerNotes: customerNotes?.trim() || null,
         isLocked: false,
