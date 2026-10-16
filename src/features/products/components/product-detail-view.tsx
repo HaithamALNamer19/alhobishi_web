@@ -99,9 +99,6 @@ export function ProductDetailView({
               أرصدة مخزون المتغيرات ({variants.length})
             </h2>
           </div>
-          <span className="text-xs text-slate-400">
-            Available = Stock - Reserved (المتوفر = الكلي - المحجوز)
-          </span>
         </div>
 
         <div className="overflow-x-auto border border-slate-200 rounded-xl">
