@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, FolderTree, ArrowUpDown, Check, X, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Edit, Trash2, FolderTree, ArrowUpDown, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Badge } from '@/shared/ui/badge';
@@ -197,7 +197,7 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
                   <th className="py-3.5 px-4 text-center">الترتيب</th>
                   <th className="py-3.5 px-4 text-center">عدد المنتجات</th>
                   <th className="py-3.5 px-4 text-center">الحالة</th>
-                  <th className="py-3.5 px-4 text-left">الإجراءات</th>
+                  <th className="py-3.5 px-4 text-center">الإجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -257,26 +257,26 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
                         )}
                       </button>
                     </td>
-                    <td className="py-4 px-4 text-left">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                    <td className="py-4 px-4 text-center">
+                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
                           onClick={() => openEditModal(cat)}
-                          className="h-8 w-8 p-0 text-slate-600 hover:text-slate-900"
-                          title="تعديل"
+                          className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
+                          title="تعديل القسم"
                         >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                          <Edit className="w-3.5 h-3.5 text-amber-600" />
+                          <span>تعديل</span>
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setDeletingId(cat.id)}
-                          className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                          title="حذف"
+                          className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer select-none shadow-2xs"
+                          title="حذف القسم"
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          <span>حذف</span>
+                        </button>
                       </div>
                     </td>
                   </tr>

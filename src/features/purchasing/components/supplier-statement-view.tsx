@@ -19,6 +19,7 @@ import {
   RotateCcw,
   Sparkles,
   Pencil,
+  Edit,
   Trash2,
   TrendingUp,
   TrendingDown,
@@ -458,7 +459,7 @@ export function SupplierStatementView({
                     <th className="py-3.5 px-4">البيان والتفاصيل</th>
                     <th className="py-3.5 px-4 text-center w-28">المبلغ (ر.ي)</th>
                     <th className="py-3.5 px-4 text-center w-32">الرصيد بعد الحركة</th>
-                    <th className="py-3.5 px-4 text-left w-36">الإجراءات</th>
+                    <th className="py-3.5 px-4 text-center min-w-[200px]">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -577,40 +578,19 @@ export function SupplierStatementView({
                         </td>
 
                         {/* Actions */}
-                        <td className="py-3.5 px-4 text-left whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1.5">
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
                             {isPurchase && (
                               <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
+                                <button
+                                  type="button"
                                   onClick={() => handleOpenDetail(tx)}
-                                  className="h-7 px-2 text-[11px] text-blue-700 border-blue-200 hover:bg-blue-50 gap-1 cursor-pointer"
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="عرض تفاصيل الفاتورة"
                                 >
                                   <Eye className="w-3.5 h-3.5 text-blue-600" />
-                                  <span>الفاتورة</span>
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    handlePrintInvoice({
-                                      id: tx.reference_id || tx.id,
-                                      invoice_number: tx.reference_number || tx.id,
-                                      supplier_id: supplier.id,
-                                      supplier_name: supplier.name,
-                                      purchase_date: tx.createdAt,
-                                      total_amount: tx.credit,
-                                      items: tx.items || [],
-                                      createdAt: tx.createdAt,
-                                    })
-                                  }
-                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100 cursor-pointer"
-                                  title="طباعة فاتورة الشراء"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
-                                </Button>
+                                  <span>عرض</span>
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -623,59 +603,55 @@ export function SupplierStatementView({
                                       items: tx.items || [],
                                     });
                                   }}
-                                  className="p-1.5 rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer"
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="تعديل الفاتورة"
                                 >
-                                  <Pencil className="w-3.5 h-3.5" />
+                                  <Edit className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>تعديل</span>
                                 </button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handlePrintInvoice({
+                                      id: tx.reference_id || tx.id,
+                                      invoice_number: tx.reference_number || tx.id,
+                                      supplier_id: supplier.id,
+                                      supplier_name: supplier.name,
+                                      purchase_date: tx.createdAt,
+                                      total_amount: tx.credit,
+                                      items: tx.items || [],
+                                      createdAt: tx.createdAt,
+                                    })
+                                  }
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer select-none shadow-2xs"
+                                  title="طباعة فاتورة الشراء"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                  <span>طباعة</span>
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => setDeletingTransaction(tx)}
-                                  className="h-7 px-2 text-[11px] text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="حذف الفاتورة"
                                 >
                                   <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                                   <span>حذف</span>
-                                </Button>
+                                </button>
                               </>
                             )}
 
                             {isPayment && (
                               <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
+                                <button
+                                  type="button"
                                   onClick={() => handleOpenDetail(tx)}
-                                  className="h-7 px-2 text-[11px] text-emerald-800 border-emerald-200 hover:bg-emerald-50 gap-1 cursor-pointer"
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="عرض تفاصيل السند"
                                 >
-                                  <Eye className="w-3.5 h-3.5 text-emerald-700" />
-                                  <span>السند</span>
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    handlePrintVoucher({
-                                      id: tx.reference_id || tx.id,
-                                      voucher_number: tx.reference_number || tx.id,
-                                      supplier_id: supplier.id,
-                                      supplier_name: supplier.name,
-                                      company_name: supplier.company_name,
-                                      amount: tx.debit,
-                                      payment_method: tx.payment_method || 'CASH',
-                                      bank_or_exchange: tx.bank_or_exchange || null,
-                                      notes: tx.notes || tx.description,
-                                      recorded_by: tx.recorded_by,
-                                      createdAt: tx.createdAt,
-                                    })
-                                  }
-                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100 cursor-pointer"
-                                  title="طباعة سند الصرف مباشرة"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
-                                </Button>
+                                  <Eye className="w-3.5 h-3.5 text-blue-600" />
+                                  <span>عرض</span>
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -691,39 +667,60 @@ export function SupplierStatementView({
                                       notes: tx.notes || null,
                                     });
                                   }}
-                                  className="p-1.5 rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer"
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="تعديل السند"
                                 >
-                                  <Pencil className="w-3.5 h-3.5" />
+                                  <Edit className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>تعديل</span>
                                 </button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handlePrintVoucher({
+                                      id: tx.reference_id || tx.id,
+                                      voucher_number: tx.reference_number || tx.id,
+                                      supplier_id: supplier.id,
+                                      supplier_name: supplier.name,
+                                      company_name: supplier.company_name,
+                                      amount: tx.debit,
+                                      payment_method: tx.payment_method || 'CASH',
+                                      bank_or_exchange: tx.bank_or_exchange || null,
+                                      notes: tx.notes || tx.description,
+                                      recorded_by: tx.recorded_by,
+                                      createdAt: tx.createdAt,
+                                    })
+                                  }
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer select-none shadow-2xs"
+                                  title="طباعة سند الصرف مباشرة"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                  <span>طباعة</span>
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => setDeletingTransaction(tx)}
-                                  className="h-7 px-2 text-[11px] text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="حذف سند الصرف"
                                 >
                                   <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                                   <span>حذف</span>
-                                </Button>
+                                </button>
                               </>
                             )}
 
                             {isReturn && (
                               <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
+                                <button
+                                  type="button"
                                   onClick={() => handleOpenDetail(tx)}
-                                  className="h-7 px-2 text-[11px] text-rose-800 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="عرض تفاصيل المردود"
                                 >
-                                  <Eye className="w-3.5 h-3.5 text-rose-700" />
-                                  <span>المردود</span>
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
+                                  <Eye className="w-3.5 h-3.5 text-blue-600" />
+                                  <span>عرض</span>
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() =>
                                     handlePrintReturn({
                                       id: tx.reference_id || tx.id,
@@ -737,21 +734,21 @@ export function SupplierStatementView({
                                       createdAt: tx.createdAt,
                                     })
                                   }
-                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100 cursor-pointer"
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="طباعة مردود المشتريات"
                                 >
                                   <Printer className="w-3.5 h-3.5 text-slate-600" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
+                                  <span>طباعة</span>
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => setDeletingTransaction(tx)}
-                                  className="h-7 px-2 text-[11px] text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="حذف مردود المشتريات"
                                 >
                                   <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                                   <span>حذف</span>
-                                </Button>
+                                </button>
                               </>
                             )}
                           </div>

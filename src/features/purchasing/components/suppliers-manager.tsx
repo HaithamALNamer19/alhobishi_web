@@ -15,6 +15,7 @@ import {
   FileText,
   UserCheck,
   Pencil,
+  Edit,
   Trash2,
   AlertTriangle,
 } from 'lucide-react';
@@ -249,7 +250,7 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
                   <th className="py-3.5 px-4">رقم الهاتف</th>
                   <th className="py-3.5 px-4 text-center">الرصيد / المستحقات</th>
                   <th className="py-3.5 px-4 text-center">تاريخ الإضافة</th>
-                  <th className="py-3.5 px-4 text-left">الإجراءات</th>
+                  <th className="py-3.5 px-4 text-center">الإجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -324,11 +325,11 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
                         )}
                       </td>
 
-                      <td className="py-4 px-4 text-left">
-                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                      <td className="py-4 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
                           <Link
                             href={`/admin/suppliers/${s.id}/statement`}
-                            className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-[11px] h-7 px-2.5 gap-1.5 select-none"
+                            className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 transition-colors cursor-pointer select-none shadow-2xs"
                             title="عرض كشف حساب المورد المفصل وفواتيره وسنداته"
                           >
                             <FileText className="w-3.5 h-3.5 text-blue-600" />
@@ -338,17 +339,17 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
                           <button
                             type="button"
                             onClick={() => handleStartEdit(s)}
-                            className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-[11px] h-7 px-2 gap-1 select-none cursor-pointer"
+                            className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
                             title="تعديل بيانات المورد"
                           >
-                            <Pencil className="w-3.5 h-3.5 text-amber-600" />
+                            <Edit className="w-3.5 h-3.5 text-amber-600" />
                             <span>تعديل</span>
                           </button>
 
                           <button
                             type="button"
                             onClick={() => setDeletingSupplier(s)}
-                            className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 text-[11px] h-7 px-2 gap-1 select-none cursor-pointer"
+                            className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer select-none shadow-2xs"
                             title="حذف المورد"
                           >
                             <Trash2 className="w-3.5 h-3.5 text-rose-600" />

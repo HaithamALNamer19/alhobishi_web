@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import {
   Plus,
   Edit2,
+  Edit,
   Trash2,
   ExternalLink,
   Eye,
@@ -246,29 +247,27 @@ export function AdminBannersView({ initialBanners }: AdminBannersViewProps) {
                   </Button>
 
                   <div className="flex items-center gap-2">
-                    <Button
+                    <button
                       type="button"
-                      variant="outline"
-                      size="sm"
                       onClick={() => handleOpenEdit(b)}
                       disabled={isPending}
-                      className="text-xs font-bold text-slate-700"
+                      className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs disabled:opacity-50"
+                      title="تعديل الإعلان"
                     >
-                      <Edit2 className="w-3.5 h-3.5 ml-1" />
-                      تعديل
-                    </Button>
+                      <Edit className="w-3.5 h-3.5 text-amber-600" />
+                      <span>تعديل</span>
+                    </button>
 
-                    <Button
+                    <button
                       type="button"
-                      variant="danger"
-                      size="sm"
                       onClick={() => setDeletingId(b.id)}
                       disabled={isPending}
-                      className="text-xs font-bold"
+                      className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer select-none shadow-2xs disabled:opacity-50"
+                      title="حذف الإعلان"
                     >
-                      <Trash2 className="w-3.5 h-3.5 ml-1" />
-                      حذف
-                    </Button>
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      <span>حذف</span>
+                    </button>
                   </div>
                 </div>
               </div>

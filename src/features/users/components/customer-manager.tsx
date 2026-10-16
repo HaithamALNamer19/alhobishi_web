@@ -298,7 +298,7 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
                   <th className="py-3.5 px-4 text-center">الحالة</th>
                   <th className="py-3.5 px-4 text-center">الرصيد / المديونية</th>
                   <th className="py-3.5 px-4 text-center">الطلبات</th>
-                  <th className="py-3.5 px-4 text-left">الإجراءات</th>
+                  <th className="py-3.5 px-4 text-center">الإجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
@@ -362,57 +362,54 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
                         {u.stats?.ordersCount ?? 0}
                       </td>
 
-                      <td className="py-4 px-4 text-left">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="py-4 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          {/* View Statement Button */}
+                          <Link
+                            href={`/admin/customers/${u.uid}/statement`}
+                            className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 transition-colors cursor-pointer select-none shadow-2xs"
+                            title="عرض كشف الحساب المالي وفواتيره وسنداته"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-blue-600" />
+                            <span>كشف حساب</span>
+                          </Link>
+
                           {/* Role Update Button */}
-                          <Button
-                            variant="outline"
-                            size="sm"
+                          <button
+                            type="button"
                             onClick={() => handleOpenRoleModal(u)}
                             disabled={isSelf}
-                            className="text-[11px] h-7 px-2 text-indigo-700 border-indigo-200 hover:bg-indigo-50 gap-1 disabled:opacity-40"
+                            className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
                             title={isSelf ? 'لا يمكنك تعديل صلاحيات حسابك الخاص' : 'تعديل الدور والصلاحيات'}
                           >
-                            <UserCog className="w-3.5 h-3.5 text-indigo-600" />
-                            <span>تعديل الصلاحية</span>
-                          </Button>
+                            <UserCog className="w-3.5 h-3.5 text-amber-600" />
+                            <span>الصلاحية</span>
+                          </button>
 
                           {/* Account Status Toggle Button */}
                           {isDisabled ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
+                            <button
+                              type="button"
                               onClick={() => setStatusTarget({ user: u, newStatus: 'active' })}
                               disabled={isSelf}
-                              className="text-[11px] h-7 px-2 text-emerald-700 border-emerald-200 hover:bg-emerald-50 gap-1 disabled:opacity-40"
+                              className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 transition-colors cursor-pointer select-none shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
                               title={isSelf ? 'لا يمكنك تعديل حسابك الخاص' : 'إعادة تنشيط الحساب'}
                             >
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                               <span>تنشيط</span>
-                            </Button>
+                            </button>
                           ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
+                            <button
+                              type="button"
                               onClick={() => setStatusTarget({ user: u, newStatus: 'disabled' })}
                               disabled={isSelf}
-                              className="text-[11px] h-7 px-2 text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 disabled:opacity-40"
+                              className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer select-none shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
                               title={isSelf ? 'لا يمكنك إيقاف حسابك الخاص' : 'إيقاف وتعطيل الحساب'}
                             >
                               <UserX className="w-3.5 h-3.5 text-rose-600" />
                               <span>إيقاف</span>
-                            </Button>
+                            </button>
                           )}
-
-                          {/* View Statement Button */}
-                          <Link
-                            href={`/admin/customers/${u.uid}/statement`}
-                            className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 text-[11px] h-7 px-2.5 gap-1 select-none"
-                            title="عرض كشف الحساب المالي وفواتيره وسنداته"
-                          >
-                            <FileText className="w-3.5 h-3.5 text-blue-700" />
-                            <span>كشف الحساب</span>
-                          </Link>
                         </div>
                       </td>
                     </tr>

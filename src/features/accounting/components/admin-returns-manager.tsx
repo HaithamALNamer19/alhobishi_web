@@ -248,38 +248,42 @@ export function AdminReturnsManager({
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
                           <button
                             type="button"
                             onClick={() => setSelectedReturn(r.rawDoc)}
-                            className="p-1.5 text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="عرض التفاصيل"
+                            className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 transition-colors cursor-pointer shadow-2xs"
+                            title="عرض تفاصيل الفاتورة"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-3.5 h-3.5 text-blue-600" />
+                            <span>عرض</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingReturn(r.rawDoc)}
-                            className="p-1.5 text-slate-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                            className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer shadow-2xs"
                             title="تعديل الفاتورة"
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="w-3.5 h-3.5 text-amber-600" />
+                            <span>تعديل</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => handlePrint(r.rawDoc)}
-                            className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                            className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
                             title="طباعة الفاتورة"
                           >
-                            <Printer className="w-4 h-4" />
+                            <Printer className="w-3.5 h-3.5 text-slate-600" />
+                            <span>طباعة</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setDeletingReturn(r)}
-                            className="p-1.5 text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer shadow-2xs"
                             title="حذف الفاتورة"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                            <span>حذف</span>
                           </button>
                         </div>
                       </td>

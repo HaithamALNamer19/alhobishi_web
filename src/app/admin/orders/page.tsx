@@ -163,7 +163,7 @@ export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageP
                   <th className="py-3.5 px-4 text-center">عدد الأصناف</th>
                   <th className="py-3.5 px-4">المبلغ الإجمالي</th>
                   <th className="py-3.5 px-4 text-center">الحالة</th>
-                  <th className="py-3.5 px-4 text-left">الإجراء</th>
+                  <th className="py-3.5 px-4 text-center">الإجراء</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
@@ -208,13 +208,17 @@ export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageP
                       </Badge>
                     </td>
 
-                    <td className="py-4 px-4 text-left">
-                      <Link href={`/admin/orders/${o.id}?returnUrl=${encodeURIComponent(currentUrl)}`}>
-                        <Button variant="outline" size="sm" className="text-xs h-8">
+                    <td className="py-4 px-4 text-center">
+                      <div className="flex items-center justify-center">
+                        <Link
+                          href={`/admin/orders/${o.id}?returnUrl=${encodeURIComponent(currentUrl)}`}
+                          className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 transition-colors cursor-pointer select-none shadow-2xs"
+                          title="فتح تجهيز الطلب"
+                        >
                           <span>فتح التجهيز</span>
-                          <ArrowLeft className="w-3.5 h-3.5 mr-1" />
-                        </Button>
-                      </Link>
+                          <ArrowLeft className="w-3.5 h-3.5 text-blue-600" />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
