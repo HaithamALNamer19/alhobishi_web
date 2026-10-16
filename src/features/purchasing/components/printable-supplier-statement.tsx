@@ -1,6 +1,5 @@
 import React from 'react';
 import { formatMoney } from '@/core/domain/money';
-import { tafqeetRials } from '@/core/utils/tafqeet';
 import { cleanCustomerName } from '@/core/utils/clean-name';
 
 interface PrintableSupplierStatementProps {
@@ -126,45 +125,7 @@ export function PrintableSupplierStatement({
         </div>
       </div>
 
-      {/* 3. Account Balance & Summary Box */}
-      <div className="border border-slate-300 rounded p-3 mb-4 bg-slate-50/50">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center border-b border-slate-200 pb-2 mb-2">
-          <div>
-            <span className="text-[10px] text-slate-500 block font-bold">إجمالي المشتريات (له)</span>
-            <span className="text-xs font-mono font-black text-slate-900">
-              {formatMoney(safePurchases)}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-500 block font-bold">إجمالي المسدد (سندات صرف)</span>
-            <span className="text-xs font-mono font-black text-blue-700">
-              {formatMoney(safePayments)}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-500 block font-bold">إجمالي المردودات (عليه)</span>
-            <span className="text-xs font-mono font-black text-amber-700">
-              {formatMoney(safeReturns)}
-            </span>
-          </div>
-          <div className="border-r border-slate-200 pr-2">
-            <span className="text-[10px] text-slate-500 block font-bold">الرصيد المتبقي المستحق</span>
-            <span
-              className={`text-sm font-mono font-black ${
-                safeNetBalance > 0 ? 'text-rose-700' : 'text-emerald-700'
-              }`}
-            >
-              {formatMoney(safeNetBalance)}
-            </span>
-          </div>
-        </div>
 
-        {safeNetBalance > 0 && (
-          <div className="text-[11px] text-slate-800 text-center font-bold">
-            المبلغ المتبقي مستحق للمورد كتابةً: {tafqeetRials(safeNetBalance)}
-          </div>
-        )}
-      </div>
 
       {/* 4. Transactions Table */}
       <div className="border border-slate-300 rounded overflow-hidden mb-6">
@@ -176,9 +137,9 @@ export function PrintableSupplierStatement({
               <th className="p-2 border-l border-slate-200 w-28">نوع المستند</th>
               <th className="p-2 border-l border-slate-200 w-28">رقم المرجع</th>
               <th className="p-2 border-l border-slate-200 text-right">البيان والملاحظات</th>
-              <th className="p-2 border-l border-slate-200 w-24">له (دائن)</th>
-              <th className="p-2 border-l border-slate-200 w-24">عليه (مدين)</th>
-              <th className="p-2 w-28">الرصيد بعد الحركة</th>
+              <th className="p-2 border-l border-slate-200 w-24">دائن (شراء)</th>
+              <th className="p-2 border-l border-slate-200 w-24">مدين (سداد/مردود)</th>
+              <th className="p-2 w-28">الرصيد (ر.ي)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
