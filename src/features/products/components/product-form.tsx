@@ -422,7 +422,7 @@ export function ProductForm({
           return;
         }
 
-        toast.success('تم إنشاء المنتج بنجاح! رصيد المخزون يبدأ بـ 0 ويُقيد عبر فواتير الشراء.');
+        toast.success('تم إنشاء المنتج بنجاح!');
         if (returnUrl) {
           router.push(returnUrl);
         } else {
@@ -620,7 +620,7 @@ export function ProductForm({
 
           {/* 3. Variants & Stock Matrix */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className={`flex items-center justify-between ${hasVariants || isEditing ? 'border-b border-slate-100 pb-3' : ''}`}>
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Layers className="w-4 h-4 text-blue-700" />
@@ -663,19 +663,7 @@ export function ProductForm({
                     يتم تحديث المخزون تلقائيًا عبر فواتير الشراء والمبيعات والمردودات
                   </span>
                 </div>
-              ) : (
-                <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200/80 flex items-start gap-3">
-                  <div className="p-2 bg-blue-100/80 rounded-lg text-blue-700 mt-0.5 shrink-0">
-                    <Package className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-xs text-blue-900 mb-0.5">المخزون محدد آليًا</h4>
-                    <p className="text-[11px] text-blue-700/90 leading-relaxed">
-                      يبدأ رصيد المخزون من (0) تلقائيًا عند إنشاء المنتج. يتم قيد وزيادة المخزون لاحقًا عبر تسجيل فواتير الشراء من الموردين، ويخصم آليًا مع المبيعات ومردودات المشتريات.
-                    </p>
-                  </div>
-                </div>
-              )
+              ) : null
             ) : (
               /* Multi-variant builder */
               <div className="space-y-6">
@@ -813,13 +801,6 @@ export function ProductForm({
                         اترك الأسعار فارغة ليرث المتغير السعر الأساسي للمنتج
                       </span>
                     </div>
-
-                    {!isEditing && (
-                      <div className="bg-blue-50/60 p-3 rounded-xl border border-blue-200/80 text-xs text-blue-800 flex items-center gap-2">
-                        <Package className="w-4 h-4 text-blue-700 shrink-0" />
-                        <span>رصيد المخزون لكافة الخيارات يبدأ من (0)، ويتم قيده وزيادته لاحقًا عبر فواتير الشراء.</span>
-                      </div>
-                    )}
 
                     <div className="overflow-x-auto border border-slate-200 rounded-xl">
                       <table className="w-full text-right text-xs">
