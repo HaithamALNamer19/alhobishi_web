@@ -42,6 +42,7 @@ import { PrintableStatement } from './printable-statement';
 import { PrintableInvoice } from './printable-invoice';
 import { PrintableReceipt } from './printable-receipt';
 import { PrintableReturnInvoice } from './printable-return-invoice';
+import { cleanCustomerName } from '@/core/utils/clean-name';
 
 export interface CustomerStatementUser {
   uid: string;
@@ -331,7 +332,7 @@ export function CustomerStatementView({
               </h1>
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-500 mt-1.5 flex-wrap">
-              <span className="font-bold text-slate-800">{customer.displayName}</span>
+              <span className="font-bold text-slate-800">{cleanCustomerName(customer.displayName)}</span>
               <span className="font-mono text-slate-400">@{customer.username}</span>
               {customer.phone && (
                 <span className="font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md" dir="ltr">

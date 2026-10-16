@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
+import { cleanCustomerName } from '@/core/utils/clean-name';
 
 interface PrintableStatementProps {
   customer: {
@@ -85,7 +86,7 @@ export function PrintableStatement({
           </span>
         </div>
 
-        {/* Left Side: Statement Date & Customer ID */}
+        {/* Left Side: Statement Date, Customer ID & Phone */}
         <div className="text-left border border-slate-300 rounded p-2.5 bg-slate-50 min-w-44 text-[11px] space-y-1.5 self-center">
           <div className="flex justify-between gap-3">
             <span className="text-slate-500 font-medium">التاريخ:</span>
@@ -97,6 +98,14 @@ export function PrintableStatement({
               {customerCode}
             </span>
           </div>
+          {customer.phone && (
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-500 font-medium">هاتف العميل:</span>
+              <span className="font-mono font-bold text-slate-900" dir="ltr">
+                {customer.phone}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -104,7 +113,7 @@ export function PrintableStatement({
       <div className="flex items-center justify-between py-2 px-3 bg-slate-50 border border-slate-300 rounded mb-3 text-xs">
         <div className="flex items-center gap-2">
           <span className="font-bold text-slate-600">اسم العميل:</span>
-          <span className="font-black text-slate-950 text-sm">{customer.displayName}</span>
+          <span className="font-black text-slate-950 text-sm">{cleanCustomerName(customer.displayName)}</span>
         </div>
       </div>
 

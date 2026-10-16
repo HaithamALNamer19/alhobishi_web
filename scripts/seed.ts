@@ -331,14 +331,14 @@ async function main() {
     },
     {
       username: 'staff_prep',
-      displayName: 'أحمد التجهيز (موظف المستودع)',
+      displayName: 'أحمد التجهيز',
       phone: '+967770000002',
       role: Role.STAFF,
       password: 'StaffPassword123!',
     },
     {
       username: 'salem_customer',
-      displayName: 'سالم أحمد (عميل عادي)',
+      displayName: 'سالم أحمد',
       phone: '+967779876543',
       role: Role.CUSTOMER,
       password: 'CustomerPassword123!',
