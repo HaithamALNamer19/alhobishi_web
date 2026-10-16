@@ -115,10 +115,6 @@ export function RecordFinancialVoucherDialog({
     setSelectedParty(party);
     setSearchQuery('');
     setShowSearchResults(false);
-    // Autofill amount if balance > 0
-    if (party.balance > 0) {
-      setAmount(String(party.balance));
-    }
   };
 
   const handleClearSelectedParty = () => {
@@ -289,44 +285,22 @@ export function RecordFinancialVoucherDialog({
                           >
                             {isSup ? <Building2 className="w-4 h-4" /> : <User className="w-4 h-4" />}
                           </span>
-                          <div>
-                            <span className="font-bold text-slate-900 group-hover:text-blue-700 block text-xs">
-                              {p.name}
-                              {p.companyName ? ` (${p.companyName})` : ''}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              {p.phone || 'بدون هاتف'} •{' '}
-                              <span
-                                className={`font-bold ${
-                                  isSup
-                                    ? 'text-amber-700'
-                                    : isWhole
-                                      ? 'text-sky-700'
-                                      : 'text-emerald-700'
-                                }`}
-                              >
-                                {p.typeLabel}
-                              </span>
-                            </span>
-                          </div>
+                          <span className="font-bold text-slate-900 group-hover:text-blue-700 block text-xs">
+                            {p.name}
+                          </span>
                         </div>
 
-                        <div className="text-left font-mono">
-                          <span
-                            className={`font-black text-xs block ${
-                              p.balance > 0
-                                ? 'text-rose-700'
-                                : p.balance < 0
-                                  ? 'text-emerald-700'
-                                  : 'text-slate-500'
-                            }`}
-                          >
-                            {formatMoney(p.balance)}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-sans block">
-                            {p.balanceLabel}
-                          </span>
-                        </div>
+                        <span
+                          className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                            isSup
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : isWhole
+                                ? 'bg-sky-50 text-sky-700 border border-sky-200'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          }`}
+                        >
+                          {p.typeLabel}
+                        </span>
                       </button>
                     );
                   })}
@@ -359,46 +333,25 @@ export function RecordFinancialVoucherDialog({
                     <User className="w-4 h-4" />
                   )}
                 </span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-black text-slate-900 text-sm">{selectedParty.name}</span>
-                    <Badge variant="outline" className="text-[10px] font-bold">
-                      {selectedParty.typeLabel}
-                    </Badge>
-                  </div>
-                  <span className="text-[11px] text-slate-500 font-mono mt-0.5 block">
-                    {selectedParty.phone || 'بدون هاتف'} •{' '}
-                    <span className="font-bold text-slate-700">
-                      الرصيد: {formatMoney(selectedParty.balance)} ({selectedParty.balanceLabel})
-                    </span>
-                  </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-slate-900 text-sm">{selectedParty.name}</span>
+                  <Badge variant="outline" className="text-[10px] font-bold">
+                    {selectedParty.typeLabel}
+                  </Badge>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                {selectedParty.balance > 0 && parsedAmount !== selectedParty.balance && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAmount(String(selectedParty.balance))}
-                    className="h-7 px-2 text-[11px] text-blue-700 border-blue-200 hover:bg-blue-50"
-                  >
-                    سداد كامل المستحق
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClearSelectedParty}
-                  className="h-7 px-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50"
-                  title="تغيير الطرف"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  <span>تغيير</span>
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleClearSelectedParty}
+                className="h-7 px-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50"
+                title="تغيير الطرف"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>تغيير</span>
+              </Button>
             </div>
           )}
         </div>

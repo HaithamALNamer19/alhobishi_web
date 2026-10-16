@@ -19,10 +19,6 @@ export interface FinancialPartyOption {
   name: string;
   type: 'CUSTOMER' | 'WHOLESALE' | 'SUPPLIER';
   typeLabel: string;
-  phone?: string;
-  companyName?: string;
-  balance: number;
-  balanceLabel: string;
 }
 
 export async function searchFinancialPartiesAction(params: {
@@ -58,17 +54,13 @@ export async function searchFinancialPartiesAction(params: {
       const phone = String(u.phone || '');
       const username = (u.username || '').toLowerCase();
 
-      if (!q || name.includes(q) || phone.includes(q) || username.includes(q)) {
+      if (name.includes(q) || phone.includes(q) || username.includes(q)) {
         const isWholesale = role === 'wholesale';
-        const bal = Number(u.balance ?? 0);
         matchedUsers.push({
           id: doc.id,
           name: u.displayName || u.username || 'عميل',
           type: isWholesale ? 'WHOLESALE' : 'CUSTOMER',
           typeLabel: isWholesale ? 'تاجر جملة' : 'عميل',
-          phone: u.phone || undefined,
-          balance: bal,
-          balanceLabel: bal > 0 ? 'مدين للمتجر (عليه)' : bal < 0 ? 'دائن (له رصيد)' : 'رصيده متزن (0)',
         });
       }
     });
@@ -86,17 +78,12 @@ export async function searchFinancialPartiesAction(params: {
       const comp = (s.company_name || '').toLowerCase();
       const phone = String(s.phone || '');
 
-      if (!q || name.includes(q) || comp.includes(q) || phone.includes(q)) {
-        const bal = Number(s.balance ?? 0);
+      if (name.includes(q) || comp.includes(q) || phone.includes(q)) {
         matchedSuppliers.push({
           id: doc.id,
           name: s.name || 'مورد',
           type: 'SUPPLIER',
           typeLabel: 'مورد',
-          phone: s.phone || undefined,
-          companyName: s.company_name || undefined,
-          balance: bal,
-          balanceLabel: bal > 0 ? 'مستحق للمورد (له)' : bal < 0 ? 'رصيد دائن للمتجر' : 'حسابه مسدد (0)',
         });
       }
     });
