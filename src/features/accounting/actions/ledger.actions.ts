@@ -12,6 +12,7 @@ import { orderRepository } from '@/features/orders/infrastructure/firestore-orde
 import { ledgerRepository } from '../infrastructure/firestore-ledger.repository';
 import { userRepository } from '@/features/users/infrastructure/firestore-user.repository';
 import type { OrderItem } from '@/features/orders/domain/order';
+import { assertMoney, type Money } from '@/core/domain/money';
 
 const detailSchema = z.object({
   type: z.enum(['INVOICE', 'PAYMENT']),
@@ -278,6 +279,55 @@ export async function deleteCustomerSalesReturnAction(params: {
     revalidatePath('/admin/products');
     revalidatePath('/account');
     revalidatePath('/account/statement');
+  });
+}
+
+export async function updateCustomerPaymentAction(params: {
+  paymentId: string;
+  customerId: string;
+  amount: number;
+  method: 'CASH' | 'TRANSFER' | 'OTHER';
+  referenceNumber?: string | null;
+  notes?: string | null;
+}): Promise<Result<{ paymentId: string; newBalance: number }>> {
+  return runAction(async () => {
+    const session = await requireSession();
+    if (!isBackOfficeRole(session.role)) {
+      throw new AppError(ErrorCode.FORBIDDEN, { message: 'غير مصرح لك بتعديل السندات المالية.' });
+    }
+
+    if (!params.paymentId) {
+      throw new AppError(ErrorCode.VALIDATION_FAILED, { message: 'معرف السند غير محدد.' });
+    }
+
+    const amountNum = Number(params.amount);
+    if (!amountNum || amountNum <= 0) {
+      throw new AppError(ErrorCode.VALIDATION_FAILED, { message: 'مبلغ السند يجب أن يكون أكبر من الصفر.' });
+    }
+
+    const currentActor = await userRepository.findById(session.uid).catch(() => null);
+    const actorName = currentActor?.displayName || currentActor?.username || 'إدارة المالية';
+
+    const res = await ledgerRepository.updatePayment({
+      paymentId: params.paymentId,
+      amount: assertMoney(amountNum),
+      method: params.method,
+      referenceNumber: params.referenceNumber?.trim() || null,
+      notes: params.notes?.trim() || null,
+      actorId: session.uid,
+      actorName,
+    });
+
+    revalidatePath(`/admin/customers/${params.customerId}/statement`);
+    revalidatePath('/admin/customers');
+    revalidatePath('/admin/payments');
+    revalidatePath('/account');
+    revalidatePath('/account/statement');
+
+    return {
+      paymentId: res.paymentId,
+      newBalance: res.newBalance,
+    };
   });
 }
 

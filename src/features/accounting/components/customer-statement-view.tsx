@@ -19,6 +19,7 @@ import {
   Calendar,
   Sparkles,
   RotateCcw,
+  Edit,
   Trash2,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
@@ -44,6 +45,8 @@ import { PrintableReceipt } from './printable-receipt';
 import { PrintableReturnInvoice } from './printable-return-invoice';
 import { cleanCustomerName } from '@/core/utils/clean-name';
 import { DeleteCustomerTransactionConfirmDialog } from './delete-customer-transaction-confirm-dialog';
+import { EditCustomerPaymentDialog, type CustomerPaymentEditData } from './edit-customer-payment-dialog';
+import { EditSalesReturnDialog } from './edit-sales-return-dialog';
 
 export interface CustomerStatementUser {
   uid: string;
@@ -103,6 +106,8 @@ export function CustomerStatementView({
 
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState<SerializedReturnDetail | null>(null);
+  const [editingPayment, setEditingPayment] = useState<CustomerPaymentEditData | null>(null);
+  const [editingReturn, setEditingReturn] = useState<SerializedReturnDetail | null>(null);
   const [isDocLoading, setIsDocLoading] = useState(false);
   const [deletingTransaction, setDeletingTransaction] = useState<any | null>(null);
 
@@ -308,6 +313,65 @@ export function CustomerStatementView({
       }
     } catch {
       toast.error('حدث خطأ أثناء تجهيز المردود للطباعة');
+    }
+  };
+
+  const handleEditPayment = async (t: SerializedTransaction) => {
+    if (!t.paymentId) return;
+    setIsDocLoading(true);
+    try {
+      const res = await getLedgerDocumentDetailAction({ type: 'PAYMENT', id: t.paymentId });
+      if (res.ok && res.data.type === 'PAYMENT') {
+        const p = res.data.payment;
+        setEditingPayment({
+          id: p.id,
+          amount: p.amount,
+          method: p.method,
+          referenceNumber: p.referenceNumber,
+          notes: p.notes,
+          customerName: customer.displayName,
+          type: t.type === 'ADJUSTMENT' ? 'DISBURSEMENT' : 'RECEIPT',
+        });
+      } else {
+        setEditingPayment({
+          id: t.paymentId,
+          amount: Math.abs(Number(t.amount) || 0),
+          method: 'CASH',
+          referenceNumber: null,
+          notes: t.description || null,
+          customerName: customer.displayName,
+          type: t.type === 'ADJUSTMENT' ? 'DISBURSEMENT' : 'RECEIPT',
+        });
+      }
+    } catch {
+      setEditingPayment({
+        id: t.paymentId,
+        amount: Math.abs(Number(t.amount) || 0),
+        method: 'CASH',
+        referenceNumber: null,
+        notes: t.description || null,
+        customerName: customer.displayName,
+        type: t.type === 'ADJUSTMENT' ? 'DISBURSEMENT' : 'RECEIPT',
+      });
+    } finally {
+      setIsDocLoading(false);
+    }
+  };
+
+  const handleEditReturn = async (returnId: string) => {
+    setIsDocLoading(true);
+    try {
+      toast.info('جاري تحميل بيانات المردود للتعديل...');
+      const res = await getSalesReturnDetailAction(returnId);
+      if (res.ok) {
+        setEditingReturn(res.data);
+      } else {
+        toast.error(!res.ok ? res.error.message : 'تعذر تحميل بيانات المردود');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'حدث خطأ أثناء تحميل بيانات المردود');
+    } finally {
+      setIsDocLoading(false);
     }
   };
 
@@ -678,6 +742,15 @@ export function CustomerStatementView({
                                 </button>
                                 <button
                                   type="button"
+                                  onClick={() => handleEditPayment(t)}
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
+                                  title="تعديل السند المالي"
+                                >
+                                  <Edit className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>تعديل</span>
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => handleQuickPrintReceipt(t.paymentId!)}
                                   className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="طباعة سند القبض مباشرة"
@@ -708,6 +781,15 @@ export function CustomerStatementView({
                                 </button>
                                 <button
                                   type="button"
+                                  onClick={() => handleEditReturn(t.returnId!)}
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
+                                  title="تعديل فاتورة المردود"
+                                >
+                                  <Edit className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>تعديل</span>
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => handleQuickPrintReturn(t.returnId!)}
                                   className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="طباعة فاتورة المردود مباشرة"
@@ -735,6 +817,15 @@ export function CustomerStatementView({
                                 >
                                   <Eye className="w-3.5 h-3.5 text-blue-600" />
                                   <span>عرض</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditPayment(t)}
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
+                                  title="تعديل السند المالي"
+                                >
+                                  <Edit className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>تعديل</span>
                                 </button>
                                 <button
                                   type="button"
@@ -791,6 +882,17 @@ export function CustomerStatementView({
           payment={selectedPayment}
           isLoading={isDocLoading}
           onPrint={(pay) => handlePrint({ type: 'receipt', payment: pay })}
+          onEdit={(pay) => {
+            setIsReceiptModalOpen(false);
+            setEditingPayment({
+              id: pay.id,
+              amount: pay.amount,
+              method: pay.method,
+              referenceNumber: pay.referenceNumber,
+              notes: pay.notes,
+              customerName: pay.customerName,
+            });
+          }}
         />
       )}
 
@@ -801,6 +903,35 @@ export function CustomerStatementView({
           onClose={() => setIsReturnModalOpen(false)}
           returnDoc={selectedReturn}
           onPrint={(doc) => handlePrint({ type: 'return', returnDoc: doc })}
+          onEdit={(doc) => {
+            setIsReturnModalOpen(false);
+            setEditingReturn(doc);
+          }}
+        />
+      )}
+
+      {/* Edit Customer Payment Dialog */}
+      {editingPayment && (
+        <EditCustomerPaymentDialog
+          isOpen={Boolean(editingPayment)}
+          onClose={() => setEditingPayment(null)}
+          payment={editingPayment}
+          customerId={customer.uid}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
+
+      {/* Edit Sales Return Dialog */}
+      {editingReturn && (
+        <EditSalesReturnDialog
+          isOpen={Boolean(editingReturn)}
+          onClose={() => setEditingReturn(null)}
+          returnDoc={editingReturn}
+          onSuccess={() => {
+            router.refresh();
+          }}
         />
       )}
 

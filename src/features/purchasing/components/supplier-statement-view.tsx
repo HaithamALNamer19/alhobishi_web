@@ -40,6 +40,7 @@ import { PrintablePurchaseInvoice } from './printable-purchase-invoice';
 import { PrintablePurchaseReturnInvoice } from './printable-purchase-return-invoice';
 import { EditPurchaseInvoiceDialog } from './edit-purchase-invoice-dialog';
 import { EditSupplierPaymentDialog } from './edit-supplier-payment-dialog';
+import { EditPurchaseReturnDialog } from './edit-purchase-return-dialog';
 import { DeleteTransactionConfirmDialog } from './delete-transaction-confirm-dialog';
 
 export interface SerializedSupplierStatementProps {
@@ -110,6 +111,7 @@ export function SupplierStatementView({
   const [selectedReturn, setSelectedReturn] = useState<any | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<any | null>(null);
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
+  const [editingReturn, setEditingReturn] = useState<any | null>(null);
   const [deletingTransaction, setDeletingTransaction] = useState<any | null>(null);
 
   // Print state
@@ -721,6 +723,26 @@ export function SupplierStatementView({
                                 </button>
                                 <button
                                   type="button"
+                                  onClick={() => {
+                                    setEditingReturn({
+                                      id: tx.reference_id || tx.id,
+                                      return_number: tx.reference_number || tx.id,
+                                      supplier_id: supplier.id,
+                                      supplier_name: supplier.name,
+                                      total_amount: tx.debit,
+                                      return_date: tx.createdAt,
+                                      createdAt: tx.createdAt,
+                                      items: tx.items || [],
+                                    });
+                                  }}
+                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
+                                  title="تعديل مردود المشتريات"
+                                >
+                                  <Edit className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>تعديل</span>
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() =>
                                     handlePrintReturn({
                                       id: tx.reference_id || tx.id,
@@ -821,7 +843,24 @@ export function SupplierStatementView({
         onClose={() => setSelectedReturn(null)}
         returnDoc={selectedReturn}
         onPrint={handlePrintReturn}
+        onEdit={(ret) => {
+          setSelectedReturn(null);
+          setEditingReturn(ret);
+        }}
       />
+
+      {/* Edit Purchase Return Dialog */}
+      {editingReturn && (
+        <EditPurchaseReturnDialog
+          isOpen={Boolean(editingReturn)}
+          onClose={() => setEditingReturn(null)}
+          returnDoc={editingReturn}
+          supplierId={supplier.id}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
 
       {/* Edit Purchase Invoice Dialog */}
       {editingInvoice && (

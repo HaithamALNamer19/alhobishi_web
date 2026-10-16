@@ -811,6 +811,106 @@ export class FirestoreLedgerRepository {
     }
   }
 
+  async updatePayment(params: {
+    paymentId: string;
+    amount: Money;
+    method: 'CASH' | 'TRANSFER' | 'OTHER';
+    referenceNumber?: string | null;
+    notes?: string | null;
+    actorId: string;
+    actorName: string;
+  }): Promise<{ paymentId: string; newBalance: Money }> {
+    const newAmount = Number(params.amount);
+    if (!newAmount || newAmount <= 0) {
+      throw new AppError(ErrorCode.VALIDATION_FAILED, { message: 'مبلغ السند يجب أن يكون أكبر من الصفر.' });
+    }
+
+    const result = await this.db.runTransaction(async (tx) => {
+      const payRef = this.db.collection(Collections.PAYMENTS).doc(params.paymentId);
+      const paySnap = await tx.get(payRef);
+      if (!paySnap.exists) {
+        throw new AppError(ErrorCode.NOT_FOUND, { message: 'سند الدفع غير موجود أو تم حذفه مسبقاً.' });
+      }
+
+      const pData = paySnap.data()!;
+      const customerId = pData.customerId;
+      const oldAmount = Number(pData.amount || 0);
+      const isDisbursement = pData.type === 'DISBURSEMENT';
+
+      const userRef = this.db.collection(Collections.USERS).doc(customerId);
+      const userSnap = await tx.get(userRef);
+
+      let newBalance: Money = 0 as Money;
+      const diff = newAmount - oldAmount;
+
+      if (userSnap.exists) {
+        const userData = userSnap.data()!;
+        const currentBalance = Number(userData.balance ?? userData.account?.balance ?? 0) as Money;
+        // If receipt: increasing payment reduces customer debt (currentBalance - diff)
+        // If disbursement: increasing disbursement increases customer debt (currentBalance + diff)
+        newBalance = (isDisbursement ? currentBalance + diff : currentBalance - diff) as Money;
+
+        if (diff !== 0) {
+          tx.update(userRef, {
+            balance: newBalance,
+            'account.balance': newBalance,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        } else {
+          newBalance = currentBalance;
+        }
+
+        // Audit Log
+        const auditRef = this.db.collection(Collections.AUDIT_LOGS).doc();
+        tx.set(auditRef, {
+          actorId: params.actorId,
+          actorName: params.actorName,
+          action: isDisbursement ? 'DISBURSEMENT_UPDATED' : 'PAYMENT_UPDATED',
+          entityType: 'payment',
+          entityId: params.paymentId,
+          oldData: { amount: oldAmount, method: pData.method, notes: pData.notes },
+          newData: { amount: newAmount, method: params.method, notes: params.notes, balance: newBalance },
+          timestamp: FieldValue.serverTimestamp(),
+        });
+      }
+
+      tx.update(payRef, {
+        amount: newAmount,
+        method: params.method,
+        referenceNumber: params.referenceNumber?.trim() || null,
+        notes: params.notes?.trim() || null,
+        updatedAt: FieldValue.serverTimestamp(),
+        lastUpdatedBy: params.actorName,
+      });
+
+      return { paymentId: params.paymentId, newBalance };
+    });
+
+    // Update corresponding ACCOUNT_TRANSACTIONS record for statement consistency
+    const txSnap = await this.db
+      .collection(Collections.ACCOUNT_TRANSACTIONS)
+      .where('paymentId', '==', params.paymentId)
+      .get();
+
+    if (!txSnap.empty) {
+      const batch = this.db.batch();
+      txSnap.forEach((doc) => {
+        const tData = doc.data();
+        const isDisbursement = tData.type === 'ADJUSTMENT' || (tData.amount && tData.amount > 0);
+        batch.update(doc.ref, {
+          amount: isDisbursement ? newAmount : -newAmount,
+          description: isDisbursement
+            ? `سند صرف نقدي / دفعة للعميل بقيمة ${newAmount} ر.ي`
+            : `سداد دفعة نقدية / حوالة بقيمة ${newAmount} ر.ي`,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      });
+      await batch.commit();
+    }
+
+    return result;
+  }
+
   async deleteSalesReturn(returnId: string, actorId: string, actorName: string): Promise<void> {
     await this.db.runTransaction(async (tx) => {
       const returnRef = this.db.collection(Collections.SALES_RETURNS).doc(returnId);

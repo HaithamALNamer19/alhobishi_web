@@ -6,7 +6,7 @@ import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
-import { Printer, CreditCard, User, Calendar, FileText, CheckCircle2 } from 'lucide-react';
+import { Printer, CreditCard, User, Calendar, FileText, CheckCircle2, Edit } from 'lucide-react';
 import type { SerializedPaymentDetail } from '../actions/ledger.actions';
 
 interface ReceiptDetailDialogProps {
@@ -15,6 +15,7 @@ interface ReceiptDetailDialogProps {
   payment: SerializedPaymentDetail['payment'] | null;
   isLoading?: boolean;
   onPrint: (payment: SerializedPaymentDetail['payment']) => void;
+  onEdit?: (payment: SerializedPaymentDetail['payment']) => void;
 }
 
 export function ReceiptDetailDialog({
@@ -23,6 +24,7 @@ export function ReceiptDetailDialog({
   payment,
   isLoading = false,
   onPrint,
+  onEdit,
 }: ReceiptDetailDialogProps) {
   if (!isOpen) return null;
 
@@ -131,15 +133,27 @@ export function ReceiptDetailDialog({
 
           {/* Footer Actions */}
           <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-            <Button
-              onClick={() => onPrint(payment)}
-              className="bg-emerald-700 hover:bg-emerald-600 text-white gap-2 px-5"
-            >
-              <Printer className="w-4 h-4" />
-              <span>طباعة سند القبض</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => onPrint(payment)}
+                className="bg-emerald-700 hover:bg-emerald-600 text-white gap-2 px-5 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>طباعة سند القبض</span>
+              </Button>
+              {onEdit && (
+                <Button
+                  variant="outline"
+                  onClick={() => onEdit(payment)}
+                  className="gap-2 text-amber-700 border-amber-200 hover:bg-amber-50 cursor-pointer"
+                >
+                  <Edit className="w-4 h-4 text-amber-600" />
+                  <span>تعديل السند</span>
+                </Button>
+              )}
+            </div>
 
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} className="cursor-pointer">
               إغلاق
             </Button>
           </div>
