@@ -109,39 +109,34 @@ export function SupplierStatementView({
 
   useEffect(() => {
     setMounted(true);
-
-    let originalTitle = '';
-    const handleBeforePrint = () => {
-      originalTitle = document.title;
-      document.title = ' ';
-      document.body.classList.add('print-active');
-    };
-    const handleAfterPrint = () => {
-      if (originalTitle) document.title = originalTitle;
-      document.body.classList.remove('print-active');
-      setActivePrint(null);
-    };
-
-    window.addEventListener('beforeprint', handleBeforePrint);
-    window.addEventListener('afterprint', handleAfterPrint);
-    return () => {
-      window.removeEventListener('beforeprint', handleBeforePrint);
-      window.removeEventListener('afterprint', handleAfterPrint);
-    };
   }, []);
 
-  const handlePrintStatement = () => {
-    setActivePrint({ type: 'statement' });
+  const handlePrint = (job: PrintJob) => {
+    setActivePrint(job);
+    document.body.classList.add('print-active');
+    const originalTitle = document.title;
+    document.title = ' ';
+
+    const handleAfterPrint = () => {
+      document.title = originalTitle;
+      document.body.classList.remove('print-active');
+      setActivePrint(null);
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+
+    window.addEventListener('afterprint', handleAfterPrint);
+
     setTimeout(() => {
       window.print();
-    }, 150);
+    }, 200);
+  };
+
+  const handlePrintStatement = () => {
+    handlePrint({ type: 'statement' });
   };
 
   const handlePrintVoucher = (payment: any) => {
-    setActivePrint({ type: 'voucher', payment });
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    handlePrint({ type: 'voucher', payment });
   };
 
   // Filter transactions
@@ -770,10 +765,10 @@ export function SupplierStatementView({
 
       {/* Print Portal */}
       {mounted &&
-        activePrint &&
+        Boolean(activePrint) &&
         createPortal(
-          <div className="print-portal-container">
-            {activePrint.type === 'statement' && (
+          <div className="print-only-portal">
+            {activePrint?.type === 'statement' && (
               <PrintableSupplierStatement
                 supplier={supplier}
                 transactions={initialTransactions}
@@ -783,7 +778,7 @@ export function SupplierStatementView({
                 netBalance={initialBalance}
               />
             )}
-            {activePrint.type === 'voucher' && (
+            {activePrint?.type === 'voucher' && (
               <PrintableSupplierVoucher payment={activePrint.payment} />
             )}
           </div>,

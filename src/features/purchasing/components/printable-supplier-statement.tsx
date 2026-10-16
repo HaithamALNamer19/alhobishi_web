@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
+import { cleanCustomerName } from '@/core/utils/clean-name';
 
 interface PrintableSupplierStatementProps {
   supplier: {
@@ -8,9 +9,9 @@ interface PrintableSupplierStatementProps {
     name: string;
     company_name?: string;
     phone?: string;
-    balance: number;
+    balance?: number;
   };
-  transactions: Array<{
+  transactions?: Array<{
     id: string;
     type: string;
     amount: number;
@@ -21,19 +22,19 @@ interface PrintableSupplierStatementProps {
     reference_number?: string | null;
     createdAt: string | Date;
   }>;
-  totalPurchases: number;
-  totalPayments: number;
-  totalReturns: number;
-  netBalance: number;
+  totalPurchases?: number;
+  totalPayments?: number;
+  totalReturns?: number;
+  netBalance?: number;
 }
 
 export function PrintableSupplierStatement({
   supplier,
-  transactions,
-  totalPurchases,
-  totalPayments,
-  totalReturns,
-  netBalance,
+  transactions = [],
+  totalPurchases = 0,
+  totalPayments = 0,
+  totalReturns = 0,
+  netBalance = 0,
 }: PrintableSupplierStatementProps) {
   const printDate = new Date().toLocaleDateString('ar-YE', {
     day: 'numeric',
@@ -41,14 +42,19 @@ export function PrintableSupplierStatement({
     year: 'numeric',
   });
 
+  const safePurchases = Number(totalPurchases) || 0;
+  const safePayments = Number(totalPayments) || 0;
+  const safeReturns = Number(totalReturns) || 0;
+  const safeNetBalance = Number(netBalance) || 0;
+
   // Oldest first for standard accounting chronological flow in print
-  const chronological = [...transactions].sort((a, b) => {
+  const chronological = [...(transactions || [])].sort((a, b) => {
     const da = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
     const db = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
     return da.getTime() - db.getTime();
   });
 
-  const totalDebits = totalPayments + totalReturns;
+  const totalDebits = safePayments + safeReturns;
 
   return (
     <div
@@ -92,7 +98,7 @@ export function PrintableSupplierStatement({
           <div className="flex justify-between gap-3">
             <span className="text-slate-500 font-medium">معرف المورد:</span>
             <span className="font-mono font-bold text-slate-900" dir="ltr">
-              SUP-{supplier.id.slice(0, 8).toUpperCase()}
+              SUP-{(supplier?.id || '').slice(0, 8).toUpperCase()}
             </span>
           </div>
         </div>
@@ -103,7 +109,7 @@ export function PrintableSupplierStatement({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div>
             <span className="text-slate-500 block font-medium">اسم المورد:</span>
-            <strong className="text-slate-950 text-xs block font-bold">{supplier.name}</strong>
+            <strong className="text-slate-950 text-xs block font-bold">{cleanCustomerName(supplier?.name || '')}</strong>
           </div>
           <div>
             <span className="text-slate-500 block font-medium">الشركة / المؤسسة:</span>
@@ -126,36 +132,36 @@ export function PrintableSupplierStatement({
           <div>
             <span className="text-[10px] text-slate-500 block font-bold">إجمالي المشتريات (له)</span>
             <span className="text-xs font-mono font-black text-slate-900">
-              {formatMoney(totalPurchases)}
+              {formatMoney(safePurchases)}
             </span>
           </div>
           <div>
             <span className="text-[10px] text-slate-500 block font-bold">إجمالي المسدد (سندات صرف)</span>
             <span className="text-xs font-mono font-black text-blue-700">
-              {formatMoney(totalPayments)}
+              {formatMoney(safePayments)}
             </span>
           </div>
           <div>
             <span className="text-[10px] text-slate-500 block font-bold">إجمالي المردودات (عليه)</span>
             <span className="text-xs font-mono font-black text-amber-700">
-              {formatMoney(totalReturns)}
+              {formatMoney(safeReturns)}
             </span>
           </div>
           <div className="border-r border-slate-200 pr-2">
             <span className="text-[10px] text-slate-500 block font-bold">الرصيد المتبقي المستحق</span>
             <span
               className={`text-sm font-mono font-black ${
-                netBalance > 0 ? 'text-rose-700' : 'text-emerald-700'
+                safeNetBalance > 0 ? 'text-rose-700' : 'text-emerald-700'
               }`}
             >
-              {formatMoney(netBalance)}
+              {formatMoney(safeNetBalance)}
             </span>
           </div>
         </div>
 
-        {netBalance > 0 && (
+        {safeNetBalance > 0 && (
           <div className="text-[11px] text-slate-800 text-center font-bold">
-            المبلغ المتبقي مستحق للمورد كتابةً: {tafqeetRials(netBalance)}
+            المبلغ المتبقي مستحق للمورد كتابةً: {tafqeetRials(safeNetBalance)}
           </div>
         )}
       </div>
@@ -243,17 +249,17 @@ export function PrintableSupplierStatement({
                 الإجماليات الكلية:
               </td>
               <td className="p-2 border-l border-slate-200 font-mono font-black text-slate-950">
-                {formatMoney(totalPurchases)}
+                {formatMoney(safePurchases)}
               </td>
               <td className="p-2 border-l border-slate-200 font-mono font-black text-blue-900">
                 {formatMoney(totalDebits)}
               </td>
               <td
                 className={`p-2 font-mono font-black ${
-                  netBalance > 0 ? 'text-rose-700' : 'text-emerald-700'
+                  safeNetBalance > 0 ? 'text-rose-700' : 'text-emerald-700'
                 }`}
               >
-                {formatMoney(netBalance)}
+                {formatMoney(safeNetBalance)}
               </td>
             </tr>
           </tfoot>
