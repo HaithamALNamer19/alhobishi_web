@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -17,8 +18,8 @@ import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { Dialog } from '@/shared/ui/dialog';
 import { formatMoney } from '@/core/domain/money';
-import { tafqeetRials } from '@/core/utils/tafqeet';
 import { RecordFinancialVoucherDialog } from './record-financial-voucher-dialog';
+import { PrintableFinancialVoucher } from './printable-financial-voucher';
 
 export interface SerializedFinancialVoucher {
   id: string;
@@ -46,6 +47,14 @@ interface FinancialVouchersManagerProps {
 
 export function FinancialVouchersManager({ initialVouchers }: FinancialVouchersManagerProps) {
   const router = useRouter();
+
+  // State for Print Portal mounting
+  const [mounted, setMounted] = useState(false);
+  const [printDoc, setPrintDoc] = useState<SerializedFinancialVoucher | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // State for Record Dialog
   const [isVoucherDialogOpen, setIsVoucherDialogOpen] = useState(false);
@@ -91,15 +100,14 @@ export function FinancialVouchersManager({ initialVouchers }: FinancialVouchersM
     });
   }, [initialVouchers, searchQuery, typeFilter, partyTypeFilter]);
 
-
-  const handlePrint = () => {
+  const handlePrint = (voucher: SerializedFinancialVoucher) => {
+    setPrintDoc(voucher);
     const originalTitle = document.title;
-    if (selectedVoucherForPrint) {
-      document.title = `${selectedVoucherForPrint.voucherType === 'RECEIPT' ? 'سند_قبض' : 'سند_صرف'}_${selectedVoucherForPrint.voucherNumber}`;
-    }
+    document.title = `${voucher.voucherType === 'RECEIPT' ? 'سند_قبض' : 'سند_صرف'}_${voucher.voucherNumber}`;
 
     const handleAfterPrint = () => {
       document.title = originalTitle;
+      setPrintDoc(null);
       window.removeEventListener('afterprint', handleAfterPrint);
     };
 
@@ -432,7 +440,7 @@ export function FinancialVouchersManager({ initialVouchers }: FinancialVouchersM
           }
           maxWidth="2xl"
         >
-          <div className="space-y-6 text-right font-sans" dir="rtl">
+          <div className="space-y-4 text-right font-sans" dir="rtl">
             {/* Top action buttons inside dialog */}
             <div className="flex items-center justify-between no-print border-b border-slate-100 pb-3">
               <span className="text-xs text-slate-500 font-mono" dir="ltr">
@@ -440,7 +448,7 @@ export function FinancialVouchersManager({ initialVouchers }: FinancialVouchersM
               </span>
               <Button
                 type="button"
-                onClick={handlePrint}
+                onClick={() => handlePrint(selectedVoucherForPrint)}
                 className="flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs h-9 px-4 rounded-xl cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
@@ -448,142 +456,23 @@ export function FinancialVouchersManager({ initialVouchers }: FinancialVouchersM
               </Button>
             </div>
 
-            {/* Printable Voucher Paper */}
-            <div
-              id="printable-voucher-document"
-              className="bg-white border-2 border-slate-900/80 rounded-2xl p-6 sm:p-8 space-y-6 shadow-sm print:border-none print:shadow-none print:p-0"
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
-                <div>
-                  <h2 className="text-xl font-black text-slate-900">متجر الهبيشي</h2>
-                  <p className="text-xs text-slate-600 font-medium mt-0.5">
-                    للتجارة والتوزيع • نظام الإدارة المالية
-                  </p>
-                </div>
-                <div className="text-center">
-                  <div
-                    className={`inline-block border-2 px-4 py-1.5 rounded-xl font-black text-sm ${
-                      selectedVoucherForPrint.voucherType === 'RECEIPT'
-                        ? 'border-emerald-700 text-emerald-800 bg-emerald-50'
-                        : 'border-blue-800 text-blue-900 bg-blue-50'
-                    }`}
-                  >
-                    {selectedVoucherForPrint.voucherType === 'RECEIPT' ? 'سند قبض مالي' : 'سند صرف مالي'}
-                  </div>
-                  <div className="text-xs font-mono font-bold text-slate-700 mt-1" dir="ltr">
-                    No: {selectedVoucherForPrint.voucherNumber}
-                  </div>
-                </div>
-                <div className="text-left text-xs font-mono text-slate-600 space-y-1">
-                  <div>
-                    التاريخ:{' '}
-                    {new Date(selectedVoucherForPrint.createdAt).toLocaleDateString('ar-YE', {
-                      year: 'numeric',
-                      month: 'numeric',
-                      day: 'numeric',
-                    })}
-                  </div>
-                  <div>
-                    الوقت:{' '}
-                    {new Date(selectedVoucherForPrint.createdAt).toLocaleTimeString('ar-YE', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Amount Box */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-600">المبلغ بالأرقام:</span>
-                <span className="text-xl font-black font-mono text-slate-900">
-                  {formatMoney(selectedVoucherForPrint.amount)}
-                </span>
-              </div>
-
-              {/* Body Details */}
-              <div className="space-y-3.5 text-xs text-slate-800">
-                <div className="flex items-baseline gap-2 border-b border-dashed border-slate-200 pb-2">
-                  <span className="font-bold text-slate-600 shrink-0">
-                    {selectedVoucherForPrint.voucherType === 'RECEIPT'
-                      ? 'استلمنا من الأخ / السادة:'
-                      : 'صرفنا إلى الأخ / السادة:'}
-                  </span>
-                  <span className="font-black text-slate-900 text-sm">
-                    {selectedVoucherForPrint.partyName}
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    ({selectedVoucherForPrint.partyTypeLabel})
-                  </span>
-                </div>
-
-                <div className="flex items-baseline gap-2 border-b border-dashed border-slate-200 pb-2">
-                  <span className="font-bold text-slate-600 shrink-0">مبلغ وقدره (كتابة):</span>
-                  <span className="font-black text-blue-900">
-                    فقط {tafqeetRials(selectedVoucherForPrint.amount)} لا غير
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 border-b border-dashed border-slate-200 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-600">طريقة السداد:</span>
-                    <span className="font-bold text-slate-900">
-                      {selectedVoucherForPrint.paymentMethodLabel}
-                    </span>
-                  </div>
-                  {selectedVoucherForPrint.bankOrExchange && (
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-600">البنك / الصرافة:</span>
-                      <span className="font-bold text-slate-900">
-                        {selectedVoucherForPrint.bankOrExchange}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {selectedVoucherForPrint.referenceNumber && (
-                  <div className="flex items-center gap-2 border-b border-dashed border-slate-200 pb-2">
-                    <span className="font-bold text-slate-600">رقم الحوالة / الإيصال:</span>
-                    <span className="font-mono font-bold text-slate-900" dir="ltr">
-                      {selectedVoucherForPrint.referenceNumber}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex items-baseline gap-2 border-b border-dashed border-slate-200 pb-2">
-                  <span className="font-bold text-slate-600 shrink-0">وذلك عن / البيان:</span>
-                  <span className="font-medium text-slate-800">
-                    {selectedVoucherForPrint.notes || 'تسديد دفعة وقيد في الحساب الجاري'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Signatures */}
-              <div className="grid grid-cols-3 gap-6 pt-8 text-center text-xs">
-                <div className="space-y-8">
-                  <span className="font-bold text-slate-600 block">المحرر / أمين الصندوق</span>
-                  <span className="font-black text-slate-800 block">
-                    {selectedVoucherForPrint.collectorName}
-                  </span>
-                </div>
-
-                <div className="space-y-8">
-                  <span className="font-bold text-slate-600 block">
-                    {selectedVoucherForPrint.voucherType === 'RECEIPT' ? 'توقيع المورد / العميل' : 'توقيع المستلم'}
-                  </span>
-                  <span className="text-slate-400 block">..................................</span>
-                </div>
-
-                <div className="space-y-8">
-                  <span className="font-bold text-slate-600 block">المدير المالي / الاعتماد</span>
-                  <span className="text-slate-400 block">..................................</span>
-                </div>
-              </div>
+            {/* Official Printable Voucher Preview */}
+            <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xs max-h-[75vh] overflow-y-auto">
+              <PrintableFinancialVoucher voucher={selectedVoucherForPrint} />
             </div>
           </div>
         </Dialog>
       )}
+
+      {/* 7. Print-Only Portal on document.body */}
+      {mounted &&
+        printDoc &&
+        createPortal(
+          <div className="print-only-portal">
+            <PrintableFinancialVoucher voucher={printDoc} />
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
