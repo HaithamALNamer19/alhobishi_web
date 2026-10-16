@@ -228,15 +228,6 @@ export function SupplierStatementView({
                     {supplier.company_name}
                   </Badge>
                 )}
-                {initialBalance > 0 ? (
-                  <Badge className="bg-rose-50 text-rose-700 border-rose-200 border font-bold">
-                    مستحق له: {formatMoney(initialBalance)}
-                  </Badge>
-                ) : (
-                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 border font-bold">
-                    الحساب خالص (0 ر.ي)
-                  </Badge>
-                )}
               </div>
               <p className="text-xs text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
                 {supplier.phone && (

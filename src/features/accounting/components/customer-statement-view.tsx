@@ -37,7 +37,6 @@ import {
 import { InvoiceDetailDialog } from './invoice-detail-dialog';
 import { ReceiptDetailDialog } from './receipt-detail-dialog';
 import { ReturnDetailDialog } from './return-detail-dialog';
-import { CreateReturnDialog } from './create-return-dialog';
 import { PrintableStatement } from './printable-statement';
 import { PrintableInvoice } from './printable-invoice';
 import { PrintableReceipt } from './printable-receipt';
@@ -100,7 +99,6 @@ export function CustomerStatementView({
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<SerializedPaymentDetail['payment'] | null>(null);
 
-  const [isCreateReturnOpen, setIsCreateReturnOpen] = useState(false);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState<SerializedReturnDetail | null>(null);
   const [isDocLoading, setIsDocLoading] = useState(false);
@@ -345,16 +343,6 @@ export function CustomerStatementView({
 
         {/* Global Action Buttons */}
         <div className="flex items-center gap-2.5 self-end md:self-center flex-wrap">
-          {isAdminView && (
-            <Button
-              onClick={() => setIsCreateReturnOpen(true)}
-              className="bg-rose-600 hover:bg-rose-700 text-white font-bold gap-2 px-4 py-2.5 rounded-2xl shadow-xs transition-all cursor-pointer text-xs"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>تسجيل مردود مبيعات</span>
-            </Button>
-          )}
-
           <Button
             onClick={() => handlePrint({ type: 'statement' })}
             className="bg-blue-700 hover:bg-blue-600 text-white font-bold gap-2 px-5 py-2.5 rounded-2xl shadow-xs transition-all cursor-pointer text-xs"
@@ -768,17 +756,7 @@ export function CustomerStatementView({
         />
       )}
 
-      {/* Create Return Dialog */}
-      {isCreateReturnOpen && (
-        <CreateReturnDialog
-          isOpen={isCreateReturnOpen}
-          onClose={() => setIsCreateReturnOpen(false)}
-          preselectedCustomer={customer}
-          onSuccess={({ returnId }) => {
-            handleOpenReturn(returnId);
-          }}
-        />
-      )}
+
 
       {/* Printable Documents Root (Rendered via Portal onto document.body ONLY when actively printing) */}
       {mounted && Boolean(activePrint) &&
