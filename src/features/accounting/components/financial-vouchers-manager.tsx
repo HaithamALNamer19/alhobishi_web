@@ -15,7 +15,6 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
-import { Badge } from '@/shared/ui/badge';
 import { Dialog } from '@/shared/ui/dialog';
 import { formatMoney } from '@/core/domain/money';
 import { RecordFinancialVoucherDialog } from './record-financial-voucher-dialog';
@@ -330,31 +329,15 @@ export function FinancialVouchersManager({ initialVouchers }: FinancialVouchersM
                         })}
                       </td>
 
-                      {/* Party Name & Type */}
-                      <td className="py-3.5 px-4">
-                        <div className="space-y-0.5">
-                          <Link
-                            href={v.statementUrl}
-                            className="font-bold text-slate-900 hover:text-blue-700 transition-colors flex items-center gap-1.5 group"
-                          >
-                            <span>{v.partyName}</span>
-                            <ExternalLink className="w-3 h-3 text-slate-300 group-hover:text-blue-600 transition-colors" />
-                          </Link>
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                            <span
-                              className={`px-1.5 py-0.2 rounded font-bold ${
-                                v.partyType === 'SUPPLIER'
-                                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                                  : v.partyType === 'WHOLESALE'
-                                    ? 'bg-sky-50 text-sky-800 border border-sky-200'
-                                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                              }`}
-                            >
-                              {v.partyTypeLabel}
-                            </span>
-                            {v.partyPhone && <span className="font-mono">{v.partyPhone}</span>}
-                          </div>
-                        </div>
+                      {/* Party Name */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <Link
+                          href={v.statementUrl}
+                          className="font-bold text-slate-900 hover:text-blue-700 transition-colors inline-flex items-center gap-1.5 group"
+                        >
+                          <span>{v.partyName}</span>
+                          <ExternalLink className="w-3 h-3 text-slate-300 group-hover:text-blue-600 transition-colors" />
+                        </Link>
                       </td>
 
                       {/* Amount */}

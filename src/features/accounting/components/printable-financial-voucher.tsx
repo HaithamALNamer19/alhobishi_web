@@ -124,11 +124,6 @@ export function PrintableFinancialVoucher({ voucher }: PrintableFinancialVoucher
             {isReceipt ? 'وصلنا من السيد / الأخ:' : 'صرفنا إلى السيد / الأخ:'}
           </span>
           <span className="font-black text-slate-900 text-sm">{voucher.partyName}</span>
-          {voucher.partyPhone && (
-            <span className="text-slate-500 font-mono text-[11px] mr-auto" dir="ltr">
-              ({voucher.partyPhone})
-            </span>
-          )}
         </div>
 
         <div className="flex items-baseline gap-2 border-b border-slate-200 pb-2">
