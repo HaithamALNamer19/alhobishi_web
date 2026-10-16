@@ -694,13 +694,22 @@ export class FirestoreProductRepository {
 
     const current = snap.data()!;
 
-    // Decrement category product count
+    // Enforce strict relational integrity: prevent deletion if linked to ANY transactions
+    await this.validateProductCanBeDeleted(id, prodRef);
+
+    // Decrement category product count and remove document & subcollections
     const batch = this.db.batch();
     batch.delete(prodRef);
 
     // Also delete pricing doc
     const pricingRef = this.db.collection(Collections.PRODUCT_PRICING).doc(id);
     batch.delete(pricingRef);
+
+    // Also clean up any variants in subcollection
+    const variantsSnap = await prodRef.collection(Collections.VARIANTS).get();
+    for (const vDoc of variantsSnap.docs) {
+      batch.delete(vDoc.ref);
+    }
 
     if (current.categoryId) {
       const catRef = this.db.collection(Collections.CATEGORIES).doc(current.categoryId as string);
@@ -720,6 +729,152 @@ export class FirestoreProductRepository {
     });
 
     await batch.commit();
+  }
+
+  private async validateProductCanBeDeleted(
+    id: string,
+    prodRef: FirebaseFirestore.DocumentReference
+  ): Promise<void> {
+    // 1. Check current stock and reserved quantities in variants
+    const variantsSnap = await prodRef.collection(Collections.VARIANTS).get();
+    let totalStock = 0;
+    let totalReserved = 0;
+    for (const vDoc of variantsSnap.docs) {
+      const v = vDoc.data();
+      totalStock += Number(v.stockQty || 0);
+      totalReserved += Number(v.reservedQty || 0);
+    }
+
+    if (totalStock > 0 || totalReserved > 0) {
+      throw new AppError(ErrorCode.VALIDATION_FAILED, {
+        message:
+          'لا يمكن حذف هذا المنتج لوجود رصيد مخزني حالي أو كميات محجوزة له. يرجى تصفير المخزون أو إيقاف تفعيل المنتج بدلاً من حذفه.',
+      });
+    }
+
+    // 2. Parallel check across all transaction, return, movement, and cart collections
+    const [
+      invMoveSnap,
+      stockMoveSnap,
+      purchasesSnap,
+      ordersSnap,
+      purRetSnap,
+      salesRetSnap,
+      cartsSnap,
+    ] = await Promise.all([
+      this.db
+        .collection(Collections.INVENTORY_MOVEMENTS)
+        .where('productId', '==', id)
+        .limit(1)
+        .get(),
+      this.db
+        .collection(Collections.STOCK_MOVEMENTS)
+        .where('product_id', '==', id)
+        .limit(1)
+        .get(),
+      this.db
+        .collection(Collections.PURCHASES)
+        .select('items', 'invoice_number')
+        .get(),
+      this.db
+        .collection(Collections.ORDERS)
+        .select('items', 'orderNumber')
+        .get(),
+      this.db
+        .collection(Collections.PURCHASE_RETURNS)
+        .select('items', 'return_number')
+        .get(),
+      this.db
+        .collection(Collections.SALES_RETURNS)
+        .select('items', 'returnNumber')
+        .get(),
+      this.db
+        .collection(Collections.CARTS)
+        .select('items')
+        .get(),
+    ]);
+
+    if (!invMoveSnap.empty) {
+      throw new AppError(ErrorCode.VALIDATION_FAILED, {
+        message:
+          'يمنع حذف هذا المنتج لوجود ارتباطات بحركات مخزنية أو فواتير سابقة في النظام (مشتريات أو مبيعات أو مردودات أو تسويات). يمكنك إيقاف تفعيل المنتج أو أرشفته للحفاظ على سلامة القيود وسجل المعاملات.',
+      });
+    }
+
+    if (!stockMoveSnap.empty) {
+      throw new AppError(ErrorCode.VALIDATION_FAILED, {
+        message:
+          'يمنع حذف هذا المنتج لوجود سجلات حركة مخزون أو فواتير مشتريات ومردودات مرتبطة به في النظام.',
+      });
+    }
+
+    for (const doc of purchasesSnap.docs) {
+      const data = doc.data();
+      const items = Array.isArray(data.items) ? data.items : [];
+      const match = items.find(
+        (it: any) => it.product_id === id || it.productId === id
+      );
+      if (match) {
+        const invNum = data.invoice_number ? ` (رقم ${data.invoice_number})` : '';
+        throw new AppError(ErrorCode.VALIDATION_FAILED, {
+          message: `يمنع حذف هذا المنتج لأنه مسجل في فاتورة شراء سابقة${invNum}. يمنع حذف أي منتج مرتبط بفواتير المشتريات.`,
+        });
+      }
+    }
+
+    for (const doc of ordersSnap.docs) {
+      const data = doc.data();
+      const items = Array.isArray(data.items) ? data.items : [];
+      const match = items.find(
+        (it: any) => it.productId === id || it.product_id === id
+      );
+      if (match) {
+        const ordNum = data.orderNumber ? ` (رقم ${data.orderNumber})` : '';
+        throw new AppError(ErrorCode.VALIDATION_FAILED, {
+          message: `يمنع حذف هذا المنتج لأنه مرتبط بطلب وفاتورة مبيعات سابقة${ordNum}. يمنع حذف أي منتج مرتبط بفواتير المبيعات.`,
+        });
+      }
+    }
+
+    for (const doc of purRetSnap.docs) {
+      const data = doc.data();
+      const items = Array.isArray(data.items) ? data.items : [];
+      const match = items.find(
+        (it: any) => it.product_id === id || it.productId === id
+      );
+      if (match) {
+        const retNum = data.return_number ? ` (رقم ${data.return_number})` : '';
+        throw new AppError(ErrorCode.VALIDATION_FAILED, {
+          message: `يمنع حذف هذا المنتج لأنه مسجل في فاتورة مردود مشتريات سابقة${retNum}.`,
+        });
+      }
+    }
+
+    for (const doc of salesRetSnap.docs) {
+      const data = doc.data();
+      const items = Array.isArray(data.items) ? data.items : [];
+      const match = items.find(
+        (it: any) => it.productId === id || it.product_id === id
+      );
+      if (match) {
+        const retNum = data.returnNumber ? ` (رقم ${data.returnNumber})` : '';
+        throw new AppError(ErrorCode.VALIDATION_FAILED, {
+          message: `يمنع حذف هذا المنتج لأنه مسجل في فاتورة مردود مبيعات سابقة${retNum}.`,
+        });
+      }
+    }
+
+    for (const doc of cartsSnap.docs) {
+      const data = doc.data();
+      const items = Array.isArray(data.items) ? data.items : [];
+      const match = items.find((it: any) => it.productId === id);
+      if (match) {
+        throw new AppError(ErrorCode.VALIDATION_FAILED, {
+          message:
+            'لا يمكن حذف هذا المنتج لأنه مضاف حالياً إلى سلة تسوق قيد الاستخدام لأحد العملاء.',
+        });
+      }
+    }
   }
 
   private slugify(text: string): string {

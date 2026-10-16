@@ -384,7 +384,7 @@ export function ProductListTable({
         onClose={() => setDeletingId(null)}
         onConfirm={confirmDelete}
         title="تأكيد حذف المنتج"
-        description="هل أنت متأكد من حذف هذا المنتج وجميع خياراته وسجلات أسعاره؟ لا يمكن التراجع عن هذا الإجراء."
+        description="تنبيه: يُمنع حذف أي منتج مرتبط بفواتير شراء أو مبيعات أو مردودات أو حركات مخزنية في النظام للحفاظ على سلامة القيود. هل أنت متأكد من حذف هذا المنتج؟"
         confirmLabel="نعم، احذف المنتج"
         cancelLabel="إلغاء"
         variant="danger"
