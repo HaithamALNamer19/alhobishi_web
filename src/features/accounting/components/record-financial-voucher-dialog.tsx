@@ -78,15 +78,22 @@ export function RecordFinancialVoucherDialog({
     }
   }, [isOpen, initialVoucherType, preselectedParty]);
 
-  // Load initial candidates or search candidates
+  // Search candidates ONLY when user types a search query
   useEffect(() => {
     if (!isOpen || selectedParty) return;
+
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
         const res = await searchFinancialPartiesAction({
-          query: searchQuery.trim(),
+          query: trimmed,
           voucherType,
         });
         if (res.ok && res.data) {
@@ -245,8 +252,10 @@ export function RecordFinancialVoucherDialog({
                   setSearchQuery(e.target.value);
                   setShowSearchResults(true);
                 }}
-                onFocus={() => setShowSearchResults(true)}
-                placeholder="ابحث بالاسم أو اسم الشركة أو رقم الهاتف..."
+                onFocus={() => {
+                  if (searchQuery.trim()) setShowSearchResults(true);
+                }}
+                placeholder="اكتب اسم العميل أو التاجر أو المورد للبحث واختياره..."
                 className="text-xs h-10 pr-9"
                 autoFocus
               />
@@ -321,6 +330,13 @@ export function RecordFinancialVoucherDialog({
                       </button>
                     );
                   })}
+                </div>
+              )}
+
+              {/* No Results Message */}
+              {showSearchResults && searchQuery.trim().length > 0 && !isSearching && searchResults.length === 0 && (
+                <div className="absolute z-30 top-full mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-xl p-4 text-center text-xs text-slate-500">
+                  لم يتم العثور على أي عميل أو تاجر أو مورد باسم &quot;{searchQuery.trim()}&quot;
                 </div>
               )}
             </div>

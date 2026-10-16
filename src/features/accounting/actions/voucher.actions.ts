@@ -35,8 +35,12 @@ export async function searchFinancialPartiesAction(params: {
       throw new AppError(ErrorCode.FORBIDDEN, { message: 'غير مصرح لك بالبحث في الحسابات المالية.' });
     }
 
-    const db = adminDb();
     const q = (params.query || '').trim().toLowerCase();
+    if (!q) {
+      return [];
+    }
+
+    const db = adminDb();
 
     // 1. Fetch Candidates from USERS (Customers and Wholesalers)
     const usersSnap = await db
