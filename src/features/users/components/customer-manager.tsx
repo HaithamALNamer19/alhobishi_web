@@ -8,7 +8,6 @@ import {
   Users,
   Search,
   Sparkles,
-  CreditCard,
   ShieldAlert,
   Loader2,
   CheckCircle2,
@@ -18,7 +17,6 @@ import {
   PackageCheck,
   User,
   Shield,
-  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -30,8 +28,6 @@ import { formatMoney } from '@/core/domain/money';
 import { Role } from '@/core/auth/roles';
 import type { UserProfile, UserStatus } from '../domain/user';
 import { updateUserRoleAction, updateUserStatusAction } from '../actions/user.actions';
-import { recordPaymentAction } from '@/features/orders/actions/order.actions';
-import { CreateReturnDialog } from '@/features/accounting/components/create-return-dialog';
 
 interface CustomerManagerProps {
   initialUsers: UserProfile[];
@@ -113,17 +109,6 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
     user: UserProfile;
     newStatus: 'active' | 'disabled';
   } | null>(null);
-
-  // Payment Recording Dialog
-  const [paymentUser, setPaymentUser] = useState<UserProfile | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'TRANSFER' | 'OTHER'>('CASH');
-  const [paymentRef, setPaymentRef] = useState('');
-  const [paymentNotes, setPaymentNotes] = useState('');
-  const [paymentCollector, setPaymentCollector] = useState('');
-
-  // Sales Return Dialog
-  const [returnUser, setReturnUser] = useState<UserProfile | null>(null);
 
   const filteredUsers = users.filter((u) => {
     if (roleFilter && u.role !== roleFilter) return false;
@@ -215,58 +200,6 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
         router.refresh();
       } catch (err: unknown) {
         toast.error((err as Error).message || 'حدث خطأ أثناء تعديل حالة الحساب');
-      }
-    });
-  };
-
-  const handleRecordPayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!paymentUser) return;
-
-    const amount = parseInt(paymentAmount, 10);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error('يرجى إدخال مبلغ دفع صالح');
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        const res = await recordPaymentAction({
-          customerId: paymentUser.uid,
-          amount,
-          method: paymentMethod,
-          referenceNumber: paymentRef.trim() || null,
-          notes: paymentNotes.trim() || null,
-          collectorName: paymentCollector.trim() || null,
-        });
-
-        if (!res.ok) {
-          toast.error(res.error.message);
-          return;
-        }
-
-        toast.success(`تم تسجيل سند القبض بمبلغ ${formatMoney(amount)} وقيده في الحساب`);
-        setUsers((prev) =>
-          prev.map((u) =>
-            u.uid === paymentUser.uid
-              ? {
-                  ...u,
-                  account: {
-                    ...u.account,
-                    balance: res.data.newBalance,
-                  },
-                }
-              : u
-          )
-        );
-        setPaymentUser(null);
-        setPaymentAmount('');
-        setPaymentRef('');
-        setPaymentNotes('');
-        setPaymentCollector('');
-        router.refresh();
-      } catch (err: unknown) {
-        toast.error((err as Error).message || 'حدث خطأ أثناء تسجيل الدفعة');
       }
     });
   };
@@ -474,36 +407,12 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
                           {/* View Statement Button */}
                           <Link
                             href={`/admin/customers/${u.uid}/statement`}
-                            className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 text-[11px] h-7 px-2 gap-1 select-none"
+                            className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 text-[11px] h-7 px-2.5 gap-1 select-none"
                             title="عرض كشف الحساب المالي وفواتيره وسنداته"
                           >
                             <FileText className="w-3.5 h-3.5 text-blue-700" />
                             <span>كشف الحساب</span>
                           </Link>
-
-                          {/* Record Payment Button */}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setPaymentUser(u)}
-                            className="text-[11px] h-7 px-2 text-blue-800 border-blue-200 hover:bg-blue-50 gap-1"
-                            title="تسجيل سند قبض / دفعة نقدية"
-                          >
-                            <CreditCard className="w-3.5 h-3.5 text-blue-700" />
-                            <span>سند قبض</span>
-                          </Button>
-
-                          {/* Record Return Button */}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setReturnUser(u)}
-                            className="text-[11px] h-7 px-2 text-rose-800 border-rose-200 hover:bg-rose-50 gap-1"
-                            title="تسجيل فاتورة مردود مبيعات لهذا العميل"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5 text-rose-700" />
-                            <span>مردود مبيعات</span>
-                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -664,118 +573,6 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
           cancelLabel="إلغاء"
           variant={statusTarget?.newStatus === 'disabled' ? 'danger' : 'primary'}
           isLoading={isPending}
-        />
-      )}
-
-      {/* Record Payment Dialog */}
-      {paymentUser && (
-        <Dialog
-          isOpen={!!paymentUser}
-          onClose={() => setPaymentUser(null)}
-          title={`تسجيل سند قبض لحساب: ${paymentUser?.displayName}`}
-        >
-          <form onSubmit={handleRecordPayment} className="space-y-4">
-            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-500">الرصيد / المديونية الحالية:</span>
-                <span className="font-bold font-mono text-slate-900">
-                  {formatMoney(paymentUser.account?.balance ?? 0)}
-                </span>
-              </div>
-            </div>
-
-            <Input
-              label="المبلغ المسدد *"
-              type="number"
-              placeholder="مثال: 50000"
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              min="1"
-              required
-              autoFocus
-            />
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                طريقة السداد *
-              </label>
-              <select
-                value={paymentMethod}
-                onChange={(e) =>
-                  setPaymentMethod(e.target.value as 'CASH' | 'TRANSFER' | 'OTHER')
-                }
-                className="w-full text-xs rounded-xl border border-slate-200 p-2.5 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-              >
-                <option value="CASH">نقدًا (Cash)</option>
-                <option value="TRANSFER">حوالة بنكية / صرافة (Transfer)</option>
-                <option value="OTHER">أخرى (Other)</option>
-              </select>
-            </div>
-
-            <Input
-              label="رقم الحوالة / الإيصال (اختياري)"
-              placeholder="مثال: TRX-998822"
-              value={paymentRef}
-              onChange={(e) => setPaymentRef(e.target.value)}
-              dir="ltr"
-              className="text-left font-mono text-xs"
-            />
-
-            <Input
-              label="اسم المحصل / أمين الصندوق (المحرر)"
-              placeholder="مثال: اسم المحاسب أو المالك المستلم (أو اتركه فارغًا لاستخدام اسم حسابك الحالي)"
-              value={paymentCollector}
-              onChange={(e) => setPaymentCollector(e.target.value)}
-            />
-
-            <Input
-              label="ملاحظات وسند الاستلام (اختياري)"
-              placeholder="ملاحظات إضافية عن الدفعة..."
-              value={paymentNotes}
-              onChange={(e) => setPaymentNotes(e.target.value)}
-            />
-
-            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setPaymentUser(null);
-                  setPaymentCollector('');
-                }}
-                disabled={isPending}
-              >
-                إلغاء
-              </Button>
-              <Button type="submit" disabled={isPending} className="flex items-center gap-2">
-                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                <span>تسجيل السند وتحديث الرصيد</span>
-              </Button>
-            </div>
-          </form>
-        </Dialog>
-      )}
-
-      {/* Sales Return Dialog */}
-      {Boolean(returnUser) && (
-        <CreateReturnDialog
-          isOpen={Boolean(returnUser)}
-          onClose={() => setReturnUser(null)}
-          preselectedCustomer={
-            returnUser
-              ? {
-                  uid: returnUser.uid,
-                  displayName: returnUser.displayName || returnUser.username,
-                  role: returnUser.role,
-                  phone: returnUser.phone,
-                  balance: returnUser.account?.balance ?? 0,
-                }
-              : null
-          }
-          onSuccess={() => {
-            setReturnUser(null);
-            router.refresh();
-          }}
         />
       )}
     </div>
