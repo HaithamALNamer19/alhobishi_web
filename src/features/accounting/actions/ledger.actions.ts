@@ -199,5 +199,58 @@ export async function getLedgerDocumentDetailAction(params: {
   });
 }
 
+export async function deleteCustomerInvoiceAction(params: {
+  orderId: string;
+  customerId: string;
+}): Promise<Result<void>> {
+  return runAction(async () => {
+    const session = await requireSession();
+    if (!isBackOfficeRole(session.role)) {
+      throw new AppError(ErrorCode.FORBIDDEN, { message: 'غير مصرح لك بحذف فواتير المبيعات.' });
+    }
+
+    if (!params.orderId) {
+      throw new AppError(ErrorCode.VALIDATION_FAILED, { message: 'معرف الفاتورة غير محدد.' });
+    }
+
+    const currentActor = await userRepository.findById(session.uid).catch(() => null);
+    const actorName = currentActor?.displayName || currentActor?.username || 'إدارة المتجر';
+
+    await ledgerRepository.deleteInvoice(params.orderId, session.uid, actorName);
+
+    revalidatePath(`/admin/customers/${params.customerId}/statement`);
+    revalidatePath('/admin/customers');
+    revalidatePath('/admin/orders');
+    revalidatePath('/admin/inventory/movements');
+    revalidatePath('/account');
+  });
+}
+
+export async function deleteCustomerPaymentAction(params: {
+  paymentId: string;
+  customerId: string;
+}): Promise<Result<void>> {
+  return runAction(async () => {
+    const session = await requireSession();
+    if (!isBackOfficeRole(session.role)) {
+      throw new AppError(ErrorCode.FORBIDDEN, { message: 'غير مصرح لك بحذف سندات القبض.' });
+    }
+
+    if (!params.paymentId) {
+      throw new AppError(ErrorCode.VALIDATION_FAILED, { message: 'معرف سند القبض غير محدد.' });
+    }
+
+    const currentActor = await userRepository.findById(session.uid).catch(() => null);
+    const actorName = currentActor?.displayName || currentActor?.username || 'إدارة المالية';
+
+    await ledgerRepository.deletePayment(params.paymentId, session.uid, actorName);
+
+    revalidatePath(`/admin/customers/${params.customerId}/statement`);
+    revalidatePath('/admin/customers');
+    revalidatePath('/admin/payments');
+    revalidatePath('/account');
+  });
+}
+
 
 

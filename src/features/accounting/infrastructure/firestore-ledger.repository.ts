@@ -752,6 +752,222 @@ export class FirestoreLedgerRepository {
       };
     });
   }
+
+  async deletePayment(paymentId: string, actorId: string, actorName: string): Promise<void> {
+    await this.db.runTransaction(async (tx) => {
+      const payRef = this.db.collection(Collections.PAYMENTS).doc(paymentId);
+      const paySnap = await tx.get(payRef);
+      if (!paySnap.exists) {
+        throw new AppError(ErrorCode.NOT_FOUND, { message: 'سند القبض غير موجود أو تم حذفه مسبقاً.' });
+      }
+
+      const pData = paySnap.data()!;
+      const customerId = pData.customerId;
+      const amount = Number(pData.amount || 0) as Money;
+
+      const userRef = this.db.collection(Collections.USERS).doc(customerId);
+      const userSnap = await tx.get(userRef);
+
+      if (userSnap.exists && amount > 0) {
+        const userData = userSnap.data()!;
+        const currentBalance = Number(userData.balance ?? userData.account?.balance ?? 0) as Money;
+        // Reverting payment increases customer debt by the payment amount
+        const newBalance = (currentBalance + amount) as Money;
+
+        tx.update(userRef, {
+          balance: newBalance,
+          'account.balance': newBalance,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        // Audit Log
+        const auditRef = this.db.collection(Collections.AUDIT_LOGS).doc();
+        tx.set(auditRef, {
+          actorId,
+          actorName,
+          action: 'PAYMENT_DELETED',
+          entityType: 'payment',
+          entityId: paymentId,
+          oldData: { amount, balance: currentBalance },
+          newData: { balance: newBalance },
+          timestamp: FieldValue.serverTimestamp(),
+        });
+      }
+
+      tx.delete(payRef);
+    });
+
+    // Clean up ACCOUNT_TRANSACTIONS
+    const txSnap = await this.db
+      .collection(Collections.ACCOUNT_TRANSACTIONS)
+      .where('paymentId', '==', paymentId)
+      .get();
+
+    if (!txSnap.empty) {
+      const batch = this.db.batch();
+      txSnap.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
+  }
+
+  async deleteInvoice(orderId: string, actorId: string, actorName: string): Promise<void> {
+    await this.db.runTransaction(async (tx) => {
+      const orderRef = this.db.collection(Collections.ORDERS).doc(orderId);
+      const orderSnap = await tx.get(orderRef);
+      if (!orderSnap.exists) {
+        throw new AppError(ErrorCode.NOT_FOUND, { message: 'فاتورة الطلب غير موجودة أو تم حذفها مسبقاً.' });
+      }
+
+      const orderData = orderSnap.data()!;
+      const customerId = orderData.customerId;
+      const orderAmount = Number(orderData.totalAmount || 0) as Money;
+      const status = orderData.status;
+      const items: Array<{
+        productId: string;
+        variantId: string;
+        requestedQty: number;
+        preparedQty?: number;
+      }> = Array.isArray(orderData.items) ? orderData.items : [];
+
+      // 1. Load user ref
+      const userRef = this.db.collection(Collections.USERS).doc(customerId);
+      const userSnap = await tx.get(userRef);
+
+      // 2. Load all variant and product refs
+      const loadedVariants = await Promise.all(
+        items.map(async (item) => {
+          const prodRef = this.db.collection(Collections.PRODUCTS).doc(item.productId);
+          const varRef = prodRef.collection(Collections.VARIANTS).doc(item.variantId);
+          const [prodSnap, varSnap] = await Promise.all([tx.get(prodRef), tx.get(varRef)]);
+          return { item, prodRef, varRef, prodSnap, varSnap };
+        })
+      );
+
+      // 3. Revert balance if order was CONFIRMED (which posted debt to customer)
+      if (status === 'CONFIRMED' && userSnap.exists && orderAmount > 0) {
+        const userData = userSnap.data()!;
+        const currentBalance = Number(userData.balance ?? userData.account?.balance ?? 0) as Money;
+        // Invoicing added to debt; reversing it subtracts orderAmount from debt
+        const newBalance = (currentBalance - orderAmount) as Money;
+
+        tx.update(userRef, {
+          balance: newBalance,
+          'account.balance': newBalance,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      // 4. Restore inventory
+      for (const { item, prodRef, varRef, prodSnap, varSnap } of loadedVariants) {
+        if (varSnap.exists) {
+          const vData = varSnap.data() || {};
+          const currentStock = Number(vData.stockQty ?? 0);
+          const currentReserved = Number(vData.reservedQty ?? 0);
+          const threshold = Number(vData.lowStockThreshold ?? 5);
+
+          if (status === 'CONFIRMED' || status === 'READY') {
+            // Stock was deducted: restore physical stock
+            const qtyToRestore = Number(item.preparedQty ?? item.requestedQty ?? 0);
+            if (qtyToRestore > 0) {
+              const newStock = currentStock + qtyToRestore;
+              const newAvailable = Math.max(0, newStock - currentReserved);
+              const newStockState = computeStockState(newAvailable, threshold);
+
+              tx.update(varRef, {
+                stockQty: newStock,
+                availableQty: newAvailable,
+                stockState: newStockState,
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+
+              if (prodSnap.exists) {
+                const pData = prodSnap.data() || {};
+                const pStock = Number(pData.current_stock ?? pData.stockQty ?? 0) + qtyToRestore;
+                tx.update(prodRef, {
+                  current_stock: pStock,
+                  stockQty: pStock,
+                  inStock: pStock > 0,
+                  hasStock: pStock > 0,
+                  updatedAt: FieldValue.serverTimestamp(),
+                });
+              }
+
+              const moveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+              tx.set(moveRef, {
+                productId: item.productId,
+                variantId: item.variantId,
+                type: 'RESTORE',
+                delta: qtyToRestore,
+                stockAfter: newStock,
+                reservedAfter: currentReserved,
+                orderId: orderData.orderNumber || orderId,
+                reason: `إلغاء واسترجاع المخزون لحذف الفاتورة رقم ${orderData.orderNumber || orderId}`,
+                actorId,
+                createdAt: FieldValue.serverTimestamp(),
+              });
+            }
+          } else {
+            // Order was PENDING/PREPARING: items were reserved, release reservation
+            const qtyToRelease = Number(item.requestedQty ?? 0);
+            if (qtyToRelease > 0) {
+              const newReserved = Math.max(0, currentReserved - qtyToRelease);
+              const newAvailable = Math.max(0, currentStock - newReserved);
+              const newStockState = computeStockState(newAvailable, threshold);
+
+              tx.update(varRef, {
+                reservedQty: newReserved,
+                availableQty: newAvailable,
+                stockState: newStockState,
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+
+              const moveRef = this.db.collection(Collections.INVENTORY_MOVEMENTS).doc();
+              tx.set(moveRef, {
+                productId: item.productId,
+                variantId: item.variantId,
+                type: 'RELEASE',
+                delta: qtyToRelease,
+                stockAfter: currentStock,
+                reservedAfter: newReserved,
+                orderId: orderData.orderNumber || orderId,
+                reason: `تحرير الحجز لحذف الطلب رقم ${orderData.orderNumber || orderId}`,
+                actorId,
+                createdAt: FieldValue.serverTimestamp(),
+              });
+            }
+          }
+        }
+      }
+
+      // Delete order document
+      tx.delete(orderRef);
+
+      // Audit Log
+      const auditRef = this.db.collection(Collections.AUDIT_LOGS).doc();
+      tx.set(auditRef, {
+        actorId,
+        actorName,
+        action: 'ORDER_INVOICE_DELETED',
+        entityType: 'order',
+        entityId: orderId,
+        oldData: { orderNumber: orderData.orderNumber, totalAmount: orderAmount, status },
+        newData: null,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+    });
+
+    // Clean up ACCOUNT_TRANSACTIONS
+    const txSnap = await this.db
+      .collection(Collections.ACCOUNT_TRANSACTIONS)
+      .where('orderId', '==', orderId)
+      .get();
+
+    if (!txSnap.empty) {
+      const batch = this.db.batch();
+      txSnap.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
+  }
 }
 
 export const ledgerRepository = new FirestoreLedgerRepository();

@@ -591,14 +591,16 @@ export function SupplierStatementView({
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="outline"
+                                  size="sm"
                                   onClick={() => setDeletingTransaction(tx)}
-                                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  className="h-7 px-2 text-[11px] text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
                                   title="حذف الفاتورة"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>حذف</span>
+                                </Button>
                               </>
                             )}
 
@@ -657,14 +659,16 @@ export function SupplierStatementView({
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="outline"
+                                  size="sm"
                                   onClick={() => setDeletingTransaction(tx)}
-                                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
-                                  title="حذف السند"
+                                  className="h-7 px-2 text-[11px] text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
+                                  title="حذف سند الصرف"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>حذف</span>
+                                </Button>
                               </>
                             )}
 

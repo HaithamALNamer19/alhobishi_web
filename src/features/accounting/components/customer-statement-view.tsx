@@ -19,6 +19,7 @@ import {
   Calendar,
   Sparkles,
   RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
@@ -42,6 +43,7 @@ import { PrintableInvoice } from './printable-invoice';
 import { PrintableReceipt } from './printable-receipt';
 import { PrintableReturnInvoice } from './printable-return-invoice';
 import { cleanCustomerName } from '@/core/utils/clean-name';
+import { DeleteCustomerTransactionConfirmDialog } from './delete-customer-transaction-confirm-dialog';
 
 export interface CustomerStatementUser {
   uid: string;
@@ -102,6 +104,7 @@ export function CustomerStatementView({
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState<SerializedReturnDetail | null>(null);
   const [isDocLoading, setIsDocLoading] = useState(false);
+  const [deletingTransaction, setDeletingTransaction] = useState<any | null>(null);
 
   // Print state
   const [activePrint, setActivePrint] = useState<PrintJob | null>(null);
@@ -638,7 +641,7 @@ export function CustomerStatementView({
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleOpenInvoice(t.orderId!)}
-                                  className="h-7 px-2 text-[11px] text-blue-700 border-blue-200 hover:bg-blue-50 gap-1"
+                                  className="h-7 px-2 text-[11px] text-blue-700 border-blue-200 hover:bg-blue-50 gap-1 cursor-pointer"
                                   title="عرض تفاصيل الفاتورة"
                                 >
                                   <Eye className="w-3.5 h-3.5 text-blue-600" />
@@ -648,10 +651,20 @@ export function CustomerStatementView({
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleQuickPrintInvoice(t.orderId!)}
-                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100"
+                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100 cursor-pointer"
                                   title="طباعة الفاتورة مباشرة"
                                 >
                                   <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setDeletingTransaction(t)}
+                                  className="h-7 px-2 text-[11px] text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
+                                  title="حذف الفاتورة"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>حذف</span>
                                 </Button>
                               </>
                             ) : isPayment && t.paymentId ? (
@@ -660,7 +673,7 @@ export function CustomerStatementView({
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleOpenReceipt(t.paymentId!)}
-                                  className="h-7 px-2 text-[11px] text-emerald-800 border-emerald-200 hover:bg-emerald-50 gap-1"
+                                  className="h-7 px-2 text-[11px] text-emerald-800 border-emerald-200 hover:bg-emerald-50 gap-1 cursor-pointer"
                                   title="عرض تفاصيل السند"
                                 >
                                   <Eye className="w-3.5 h-3.5 text-emerald-700" />
@@ -670,10 +683,20 @@ export function CustomerStatementView({
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleQuickPrintReceipt(t.paymentId!)}
-                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100"
+                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100 cursor-pointer"
                                   title="طباعة سند القبض مباشرة"
                                 >
                                   <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setDeletingTransaction(t)}
+                                  className="h-7 px-2 text-[11px] text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
+                                  title="حذف سند القبض"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>حذف</span>
                                 </Button>
                               </>
                             ) : isReturn && t.returnId ? (
@@ -753,6 +776,19 @@ export function CustomerStatementView({
           onClose={() => setIsReturnModalOpen(false)}
           returnDoc={selectedReturn}
           onPrint={(doc) => handlePrint({ type: 'return', returnDoc: doc })}
+        />
+      )}
+
+      {/* Delete Transaction Confirm Dialog */}
+      {deletingTransaction && (
+        <DeleteCustomerTransactionConfirmDialog
+          isOpen={Boolean(deletingTransaction)}
+          onClose={() => setDeletingTransaction(null)}
+          transaction={deletingTransaction}
+          customerId={customer.uid}
+          onSuccess={() => {
+            router.refresh();
+          }}
         />
       )}
 
