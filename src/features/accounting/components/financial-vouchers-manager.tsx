@@ -8,17 +8,10 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Search,
-  Users,
-  Building2,
   Printer,
-  Wallet,
-  Calendar,
   FileText,
-  Filter,
-  CheckCircle2,
   X,
   ExternalLink,
-  DollarSign,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
@@ -98,33 +91,6 @@ export function FinancialVouchersManager({ initialVouchers }: FinancialVouchersM
     });
   }, [initialVouchers, searchQuery, typeFilter, partyTypeFilter]);
 
-  // Statistics
-  const stats = useMemo(() => {
-    let totalReceipts = 0;
-    let countReceipts = 0;
-    let totalDisbursements = 0;
-    let countDisbursements = 0;
-
-    initialVouchers.forEach((v) => {
-      if (v.voucherType === 'RECEIPT') {
-        totalReceipts += v.amount;
-        countReceipts += 1;
-      } else {
-        totalDisbursements += v.amount;
-        countDisbursements += 1;
-      }
-    });
-
-    const netFlow = totalReceipts - totalDisbursements;
-
-    return {
-      totalReceipts,
-      countReceipts,
-      totalDisbursements,
-      countDisbursements,
-      netFlow,
-    };
-  }, [initialVouchers]);
 
   const handlePrint = () => {
     const originalTitle = document.title;
@@ -183,91 +149,6 @@ export function FinancialVouchersManager({ initialVouchers }: FinancialVouchersM
             <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
             <span>تسجيل سند صرف</span>
           </Button>
-
-          <div className="hidden sm:flex items-center gap-1.5 border-r border-slate-200 pr-2">
-            <Link href="/admin/customers">
-              <Button
-                variant="outline"
-                className="text-xs rounded-2xl h-9 border-slate-200 text-slate-700 hover:bg-slate-50"
-                title="كشوفات حسابات العملاء"
-              >
-                <Users className="w-3.5 h-3.5 ml-1.5 text-slate-500" />
-                <span>العملاء</span>
-              </Button>
-            </Link>
-
-            <Link href="/admin/suppliers">
-              <Button
-                variant="outline"
-                className="text-xs rounded-2xl h-9 border-slate-200 text-slate-700 hover:bg-slate-50"
-                title="كشوفات حسابات الموردين"
-              >
-                <Building2 className="w-3.5 h-3.5 ml-1.5 text-slate-500" />
-                <span>الموردين</span>
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Financial Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Total Receipts */}
-        <div className="bg-white p-5 rounded-3xl border border-emerald-100 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-800">إجمالي سندات القبض (توريد)</span>
-            <span className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-              <ArrowDownLeft className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl font-black font-mono text-emerald-700 block">
-              {formatMoney(stats.totalReceipts)}
-            </span>
-            <span className="text-[11px] text-slate-400 font-bold block mt-1">
-              عدد السندات: {stats.countReceipts} سند
-            </span>
-          </div>
-        </div>
-
-        {/* Total Disbursements */}
-        <div className="bg-white p-5 rounded-3xl border border-blue-100 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-blue-800">إجمالي سندات الصرف (سداد)</span>
-            <span className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-              <ArrowUpRight className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl font-black font-mono text-blue-800 block">
-              {formatMoney(stats.totalDisbursements)}
-            </span>
-            <span className="text-[11px] text-slate-400 font-bold block mt-1">
-              عدد السندات: {stats.countDisbursements} سند
-            </span>
-          </div>
-        </div>
-
-        {/* Net Flow */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700">صافي التدفق المالي (الفرق)</span>
-            <span className="p-2 bg-slate-100 text-slate-600 rounded-xl">
-              <Wallet className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="mt-3">
-            <span
-              className={`text-2xl font-black font-mono block ${
-                stats.netFlow >= 0 ? 'text-emerald-700' : 'text-rose-700'
-              }`}
-            >
-              {formatMoney(stats.netFlow)}
-            </span>
-            <span className="text-[11px] text-slate-400 font-bold block mt-1">
-              {stats.netFlow >= 0 ? 'فائض مقبوضات نقدية' : 'عجز في السيولة (صرف أكبر)'}
-            </span>
-          </div>
         </div>
       </div>
 
@@ -309,7 +190,7 @@ export function FinancialVouchersManager({ initialVouchers }: FinancialVouchersM
               }`}
             >
               <ArrowDownLeft className="w-3.5 h-3.5" />
-              <span>سندات قبض ({stats.countReceipts})</span>
+              <span>سندات قبض</span>
             </button>
             <button
               type="button"
@@ -321,7 +202,7 @@ export function FinancialVouchersManager({ initialVouchers }: FinancialVouchersM
               }`}
             >
               <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>سندات صرف ({stats.countDisbursements})</span>
+              <span>سندات صرف</span>
             </button>
           </div>
         </div>
