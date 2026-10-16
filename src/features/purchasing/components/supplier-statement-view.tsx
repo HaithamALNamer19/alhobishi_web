@@ -20,11 +20,14 @@ import {
   Sparkles,
   Pencil,
   Trash2,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { Pagination } from '@/shared/ui/pagination';
 import { formatMoney } from '@/core/domain/money';
+import { cleanCustomerName } from '@/core/utils/clean-name';
 import { toast } from '@/shared/ui/toast';
 import { RecordSupplierPaymentDialog } from './record-supplier-payment-dialog';
 import { SupplierPaymentVoucherDialog } from './supplier-payment-voucher-dialog';
@@ -139,6 +142,20 @@ export function SupplierStatementView({
     handlePrint({ type: 'voucher', payment });
   };
 
+  // Counts for tabs and cards
+  const purchasesCount = useMemo(
+    () => (initialTransactions || []).filter((tx) => tx.type === 'PURCHASE').length,
+    [initialTransactions]
+  );
+  const paymentsCount = useMemo(
+    () => (initialTransactions || []).filter((tx) => tx.type === 'PAYMENT').length,
+    [initialTransactions]
+  );
+  const returnsCount = useMemo(
+    () => (initialTransactions || []).filter((tx) => tx.type === 'PURCHASE_RETURN').length,
+    [initialTransactions]
+  );
+
   // Filter transactions
   const filteredTransactions = useMemo(() => {
     return (initialTransactions || []).filter((tx) => {
@@ -153,15 +170,26 @@ export function SupplierStatementView({
       const matchItems = (tx.items || []).some((it) =>
         (it.product_name || '').toLowerCase().includes(q)
       );
-      return matchDesc || matchRef || matchNotes || matchItems;
+      const matchAmount = (Number(tx.amount || tx.debit || tx.credit) || 0).toString().includes(q);
+      let dateMatch = false;
+      try {
+        const d = new Date(tx.createdAt);
+        if (!isNaN(d.getTime())) {
+          dateMatch = d.toLocaleDateString('ar-YE').includes(q);
+        }
+      } catch {
+        dateMatch = false;
+      }
+      return matchDesc || matchRef || matchNotes || matchItems || matchAmount || dateMatch;
     });
   }, [initialTransactions, typeFilter, search]);
 
   const totalPages = Math.ceil(filteredTransactions.length / PAGE_SIZE) || 1;
+  const activePage = Math.min(currentPage, totalPages);
   const paginatedTransactions = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
+    const start = (activePage - 1) * PAGE_SIZE;
     return filteredTransactions.slice(start, start + PAGE_SIZE);
-  }, [filteredTransactions, currentPage]);
+  }, [filteredTransactions, activePage]);
 
   const handleOpenDetail = (tx: any) => {
     if (tx.type === 'PAYMENT') {
@@ -200,344 +228,478 @@ export function SupplierStatementView({
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16" dir="rtl">
-      {/* 1. Header Card */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3">
-            <Link
-              href={backHref}
-              className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-              title="رجوع لسجل الموردين"
-            >
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-
-            <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                  كشف حساب: {supplier.name}
-                </h1>
-                {supplier.company_name && (
-                  <Badge variant="outline" className="text-slate-600 bg-slate-50 border-slate-200">
-                    {supplier.company_name}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
-                {supplier.phone && (
-                  <span className="flex items-center gap-1 font-mono" dir="ltr">
-                    <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{supplier.phone}</span>
-                  </span>
-                )}
-                <span>سجل تفصيلي لكافة فواتير الشراء، سندات الصرف، ومردودات المشتريات.</span>
-              </p>
+    <div className="space-y-6 max-w-6xl mx-auto pb-16 no-print" dir="rtl">
+      {/* 1. Header Card / Top Banner */}
+      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-4">
+          <Link
+            href={backHref}
+            className="p-2.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-2xl transition-colors border border-slate-200 shrink-0"
+            title="الرجوع لسجل الموردين"
+          >
+            <ArrowRight className="w-5 h-5" />
+          </Link>
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
+                <FileText className="w-6 h-6 text-blue-700" />
+                <span>كشف الحساب المالي المفصل</span>
+              </h1>
             </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handlePrintStatement}
-              className="flex items-center gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-2xl px-3.5 py-2 shadow-xs text-xs"
-            >
-              <Printer className="w-4 h-4 text-slate-600" />
-              <span>طباعة كشف الحساب</span>
-            </Button>
+            <div className="flex items-center gap-3 text-xs text-slate-500 mt-1.5 flex-wrap">
+              <span className="font-bold text-slate-800">{cleanCustomerName(supplier.name)}</span>
+              {supplier.company_name && (
+                <span className="font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                  {supplier.company_name}
+                </span>
+              )}
+              {supplier.phone && (
+                <span className="font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md" dir="ltr">
+                  {supplier.phone}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Financial Summary Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-100">
-          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-            <span className="text-[11px] font-bold text-slate-500 block mb-0.5">
-              إجمالي فواتير الشراء (له)
+        {/* Global Action Buttons */}
+        <div className="flex items-center gap-2.5 self-end md:self-center flex-wrap">
+          <Button
+            onClick={handlePrintStatement}
+            className="bg-blue-700 hover:bg-blue-600 text-white font-bold gap-2 px-5 py-2.5 rounded-2xl shadow-xs transition-all cursor-pointer text-xs"
+          >
+            <Printer className="w-4 h-4" />
+            <span>طباعة كشف الحساب</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* 2. KPI Cards (4 Columns) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Purchases (Invoices) */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
+              <TrendingUp className="w-4 h-4 text-amber-600" />
+              <span>إجمالي المشتريات (الفواتير)</span>
             </span>
-            <span className="text-base sm:text-lg font-black font-mono text-slate-900">
+            <div className="text-xl font-black font-mono text-amber-700 tracking-tight">
               {formatMoney(initialPurchases)}
+            </div>
+            <span className="text-[11px] text-slate-400 mt-0.5 block">
+              {purchasesCount} فاتورة مسجلة
             </span>
           </div>
+        </div>
 
-          <div className="p-3 bg-blue-50/60 rounded-2xl border border-blue-100">
-            <span className="text-[11px] font-bold text-blue-800 block mb-0.5">
-              إجمالي المسدد (سندات صرف)
+        {/* Total Payments (Disbursements / سندات الصرف) */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
+              <TrendingDown className="w-4 h-4 text-emerald-600" />
+              <span>إجمالي المسدد (سندات الصرف)</span>
             </span>
-            <span className="text-base sm:text-lg font-black font-mono text-blue-900">
+            <div className="text-xl font-black font-mono text-emerald-700 tracking-tight">
               {formatMoney(initialPayments)}
+            </div>
+            <span className="text-[11px] text-slate-400 mt-0.5 block">
+              {paymentsCount} سند صرف مسدد
             </span>
           </div>
+        </div>
 
-          <div className="p-3 bg-amber-50/60 rounded-2xl border border-amber-100">
-            <span className="text-[11px] font-bold text-amber-800 block mb-0.5">
-              إجمالي المردودات (عليه)
+        {/* Total Returns (مردودات المشتريات) */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1">
+              <RotateCcw className="w-4 h-4 text-rose-600" />
+              <span>إجمالي المردودات</span>
             </span>
-            <span className="text-base sm:text-lg font-black font-mono text-amber-900">
+            <div className="text-xl font-black font-mono text-rose-700 tracking-tight">
               {formatMoney(initialReturns)}
+            </div>
+            <span className="text-[11px] text-slate-400 mt-0.5 block">
+              {returnsCount} مردود مشتريات
             </span>
           </div>
+        </div>
 
-          <div className="p-3 bg-rose-50/60 rounded-2xl border border-rose-100">
-            <span className="text-[11px] font-bold text-rose-800 block mb-0.5">
-              الرصيد المتبقي المستحق
+        {/* Current Balance */}
+        <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5 mb-1">
+              <CreditCard className="w-4 h-4 text-blue-400" />
+              <span>الرصيد النهائي المستحق</span>
             </span>
-            <span
-              className={`text-base sm:text-lg font-black font-mono ${
-                initialBalance > 0 ? 'text-rose-700' : 'text-emerald-700'
-              }`}
-            >
+            <div className="text-xl font-black font-mono text-white tracking-tight">
               {formatMoney(initialBalance)}
+            </div>
+            <span className="text-[11px] text-slate-300 mt-0.5 block">
+              {initialBalance > 0
+                ? 'مستحق للمورد (دائن)'
+                : initialBalance < 0
+                  ? 'مستحق من المورد (مدين)'
+                  : 'الحساب خالص / مسدد بالكامل'}
             </span>
           </div>
         </div>
       </div>
 
-      {/* 2. Controls & Search */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Filter Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-xl overflow-x-auto w-full sm:w-auto">
-          {[
-            { id: 'ALL', label: 'الكل' },
-            { id: 'PURCHASE', label: 'فواتير الشراء' },
-            { id: 'PAYMENT', label: 'سندات الصرف' },
-            { id: 'PURCHASE_RETURN', label: 'مردودات المشتريات' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setTypeFilter(tab.id as any);
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                typeFilter === tab.id
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative w-full sm:w-72">
+      {/* 3. Filters and Search Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-center gap-3">
+        <div className="relative flex-1 w-full">
           <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="بحث برقم الفاتورة، السند، أو الصنف..."
+            placeholder="بحث في البيان، رقم الفاتورة أو السند، أو الصنف..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full pr-9 pl-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50 focus:bg-white transition-all text-slate-800"
+            className="w-full pl-3 pr-9 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all placeholder:text-slate-400"
           />
+        </div>
+
+        {/* Type Filter Buttons */}
+        <div className="flex items-center gap-1.5 w-full md:w-auto bg-slate-100 p-1 rounded-xl text-xs flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              setTypeFilter('ALL');
+              setCurrentPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              typeFilter === 'ALL'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            جميع الحركات ({(initialTransactions || []).length})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTypeFilter('PURCHASE');
+              setCurrentPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              typeFilter === 'PURCHASE'
+                ? 'bg-white text-amber-800 shadow-2xs'
+                : 'text-slate-600 hover:text-amber-800'
+            }`}
+          >
+            فواتير الشراء ({purchasesCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTypeFilter('PAYMENT');
+              setCurrentPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              typeFilter === 'PAYMENT'
+                ? 'bg-white text-emerald-800 shadow-2xs'
+                : 'text-slate-600 hover:text-emerald-800'
+            }`}
+          >
+            سندات الصرف ({paymentsCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTypeFilter('PURCHASE_RETURN');
+              setCurrentPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              typeFilter === 'PURCHASE_RETURN'
+                ? 'bg-white text-rose-800 shadow-2xs'
+                : 'text-slate-600 hover:text-rose-800'
+            }`}
+          >
+            مردودات المشتريات ({returnsCount})
+          </button>
         </div>
       </div>
 
-      {/* 3. Transactions Table */}
+      {/* 4. Transactions Ledger Table */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-        {paginatedTransactions.length === 0 ? (
-          <div className="p-16 text-center text-slate-400 text-xs">
-            {initialTransactions.length === 0
-              ? 'لا توجد أي حركات مالية مسجلة لهذا المورد حتى الآن.'
-              : 'لا توجد نتائج مطابقة لمعايير البحث الحالية.'}
+        {filteredTransactions.length === 0 ? (
+          <div className="p-16 text-center text-slate-400 text-sm">
+            {(initialTransactions || []).length === 0
+              ? 'لا توجد أي حركات مالية مسجلة في كشف حساب المورد حتى الآن'
+              : 'لا توجد حركات مالية مطابقة لمعايير البحث الحالية'}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
-                <tr>
-                  <th className="py-3 px-4">التاريخ</th>
-                  <th className="py-3 px-4">نوع المستند</th>
-                  <th className="py-3 px-4">رقم المرجع</th>
-                  <th className="py-3 px-4">البيان والملاحظات</th>
-                  <th className="py-3 px-4 text-center">له (دائن)</th>
-                  <th className="py-3 px-4 text-center">عليه (مدين)</th>
-                  <th className="py-3 px-4 text-center">الرصيد التراكمي</th>
-                  <th className="py-3 px-4 text-left">الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {paginatedTransactions.map((tx) => {
-                  const dateObj = new Date(tx.createdAt);
-                  const isValidDate = !isNaN(dateObj.getTime());
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="py-3.5 px-4 w-32">التاريخ والوقت</th>
+                    <th className="py-3.5 px-4 w-28">نوع الحركة</th>
+                    <th className="py-3.5 px-4">البيان والتفاصيل</th>
+                    <th className="py-3.5 px-4 text-center w-28">المبلغ (ر.ي)</th>
+                    <th className="py-3.5 px-4 text-center w-32">الرصيد بعد الحركة</th>
+                    <th className="py-3.5 px-4 text-left w-36">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {paginatedTransactions.map((tx) => {
+                    const isPurchase = tx.type === 'PURCHASE';
+                    const isPayment = tx.type === 'PAYMENT';
+                    const isReturn = tx.type === 'PURCHASE_RETURN';
+                    const isInitial = tx.type === 'INITIAL_BALANCE';
+                    const dateObj = new Date(tx.createdAt);
+                    const isValidDate = !isNaN(dateObj.getTime());
 
-                  const isPurchase = tx.type === 'PURCHASE';
-                  const isPayment = tx.type === 'PAYMENT';
-                  const isReturn = tx.type === 'PURCHASE_RETURN';
-                  const isInitial = tx.type === 'INITIAL_BALANCE';
-
-                  return (
-                    <tr key={tx.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3.5 px-4 font-mono text-slate-500 text-[11px] whitespace-nowrap">
-                        {isValidDate
-                          ? dateObj.toLocaleDateString('ar-YE', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric',
-                            })
-                          : '-'}
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        {isPurchase && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                            فاتورة شراء
-                          </span>
-                        )}
-                        {isPayment && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            سند صرف
-                          </span>
-                        )}
-                        {isReturn && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                            مردود مشتريات
-                          </span>
-                        )}
-                        {isInitial && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                            رصيد افتتاحي
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-700" dir="ltr">
-                        {tx.reference_number || '-'}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-slate-800 font-medium max-w-xs truncate">
-                        {tx.description}
-                        {tx.bank_or_exchange && (
-                          <span className="text-[11px] text-slate-400 block">
-                            عبر: {tx.bank_or_exchange}
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900">
-                        {tx.credit > 0 ? formatMoney(tx.credit) : '-'}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-center font-mono font-bold text-blue-700">
-                        {tx.debit > 0 ? formatMoney(tx.debit) : '-'}
-                      </td>
-
-                      <td
-                        className={`py-3.5 px-4 text-center font-mono font-black ${
-                          tx.balance_after > 0 ? 'text-rose-700' : 'text-emerald-700'
-                        }`}
+                    return (
+                      <tr
+                        key={tx.id}
+                        className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                        onClick={() => {
+                          if (isPurchase || isPayment || isReturn) {
+                            handleOpenDetail(tx);
+                          }
+                        }}
                       >
-                        {formatMoney(tx.balance_after)}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-left">
-                        <div className="flex items-center justify-end gap-1">
-                          {(isPurchase || isReturn || isPayment) && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenDetail(tx)}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-                              title="معاينة تفاصيل المستند"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
+                        {/* Date */}
+                        <td className="py-3.5 px-4 font-mono text-slate-500 whitespace-nowrap">
+                          {isValidDate ? (
+                            <div>
+                              <span suppressHydrationWarning>
+                                {dateObj.toLocaleDateString('ar-YE', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })}
+                              </span>
+                              <span className="block text-[10px] text-slate-400" suppressHydrationWarning>
+                                {dateObj.toLocaleTimeString('ar-YE', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                          ) : (
+                            <span>-</span>
                           )}
+                        </td>
 
-                          {isPayment && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handlePrintVoucher({
-                                  id: tx.reference_id || tx.id,
-                                  voucher_number: tx.reference_number || tx.id,
-                                  supplier_id: supplier.id,
-                                  supplier_name: supplier.name,
-                                  company_name: supplier.company_name,
-                                  amount: tx.debit,
-                                  payment_method: tx.payment_method || 'CASH',
-                                  bank_or_exchange: tx.bank_or_exchange || null,
-                                  notes: tx.notes || tx.description,
-                                  recorded_by: tx.recorded_by,
-                                  createdAt: tx.createdAt,
-                                })
-                              }
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
-                              title="طباعة سند الصرف"
-                            >
-                              <Printer className="w-4 h-4" />
-                            </button>
+                        {/* Type Badge */}
+                        <td className="py-3.5 px-4 font-bold whitespace-nowrap">
+                          {isPurchase ? (
+                            <Badge variant="amber" className="text-[11px] font-semibold">
+                              فاتورة شراء
+                            </Badge>
+                          ) : isPayment ? (
+                            <Badge variant="emerald" className="text-[11px] font-semibold">
+                              سند صرف
+                            </Badge>
+                          ) : isReturn ? (
+                            <Badge variant="rose" className="text-[11px] font-semibold">
+                              مردود مشتريات
+                            </Badge>
+                          ) : isInitial ? (
+                            <Badge variant="indigo" className="text-[11px] font-semibold">
+                              رصيد افتتاحي
+                            </Badge>
+                          ) : (
+                            <Badge variant="slate" className="text-[11px] font-semibold">
+                              حركة حساب
+                            </Badge>
                           )}
+                        </td>
 
-                          {(isPurchase || isPayment) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isPurchase) {
-                                  setEditingInvoice({
-                                    id: tx.reference_id || tx.id,
-                                    invoice_number: tx.reference_number || tx.id,
-                                    supplier_name: supplier.name,
-                                    total_amount: tx.credit,
-                                    createdAt: tx.createdAt,
-                                    items: tx.items || [],
-                                  });
-                                } else if (isPayment) {
-                                  setEditingPayment({
-                                    id: tx.reference_id || tx.id,
-                                    voucher_number: tx.reference_number || tx.id,
-                                    supplier_id: supplier.id,
-                                    supplier_name: supplier.name,
-                                    amount: tx.debit,
-                                    payment_method: tx.payment_method || 'CASH',
-                                    reference_number: tx.reference_number || null,
-                                    bank_or_exchange: tx.bank_or_exchange || null,
-                                    notes: tx.notes || null,
-                                  });
-                                }
-                              }}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-50 transition-colors"
-                              title="تعديل المستند"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                          )}
+                        {/* Description & Details */}
+                        <td className="py-3.5 px-4 text-slate-800 font-medium">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span>{tx.description}</span>
+                            {tx.reference_number && (
+                              <span
+                                className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded"
+                                dir="ltr"
+                              >
+                                {isPurchase ? 'فاتورة' : isPayment ? 'سند' : isReturn ? 'مردود' : 'مرجع'}: {tx.reference_number}
+                              </span>
+                            )}
+                            {tx.bank_or_exchange && (
+                              <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100">
+                                عبر: {tx.bank_or_exchange}
+                              </span>
+                            )}
+                          </div>
+                        </td>
 
-                          {(isPurchase || isPayment) && (
-                            <button
-                              type="button"
-                              onClick={() => setDeletingTransaction(tx)}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
-                              title="حذف المستند"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                        {/* Amount */}
+                        <td className="py-3.5 px-4 text-center font-mono font-bold whitespace-nowrap">
+                          <span
+                            className={
+                              isPurchase
+                                ? 'text-amber-700 font-bold'
+                                : isReturn
+                                  ? 'text-rose-700 font-bold'
+                                  : isPayment
+                                    ? 'text-emerald-700 font-bold'
+                                    : 'text-slate-700 font-bold'
+                            }
+                          >
+                            {isPurchase
+                              ? `+${formatMoney(tx.credit || tx.amount)}`
+                              : isPayment
+                                ? `-${formatMoney(tx.debit || tx.amount)}`
+                                : isReturn
+                                  ? `-${formatMoney(tx.debit || tx.amount)}`
+                                  : formatMoney(tx.amount)}
+                          </span>
+                        </td>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-xs text-slate-500">
-              إجمالي الحركات: {filteredTransactions.length}
-            </span>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          </div>
+                        {/* Balance After */}
+                        <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900 whitespace-nowrap">
+                          {formatMoney(tx.balance_after)}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-left whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isPurchase && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenDetail(tx)}
+                                  className="h-7 px-2 text-[11px] text-blue-700 border-blue-200 hover:bg-blue-50 gap-1 cursor-pointer"
+                                  title="عرض تفاصيل الفاتورة"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-blue-600" />
+                                  <span>الفاتورة</span>
+                                </Button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingInvoice({
+                                      id: tx.reference_id || tx.id,
+                                      invoice_number: tx.reference_number || tx.id,
+                                      supplier_name: supplier.name,
+                                      total_amount: tx.credit,
+                                      createdAt: tx.createdAt,
+                                      items: tx.items || [],
+                                    });
+                                  }}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer"
+                                  title="تعديل الفاتورة"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeletingTransaction(tx)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="حذف الفاتورة"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+
+                            {isPayment && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenDetail(tx)}
+                                  className="h-7 px-2 text-[11px] text-emerald-800 border-emerald-200 hover:bg-emerald-50 gap-1 cursor-pointer"
+                                  title="عرض تفاصيل السند"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-emerald-700" />
+                                  <span>السند</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    handlePrintVoucher({
+                                      id: tx.reference_id || tx.id,
+                                      voucher_number: tx.reference_number || tx.id,
+                                      supplier_id: supplier.id,
+                                      supplier_name: supplier.name,
+                                      company_name: supplier.company_name,
+                                      amount: tx.debit,
+                                      payment_method: tx.payment_method || 'CASH',
+                                      bank_or_exchange: tx.bank_or_exchange || null,
+                                      notes: tx.notes || tx.description,
+                                      recorded_by: tx.recorded_by,
+                                      createdAt: tx.createdAt,
+                                    })
+                                  }
+                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100 cursor-pointer"
+                                  title="طباعة سند الصرف مباشرة"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                </Button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingPayment({
+                                      id: tx.reference_id || tx.id,
+                                      voucher_number: tx.reference_number || tx.id,
+                                      supplier_id: supplier.id,
+                                      supplier_name: supplier.name,
+                                      amount: tx.debit,
+                                      payment_method: tx.payment_method || 'CASH',
+                                      reference_number: tx.reference_number || null,
+                                      bank_or_exchange: tx.bank_or_exchange || null,
+                                      notes: tx.notes || null,
+                                    });
+                                  }}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer"
+                                  title="تعديل السند"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeletingTransaction(tx)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="حذف السند"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+
+                            {isReturn && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenDetail(tx)}
+                                className="h-7 px-2 text-[11px] text-rose-800 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
+                                title="عرض تفاصيل المردود"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-rose-700" />
+                                <span>المردود</span>
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-4 border-t border-slate-200 bg-slate-50/50">
+              <Pagination
+                currentPage={activePage}
+                totalPages={totalPages}
+                totalItems={filteredTransactions.length}
+                pageSize={PAGE_SIZE}
+                itemName="حركة مالية"
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          </>
         )}
       </div>
 
