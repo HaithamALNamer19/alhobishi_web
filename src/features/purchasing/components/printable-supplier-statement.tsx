@@ -105,22 +105,26 @@ export function PrintableSupplierStatement({
 
       {/* 2. Supplier Details Block */}
       <div className="bg-slate-50 border border-slate-300 rounded p-3 mb-3 text-[11px]">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-4">
           <div>
-            <span className="text-slate-500 block font-medium">اسم المورد:</span>
-            <strong className="text-slate-950 text-xs block font-bold">{cleanCustomerName(supplier?.name || '')}</strong>
+            <span className="text-slate-500 block font-medium mb-1">اسم المورد:</span>
+            <strong className="text-slate-950 text-xs block font-bold">
+              {cleanCustomerName(supplier?.name || '')}
+            </strong>
           </div>
           <div>
-            <span className="text-slate-500 block font-medium">الشركة / المؤسسة:</span>
-            <span className="text-slate-900 font-semibold block">
+            <span className="text-slate-500 block font-medium mb-1">الشركة / المؤسسة:</span>
+            <span className="text-slate-900 font-semibold block text-xs">
               {supplier.company_name || 'بدون شركة'}
             </span>
           </div>
           <div>
-            <span className="text-slate-500 block font-medium">رقم الهاتف / الواتساب:</span>
-            <span className="text-slate-900 font-mono font-bold block" dir="ltr">
-              {supplier.phone || '-'}
-            </span>
+            <span className="text-slate-500 block font-medium mb-1">رقم الهاتف / الواتساب:</span>
+            <div className="flex items-center text-right">
+              <span className="text-slate-900 font-mono font-bold text-xs" dir="ltr">
+                {supplier.phone || '-'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
