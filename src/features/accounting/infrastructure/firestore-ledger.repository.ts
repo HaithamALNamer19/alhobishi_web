@@ -174,6 +174,79 @@ export class FirestoreLedgerRepository {
     });
   }
 
+  async recordDisbursement(params: {
+    customerId: string;
+    amount: Money;
+    method: 'CASH' | 'TRANSFER' | 'OTHER';
+    referenceNumber?: string | null;
+    notes?: string | null;
+    actorId: string;
+    actorName: string;
+  }): Promise<{ transactionId: string; newBalance: Money }> {
+    return this.db.runTransaction(async (tx) => {
+      const userRef = this.db.collection(Collections.USERS).doc(params.customerId);
+      const userSnap = await tx.get(userRef);
+
+      if (!userSnap.exists) {
+        throw new AppError(ErrorCode.NOT_FOUND, { message: 'حساب العميل غير موجود.' });
+      }
+
+      const userData = userSnap.data()!;
+      const currentBalance = (userData.balance ?? 0) as Money;
+      const newBalance = (currentBalance + params.amount) as Money;
+
+      // Create payment document as disbursement
+      const payRef = this.db.collection(Collections.PAYMENTS).doc();
+      tx.set(payRef, {
+        customerId: params.customerId,
+        amount: params.amount,
+        type: 'DISBURSEMENT',
+        method: params.method,
+        referenceNumber: params.referenceNumber || null,
+        notes: params.notes || null,
+        recordedBy: params.actorName,
+        recordedByName: params.actorName,
+        recordedById: params.actorId,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      // Append ledger transaction
+      const txRef = this.db.collection(Collections.ACCOUNT_TRANSACTIONS).doc();
+      tx.set(txRef, {
+        customerId: params.customerId,
+        orderId: null,
+        paymentId: payRef.id,
+        type: 'ADJUSTMENT',
+        amount: params.amount,
+        previousBalance: currentBalance,
+        newBalance,
+        description: `سند صرف نقدي / دفعة للعميل بقيمة ${params.amount} ر.ي`,
+        recordedBy: params.actorName,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      // Update user current balance
+      tx.update(userRef, {
+        balance: newBalance,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      // Notification
+      const notifRef = this.db.collection(Collections.NOTIFICATIONS).doc();
+      tx.set(notifRef, {
+        userId: params.customerId,
+        title: 'تم تسجيل سند صرف مالي',
+        message: `تم تسجيل سند صرف على حسابك بمبلغ ${params.amount} ريال يمني. الرصيد الحالي: ${newBalance} ريال.`,
+        type: 'PAYMENT_RECORDED',
+        referenceId: payRef.id,
+        isRead: false,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      return { transactionId: txRef.id, newBalance };
+    });
+  }
+
   async getSalesReturnById(returnId: string): Promise<SalesReturn | null> {
     const snap = await this.db.collection(Collections.SALES_RETURNS).doc(returnId).get();
     if (!snap.exists) return null;

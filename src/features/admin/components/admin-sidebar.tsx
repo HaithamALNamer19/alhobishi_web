@@ -201,8 +201,8 @@ export function AdminSidebar({ session, isAdmin }: AdminSidebarProps) {
         items: [
           {
             href: '/admin/payments',
-            label: 'المدفوعات',
-            fullLabel: 'المدفوعات وسندات القبض',
+            label: 'سندات القبض والصرف',
+            fullLabel: 'المالية وسندات القبض والصرف',
             icon: CreditCard,
             adminOnly: true,
           },

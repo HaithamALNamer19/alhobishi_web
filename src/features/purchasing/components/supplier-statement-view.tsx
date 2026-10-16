@@ -254,23 +254,6 @@ export function SupplierStatementView({
           <div className="flex items-center gap-2.5 flex-wrap">
             <Button
               type="button"
-              onClick={() => setIsRecordPaymentOpen(true)}
-              className="flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-2xl px-4 py-2.5 shadow-xs text-xs cursor-pointer"
-            >
-              <CreditCard className="w-4 h-4" />
-              <span>تسجيل سند صرف</span>
-            </Button>
-
-            <Link
-              href={`/admin/purchases?supplierId=${supplier.id}`}
-              className="inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-2xl px-3.5 py-2 shadow-xs text-xs"
-            >
-              <Receipt className="w-4 h-4 text-blue-600" />
-              <span>فاتورة شراء</span>
-            </Link>
-
-            <Button
-              type="button"
               variant="outline"
               onClick={handlePrintStatement}
               className="flex items-center gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-2xl px-3.5 py-2 shadow-xs text-xs"

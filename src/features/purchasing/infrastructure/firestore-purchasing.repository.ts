@@ -1416,6 +1416,92 @@ export class FirestorePurchasingRepository {
     });
   }
 
+  async recordSupplierRefund(params: {
+    supplier_id: string;
+    amount: number;
+    payment_method: SupplierPaymentMethod;
+    reference_number?: string | null;
+    bank_or_exchange?: string | null;
+    notes?: string | null;
+    actor_name: string;
+  }): Promise<any> {
+    const payAmount = Number(params.amount);
+    if (!payAmount || payAmount <= 0) {
+      throw new Error('مبلغ السند يجب أن يكون أكبر من الصفر.');
+    }
+
+    return this.db.runTransaction(async (tx) => {
+      const supplierRef = this.db.collection(Collections.SUPPLIERS).doc(params.supplier_id);
+      const counterRef = this.db.collection(Collections.COUNTERS).doc('supplier_receipts');
+      const [supplierSnap, counterSnap] = await Promise.all([tx.get(supplierRef), tx.get(counterRef)]);
+
+      if (!supplierSnap.exists) {
+        throw new Error('المورد المحدد غير موجود.');
+      }
+
+      const supplierData = supplierSnap.data()!;
+      const currentBalance = Number(supplierData.balance || 0);
+      const newBalance = currentBalance + payAmount;
+
+      const currentSeq = counterSnap.exists ? (counterSnap.data()?.seq || 0) : 0;
+      const nextSeq = currentSeq + 1;
+      const currentYear = businessYear(new Date());
+      const voucherNumber = `REC-SUP-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
+
+      const paymentRef = this.db.collection(Collections.SUPPLIER_PAYMENTS).doc();
+      tx.set(counterRef, { seq: nextSeq, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+
+      const paymentRecord = {
+        voucher_number: voucherNumber,
+        type: 'RECEIPT',
+        supplier_id: params.supplier_id,
+        supplier_name: supplierData.name || '',
+        amount: payAmount,
+        payment_method: params.payment_method,
+        reference_number: params.reference_number?.trim() || null,
+        bank_or_exchange: params.bank_or_exchange?.trim() || null,
+        notes: params.notes?.trim() || null,
+        recorded_by: params.actor_name,
+        createdAt: FieldValue.serverTimestamp(),
+      };
+      tx.set(paymentRef, paymentRecord);
+
+      tx.update(supplierRef, { balance: newBalance });
+
+      const txRef = this.db.collection(Collections.SUPPLIER_TRANSACTIONS).doc();
+      tx.set(txRef, {
+        supplier_id: params.supplier_id,
+        type: 'REFUND',
+        amount: payAmount,
+        debit: 0,
+        credit: payAmount,
+        balance_after: newBalance,
+        description: `سند قبض / استرداد نقدي من المورد رقم ${voucherNumber}`,
+        reference_id: paymentRef.id,
+        reference_number: voucherNumber,
+        recorded_by: params.actor_name,
+        payment_method: params.payment_method,
+        bank_or_exchange: params.bank_or_exchange?.trim() || null,
+        notes: params.notes?.trim() || null,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      return {
+        id: paymentRef.id,
+        voucher_number: voucherNumber,
+        supplier_id: params.supplier_id,
+        supplier_name: supplierData.name || '',
+        amount: payAmount,
+        payment_method: params.payment_method,
+        reference_number: params.reference_number?.trim() || null,
+        bank_or_exchange: params.bank_or_exchange?.trim() || null,
+        notes: params.notes?.trim() || null,
+        recorded_by: params.actor_name,
+        createdAt: new Date(),
+      };
+    });
+  }
+
   async getSupplierPaymentById(id: string): Promise<SupplierPayment | null> {
     const doc = await this.db.collection(Collections.SUPPLIER_PAYMENTS).doc(id).get();
     if (!doc.exists) return null;
