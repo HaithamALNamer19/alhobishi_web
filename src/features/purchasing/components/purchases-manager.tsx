@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Receipt,
@@ -11,18 +12,19 @@ import {
   Calendar,
   Eye,
   Printer,
-  FileText,
   Edit,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
-import { Badge } from '@/shared/ui/badge';
+import { Input } from '@/shared/ui/input';
+import { Pagination } from '@/shared/ui/pagination';
 import { formatMoney } from '@/core/domain/money';
-import { tafqeetRials } from '@/core/utils/tafqeet';
 import { CreatePurchaseDialog } from './create-purchase-dialog';
 import { EditPurchaseInvoiceDialog } from './edit-purchase-invoice-dialog';
+import { PurchaseInvoiceDetailDialog } from './purchase-invoice-detail-dialog';
+import { DeleteTransactionConfirmDialog } from './delete-transaction-confirm-dialog';
 import { PrintablePurchaseInvoice } from './printable-purchase-invoice';
 import type { SerializedSupplier } from './suppliers-manager';
-import type { PurchaseInvoice } from '../domain/purchasing';
 
 export interface SerializedPurchaseInvoice {
   id: string;
@@ -57,25 +59,37 @@ export function PurchasesManager({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(Boolean(defaultSupplierId));
   const [selectedInvoice, setSelectedInvoice] = useState<SerializedPurchaseInvoice | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<SerializedPurchaseInvoice | null>(null);
+  const [deletingInvoice, setDeletingInvoice] = useState<SerializedPurchaseInvoice | null>(null);
+  const [printDoc, setPrintDoc] = useState<SerializedPurchaseInvoice | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
 
   useEffect(() => {
     setPurchases(initialPurchases);
   }, [initialPurchases]);
 
-  const filteredPurchases = purchases.filter((p) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    const matchNumber = (p.invoice_number || '').toLowerCase().includes(q);
-    const matchSupplier = (p.supplier_name || '').toLowerCase().includes(q);
-    return matchNumber || matchSupplier;
-  });
-
-  const [mounted, setMounted] = useState(false);
-  const [printDoc, setPrintDoc] = useState<SerializedPurchaseInvoice | null>(null);
-
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Filter purchases
+  const filteredPurchases = useMemo(() => {
+    if (!search.trim()) return purchases;
+    const q = search.toLowerCase();
+    return purchases.filter((p) => {
+      const matchNumber = (p.invoice_number || '').toLowerCase().includes(q);
+      const matchSupplier = (p.supplier_name || '').toLowerCase().includes(q);
+      return matchNumber || matchSupplier;
+    });
+  }, [purchases, search]);
+
+  // Paginated purchases
+  const totalPages = Math.ceil(filteredPurchases.length / pageSize) || 1;
+  const paginatedPurchases = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredPurchases.slice(start, start + pageSize);
+  }, [filteredPurchases, currentPage, pageSize]);
 
   const handlePrint = (invoice: SerializedPurchaseInvoice) => {
     setPrintDoc(invoice);
@@ -98,143 +112,171 @@ export function PurchasesManager({
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
+    <div className="max-w-6xl mx-auto space-y-6 pb-16 font-sans" dir="rtl">
       {/* Top Banner */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2.5">
-            <Receipt className="w-7 h-7 text-blue-700" />
+            <span className="p-2 bg-blue-50 text-blue-700 rounded-2xl border border-blue-200">
+              <Receipt className="w-6 h-6" />
+            </span>
             <span>فواتير الشراء والتوريد</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            تسجيل فواتير الشراء من الموردين، زيادة كميات المخزون وحساب تكلفة البضاعة.
+            تسجيل وإدارة فواتير الشراء من الموردين، زيادة كميات المخزون وحساب تكلفة البضاعة
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-2xl px-4 py-2.5 shadow-xs text-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>إنشاء فاتورة شراء جديدة</span>
-          </Button>
-        </div>
+        <Button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 font-bold px-4 py-2.5 rounded-xl shadow-xs text-xs cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>إنشاء فاتورة شراء جديدة</span>
+        </Button>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="بحث برقم الفاتورة أو اسم المورد..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pr-9 pl-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50 focus:bg-white transition-all text-slate-800"
-          />
+      {/* Search and Table */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden space-y-4">
+        {/* Search Bar */}
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+            <Input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="البحث برقم الفاتورة أو اسم المورد..."
+              className="pr-9 text-xs"
+            />
+          </div>
+          <span className="text-xs text-slate-400 font-mono">
+            {filteredPurchases.length} فاتورة
+          </span>
         </div>
-      </div>
 
-      {/* Purchases Table */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-        {filteredPurchases.length === 0 ? (
-          <div className="p-16 text-center text-slate-400 text-sm">
-            {purchases.length === 0
-              ? 'لا توجد فواتير شراء مسجلة حتى الآن. اضغط "إنشاء فاتورة شراء جديدة" للبدء.'
-              : 'لا توجد فواتير مطابقة لبحثك الحالي.'}
+        {/* Purchases Table */}
+        {paginatedPurchases.length === 0 ? (
+          <div className="p-16 text-center text-slate-400 text-xs space-y-2">
+            <Receipt className="w-8 h-8 mx-auto text-slate-300" />
+            <p className="font-bold text-sm text-slate-600">
+              {purchases.length === 0
+                ? 'لا توجد فواتير شراء مسجلة حتى الآن'
+                : 'لا توجد فواتير مطابقة لبحثك الحالي'}
+            </p>
+            <p className="text-[11px] text-slate-400">
+              يمكنك الضغط على زر "إنشاء فاتورة شراء جديدة" للبدء بتسجيل المشتريات.
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 text-[11px]">
                 <tr>
-                  <th className="py-3.5 px-4 w-12 text-center">م</th>
                   <th className="py-3.5 px-4">رقم الفاتورة</th>
+                  <th className="py-3.5 px-4">التاريخ</th>
                   <th className="py-3.5 px-4">المورد</th>
-                  <th className="py-3.5 px-4 text-center">تاريخ الشراء</th>
                   <th className="py-3.5 px-4 text-center">الأصناف والقطع</th>
                   <th className="py-3.5 px-4 text-center">إجمالي الفاتورة</th>
-                  <th className="py-3.5 px-4 text-left">الإجراءات</th>
+                  <th className="py-3.5 px-4 text-center">الإجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {filteredPurchases.map((p, idx) => {
-                  const dateObj = new Date(p.purchase_date);
-                  const isValidDate = !isNaN(dateObj.getTime());
+                {paginatedPurchases.map((p) => {
+                  const dateObj = new Date(p.purchase_date || p.createdAt);
+                  const formattedDate = !isNaN(dateObj.getTime())
+                    ? dateObj.toLocaleDateString('ar-YE', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : '-';
                   const unitsCount = (p.items || []).reduce((s, it) => s + (it.quantity || 0), 0);
 
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-4 px-4 text-center font-mono text-slate-400 font-bold">
-                        {idx + 1}
-                      </td>
-
-                      <td className="py-4 px-4 font-mono font-bold text-slate-900">
-                        <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md">
+                    <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* Invoice Number */}
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                        <span className="bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-md">
                           {p.invoice_number}
                         </span>
                       </td>
 
-                      <td className="py-4 px-4 font-bold text-slate-900">
-                        <div className="flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{p.supplier_name || 'مورد'}</span>
-                        </div>
+                      {/* Date */}
+                      <td className="py-3.5 px-4 font-mono text-slate-500 text-[11px] whitespace-nowrap">
+                        {formattedDate}
                       </td>
 
-                      <td className="py-4 px-4 text-center font-mono text-slate-500 text-[11px] whitespace-nowrap">
-                        {isValidDate ? (
-                          <span suppressHydrationWarning>
-                            {dateObj.toLocaleDateString('ar-YE', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric',
-                            })}
-                          </span>
+                      {/* Supplier */}
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                        {p.supplier_id ? (
+                          <Link
+                            href={`/admin/purchasing/suppliers/${p.supplier_id}/statement`}
+                            className="hover:text-blue-700 transition-colors flex items-center gap-1.5"
+                          >
+                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{p.supplier_name || 'مورد'}</span>
+                          </Link>
                         ) : (
-                          '-'
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{p.supplier_name || 'مورد'}</span>
+                          </div>
                         )}
                       </td>
 
-                      <td className="py-4 px-4 text-center font-mono">
+                      {/* Items & Units */}
+                      <td className="py-3.5 px-4 text-center">
                         <span className="font-bold text-slate-800">{(p.items || []).length} صنف</span>
-                        <span className="text-[10px] text-slate-400 block">({unitsCount} قطعة)</span>
+                        <span className="text-[10px] text-slate-400 block font-mono">
+                          ({unitsCount} قطعة)
+                        </span>
                       </td>
 
-                      <td className="py-4 px-4 text-center font-mono font-black text-slate-900 text-sm">
+                      {/* Total Amount */}
+                      <td className="py-3.5 px-4 text-center font-mono font-black text-blue-700 text-sm">
                         {formatMoney(p.total_amount)}
                       </td>
 
-                      <td className="py-4 px-4 text-left">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="outline"
-                            size="sm"
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
                             onClick={() => setSelectedInvoice(p)}
-                            className="h-7 px-2.5 text-[11px] text-blue-700 border-blue-200 hover:bg-blue-50 gap-1"
+                            className="p-1.5 text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            title="عرض تفاصيل الفاتورة"
                           >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>عرض</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setEditingInvoice(p)}
-                            className="h-7 px-2.5 text-[11px] text-amber-700 border-amber-200 hover:bg-amber-50 gap-1"
+                            className="p-1.5 text-slate-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                            title="تعديل الفاتورة"
                           >
-                            <Edit className="w-3.5 h-3.5" />
-                            <span>تعديل</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handlePrint(p)}
-                            className="h-7 px-2.5 text-[11px] text-slate-700 border-slate-200 hover:bg-slate-50 gap-1"
+                            className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                            title="طباعة الفاتورة"
                           >
-                            <Printer className="w-3.5 h-3.5" />
-                            <span>طباعة</span>
-                          </Button>
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingInvoice(p)}
+                            className="p-1.5 text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="حذف الفاتورة"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -242,6 +284,17 @@ export function PurchasesManager({
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-slate-100 flex justify-center">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           </div>
         )}
       </div>
@@ -260,108 +313,21 @@ export function PurchasesManager({
       )}
 
       {/* View Invoice Detail Dialog */}
-      {selectedInvoice && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
-          onClick={() => setSelectedInvoice(null)}
-        >
-          <div
-            className="bg-white rounded-3xl max-w-2xl w-full p-6 text-right space-y-4 shadow-2xl border border-slate-200"
-            onClick={(e) => e.stopPropagation()}
-            dir="rtl"
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-black text-base text-slate-900">
-                  تفاصيل فاتورة الشراء #{selectedInvoice.invoice_number}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  المورد: {selectedInvoice.supplier_name}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedInvoice(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 font-bold text-slate-600 border-b border-slate-200">
-                  <tr>
-                    <th className="py-2 px-3">الصنف</th>
-                    <th className="py-2 px-3 text-center">الكمية</th>
-                    <th className="py-2 px-3 text-center">سعر التكلفة</th>
-                    <th className="py-2 px-3 text-center">الإجمالي</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {selectedInvoice.items.map((it, i) => (
-                    <tr key={i}>
-                      <td className="py-2 px-3 font-bold text-slate-900">{it.product_name}</td>
-                      <td className="py-2 px-3 text-center font-mono font-bold text-blue-700">
-                        {it.quantity}
-                      </td>
-                      <td className="py-2 px-3 text-center font-mono">{formatMoney(it.cost_price)}</td>
-                      <td className="py-2 px-3 text-center font-mono font-bold text-slate-900">
-                        {formatMoney(it.quantity * it.cost_price)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-              <span className="font-bold text-slate-600">إجمالي الفاتورة:</span>
-              <span className="font-black font-mono text-base text-blue-700">
-                {formatMoney(selectedInvoice.total_amount)}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  onClick={() => handlePrint(selectedInvoice)}
-                  className="text-xs bg-slate-900 hover:bg-slate-800 text-white font-bold gap-1.5 px-4"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>طباعة الفاتورة</span>
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    const inv = selectedInvoice;
-                    setSelectedInvoice(null);
-                    setEditingInvoice(inv);
-                  }}
-                  className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold gap-1.5 px-4"
-                >
-                  <Edit className="w-3.5 h-3.5" />
-                  <span>تعديل الفاتورة</span>
-                </Button>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setSelectedInvoice(null)}
-                className="text-xs"
-              >
-                إغلاق
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PurchaseInvoiceDetailDialog
+        isOpen={Boolean(selectedInvoice)}
+        onClose={() => setSelectedInvoice(null)}
+        invoice={selectedInvoice}
+        onPrint={handlePrint}
+        onEdit={(inv) => {
+          setSelectedInvoice(null);
+          setEditingInvoice(inv);
+        }}
+      />
 
       {/* Edit Purchase Invoice Dialog */}
       {editingInvoice && (
         <EditPurchaseInvoiceDialog
-          isOpen={!!editingInvoice}
+          isOpen={Boolean(editingInvoice)}
           onClose={() => setEditingInvoice(null)}
           invoice={editingInvoice}
           supplierId={editingInvoice.supplier_id}
@@ -371,7 +337,29 @@ export function PurchasesManager({
         />
       )}
 
-      {/* Printable Document Root (Rendered via Portal onto document.body for clean isolation and official styling) */}
+      {/* Delete Purchase Invoice Dialog */}
+      {deletingInvoice && (
+        <DeleteTransactionConfirmDialog
+          isOpen={Boolean(deletingInvoice)}
+          onClose={() => setDeletingInvoice(null)}
+          transaction={{
+            id: deletingInvoice.id,
+            type: 'PURCHASE',
+            reference_id: deletingInvoice.id,
+            reference_number: deletingInvoice.invoice_number,
+            credit: deletingInvoice.total_amount,
+            debit: 0,
+            description: `فاتورة شراء #${deletingInvoice.invoice_number}`,
+            items: deletingInvoice.items,
+          }}
+          supplierId={deletingInvoice.supplier_id}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
+
+      {/* Printable Document Root (Rendered via Portal onto document.body for clean isolation) */}
       {mounted &&
         printDoc &&
         createPortal(
@@ -383,4 +371,3 @@ export function PurchasesManager({
     </div>
   );
 }
-

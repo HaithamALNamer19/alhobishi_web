@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Undo2,
@@ -11,17 +12,17 @@ import {
   Calendar,
   Eye,
   Printer,
-  FileText,
-  X,
   Edit,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
-import { Badge } from '@/shared/ui/badge';
-import { Dialog } from '@/shared/ui/dialog';
+import { Input } from '@/shared/ui/input';
+import { Pagination } from '@/shared/ui/pagination';
 import { formatMoney } from '@/core/domain/money';
-import { tafqeetRials } from '@/core/utils/tafqeet';
 import { CreatePurchaseReturnDialog } from './create-purchase-return-dialog';
 import { EditPurchaseReturnDialog } from './edit-purchase-return-dialog';
+import { PurchaseReturnDetailDialog } from './purchase-return-detail-dialog';
+import { DeleteTransactionConfirmDialog } from './delete-transaction-confirm-dialog';
 import { PrintablePurchaseReturnInvoice } from './printable-purchase-return-invoice';
 import type { SerializedSupplier } from './suppliers-manager';
 
@@ -59,26 +60,38 @@ export function PurchaseReturnsManager({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(Boolean(defaultSupplierId));
   const [selectedReturn, setSelectedReturn] = useState<SerializedPurchaseReturn | null>(null);
   const [editingReturn, setEditingReturn] = useState<SerializedPurchaseReturn | null>(null);
+  const [deletingReturn, setDeletingReturn] = useState<SerializedPurchaseReturn | null>(null);
+  const [printDoc, setPrintDoc] = useState<SerializedPurchaseReturn | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
 
   useEffect(() => {
     setReturns(initialReturns);
   }, [initialReturns]);
 
-  const filteredReturns = returns.filter((r) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    const matchNumber = (r.return_number || '').toLowerCase().includes(q);
-    const matchSupplier = (r.supplier_name || '').toLowerCase().includes(q);
-    const matchPurchaseId = (r.purchase_id || '').toLowerCase().includes(q);
-    return matchNumber || matchSupplier || matchPurchaseId;
-  });
-
-  const [mounted, setMounted] = useState(false);
-  const [printDoc, setPrintDoc] = useState<SerializedPurchaseReturn | null>(null);
-
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Filter returns
+  const filteredReturns = useMemo(() => {
+    if (!search.trim()) return returns;
+    const q = search.toLowerCase();
+    return returns.filter((r) => {
+      const matchNumber = (r.return_number || '').toLowerCase().includes(q);
+      const matchSupplier = (r.supplier_name || '').toLowerCase().includes(q);
+      const matchPurchaseId = (r.purchase_id || '').toLowerCase().includes(q);
+      return matchNumber || matchSupplier || matchPurchaseId;
+    });
+  }, [returns, search]);
+
+  // Paginated returns
+  const totalPages = Math.ceil(filteredReturns.length / pageSize) || 1;
+  const paginatedReturns = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredReturns.slice(start, start + pageSize);
+  }, [filteredReturns, currentPage, pageSize]);
 
   const handlePrint = (ret: SerializedPurchaseReturn) => {
     setPrintDoc(ret);
@@ -101,141 +114,183 @@ export function PurchaseReturnsManager({
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
+    <div className="max-w-6xl mx-auto space-y-6 pb-16 font-sans" dir="rtl">
       {/* Top Banner */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2.5">
-            <Undo2 className="w-7 h-7 text-rose-700" />
+            <span className="p-2 bg-rose-50 text-rose-700 rounded-2xl border border-rose-200">
+              <Undo2 className="w-6 h-6" />
+            </span>
             <span>فواتير مردود المشتريات</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            إرجاع بضاعة تالفة أو غير مطابقة للموردين، خصم المخزون وتخفيض مديونية المورد تلقائياً.
+            إرجاع بضاعة تالفة أو غير مطابقة للموردين، خصم المخزون وتخفيض مديونية المورد تلقائياً
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-2xl px-4 py-2.5 shadow-xs text-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>إنشاء مردود مشتريات جديد</span>
-          </Button>
-        </div>
+        <Button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-2 font-bold px-4 py-2.5 rounded-xl shadow-xs text-xs cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>إنشاء مردود مشتريات جديد</span>
+        </Button>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="بحث برقم المردود أو اسم المورد أو رقم الفاتورة..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full text-xs pr-9 pl-4 py-2.5 rounded-xl border border-slate-200/80 focus:ring-2 focus:ring-rose-500 focus:outline-none"
-          />
+      {/* Search and Table */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden space-y-4">
+        {/* Search Bar */}
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+            <Input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="البحث برقم المردود، اسم المورد، أو رقم الفاتورة..."
+              className="pr-9 text-xs"
+            />
+          </div>
+          <span className="text-xs text-slate-400 font-mono">
+            {filteredReturns.length} فاتورة
+          </span>
         </div>
-      </div>
 
-      {/* Returns List Table */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-        {filteredReturns.length === 0 ? (
-          <div className="p-16 text-center text-slate-400 text-xs">
-            <Undo2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="font-bold text-slate-700 text-sm">لا توجد فواتير مردود مشتريات</p>
-            <p className="mt-1">
-              {search ? 'لا توجد نتائج تطابق بحثك الحالي.' : 'اضغط على "إنشاء مردود مشتريات جديد" لإرجاع بضاعة إلى مورد.'}
+        {/* Returns Table */}
+        {paginatedReturns.length === 0 ? (
+          <div className="p-16 text-center text-slate-400 text-xs space-y-2">
+            <Undo2 className="w-8 h-8 mx-auto text-slate-300" />
+            <p className="font-bold text-sm text-slate-600">
+              {returns.length === 0
+                ? 'لا توجد فواتير مردود مشتريات حتى الآن'
+                : 'لا توجد فواتير مطابقة لبحثك الحالي'}
+            </p>
+            <p className="text-[11px] text-slate-400">
+              يمكنك الضغط على زر "إنشاء مردود مشتريات جديد" لإرجاع بضاعة إلى مورد.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50/80 text-slate-600 border-b border-slate-200/80 font-bold text-[11px]">
+              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 text-[11px]">
                 <tr>
                   <th className="py-3.5 px-4">رقم المردود</th>
+                  <th className="py-3.5 px-4">التاريخ</th>
                   <th className="py-3.5 px-4">المورد</th>
-                  <th className="py-3.5 px-4">تاريخ الإرجاع</th>
-                  <th className="py-3.5 px-4">المرجع</th>
-                  <th className="py-3.5 px-4 text-center">عدد الأصناف</th>
-                  <th className="py-3.5 px-4 text-left">إجمالي المبلغ</th>
-                  <th className="py-3.5 px-4 text-center">إجراءات</th>
+                  <th className="py-3.5 px-4">مرجع الشراء</th>
+                  <th className="py-3.5 px-4 text-center">الأصناف والقطع</th>
+                  <th className="py-3.5 px-4 text-center">إجمالي المبلغ</th>
+                  <th className="py-3.5 px-4 text-center">الإجراءات</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredReturns.map((ret) => {
-                  const itemsCount = (ret.items || []).reduce((s, it) => s + (it.quantity || 0), 0);
-                  const returnDateFormatted = new Date(ret.return_date).toLocaleDateString('ar-YE', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                  });
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {paginatedReturns.map((ret) => {
+                  const dateObj = new Date(ret.return_date || ret.createdAt);
+                  const formattedDate = !isNaN(dateObj.getTime())
+                    ? dateObj.toLocaleDateString('ar-YE', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : '-';
+                  const unitsCount = (ret.items || []).reduce((s, it) => s + (it.quantity || 0), 0);
 
                   return (
-                    <tr key={ret.id} className="hover:bg-rose-50/20 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-rose-700">
-                        {ret.return_number}
+                    <tr key={ret.id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* Return Number */}
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                        <span className="bg-rose-50 text-rose-800 border border-rose-200 px-2 py-0.5 rounded-md">
+                          {ret.return_number}
+                        </span>
                       </td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                          <span className="font-bold text-slate-800">{ret.supplier_name}</span>
-                        </div>
+
+                      {/* Date */}
+                      <td className="py-3.5 px-4 font-mono text-slate-500 text-[11px] whitespace-nowrap">
+                        {formattedDate}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-500">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{returnDateFormatted}</span>
-                        </div>
+
+                      {/* Supplier */}
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                        {ret.supplier_id ? (
+                          <Link
+                            href={`/admin/purchasing/suppliers/${ret.supplier_id}/statement`}
+                            className="hover:text-blue-700 transition-colors flex items-center gap-1.5"
+                          >
+                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{ret.supplier_name || 'مورد'}</span>
+                          </Link>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{ret.supplier_name || 'مورد'}</span>
+                          </div>
+                        )}
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-500">
+
+                      {/* Purchase Reference */}
+                      <td className="py-3.5 px-4 font-mono text-slate-500 text-[11px]">
                         {ret.purchase_id ? (
-                          <span className="bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
+                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
                             {ret.purchase_id}
                           </span>
                         ) : (
                           <span className="text-slate-300">-</span>
                         )}
                       </td>
+
+                      {/* Items & Units */}
                       <td className="py-3.5 px-4 text-center">
-                        <Badge variant="outline" className="text-[11px] font-bold">
-                          {itemsCount} قطعة ({ret.items?.length || 0} صنف)
-                        </Badge>
+                        <span className="font-bold text-slate-800">{(ret.items || []).length} صنف</span>
+                        <span className="text-[10px] text-slate-400 block font-mono">
+                          ({unitsCount} قطعة)
+                        </span>
                       </td>
-                      <td className="py-3.5 px-4 text-left font-mono font-black text-rose-700 text-sm">
+
+                      {/* Total Amount */}
+                      <td className="py-3.5 px-4 text-center font-mono font-black text-rose-700 text-sm">
                         {formatMoney(ret.total_amount)}
                       </td>
+
+                      {/* Actions */}
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                          <button
+                            type="button"
                             onClick={() => setSelectedReturn(ret)}
-                            className="h-8 px-2.5 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg flex items-center gap-1"
+                            className="p-1.5 text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            title="عرض تفاصيل المردود"
                           >
-                            <Eye className="w-3.5 h-3.5 text-slate-500" />
-                            <span>عرض</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setEditingReturn(ret)}
-                            className="h-8 px-2.5 text-xs text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded-lg flex items-center gap-1"
+                            className="p-1.5 text-slate-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
                             title="تعديل المردود"
                           >
-                            <Edit className="w-3.5 h-3.5" />
-                            <span>تعديل</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handlePrint(ret)}
-                            className="h-8 px-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"
+                            className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                             title="طباعة السند"
                           >
-                            <Printer className="w-3.5 h-3.5" />
-                          </Button>
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingReturn(ret)}
+                            className="p-1.5 text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="حذف المردود"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -245,126 +300,45 @@ export function PurchaseReturnsManager({
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-slate-100 flex justify-center">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Invoice Detail Dialog */}
-      {selectedReturn && (
-        <Dialog
-          isOpen={Boolean(selectedReturn)}
-          onClose={() => setSelectedReturn(null)}
-          maxWidth="2xl"
-          hideCloseButton
-        >
-          <div className="space-y-5 text-right font-sans" dir="rtl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2.5">
-                <span className="p-2 bg-rose-50 text-rose-700 rounded-xl">
-                  <Undo2 className="w-5 h-5" />
-                </span>
-                <div>
-                  <h3 className="text-base font-black text-slate-900">
-                    مردود مشتريات #{selectedReturn.return_number}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    المورد: {selectedReturn.supplier_name} | التاريخ:{' '}
-                    {new Date(selectedReturn.return_date).toLocaleDateString('ar-YE')}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedReturn(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {selectedReturn.purchase_id && (
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 text-xs flex items-center gap-2">
-                <span className="text-slate-500">المرجع لفاتورة الشراء:</span>
-                <span className="font-mono font-bold text-slate-800">{selectedReturn.purchase_id}</span>
-              </div>
-            )}
-
-            {/* Items Table */}
-            <div className="rounded-xl border border-slate-200/80 overflow-hidden">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 text-slate-600 font-bold text-[11px]">
-                  <tr>
-                    <th className="py-2.5 px-3">#</th>
-                    <th className="py-2.5 px-3">الصنف</th>
-                    <th className="py-2.5 px-3 text-center">الكمية</th>
-                    <th className="py-2.5 px-3 text-center">سعر التكلفة</th>
-                    <th className="py-2.5 px-3 text-left">الإجمالي</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {(selectedReturn.items || []).map((it, idx) => (
-                    <tr key={idx}>
-                      <td className="py-2.5 px-3 text-slate-400">{idx + 1}</td>
-                      <td className="py-2.5 px-3 font-bold text-slate-800">
-                        {it.product_name || 'صنف'}
-                      </td>
-                      <td className="py-2.5 px-3 text-center font-bold">{it.quantity}</td>
-                      <td className="py-2.5 px-3 text-center">{formatMoney(it.cost_price)}</td>
-                      <td className="py-2.5 px-3 text-left font-black text-rose-700">
-                        {formatMoney(it.quantity * it.cost_price)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Total and Print button */}
-            <div className="bg-slate-900 text-white p-4 rounded-2xl flex items-center justify-between">
-              <div>
-                <span className="text-xs text-slate-400 block mb-0.5">إجمالي قيمة المردود:</span>
-                <span className="text-xl font-black text-rose-400">
-                  {formatMoney(selectedReturn.total_amount)}
-                </span>
-                <p className="text-[11px] text-slate-300 mt-1">
-                  فقط: {tafqeetRials(selectedReturn.total_amount)}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => {
-                    const ret = selectedReturn;
-                    setSelectedReturn(null);
-                    setEditingReturn(ret);
-                  }}
-                  className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 px-4 h-9"
-                >
-                  <Edit className="w-4 h-4" />
-                  <span>تعديل السند</span>
-                </Button>
-                <Button
-                  onClick={() => handlePrint(selectedReturn)}
-                  className="bg-white text-slate-900 hover:bg-slate-100 font-bold text-xs rounded-xl flex items-center gap-1.5 px-4 h-9"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>طباعة السند</span>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Dialog>
+      {/* Create Purchase Return Dialog */}
+      {isCreateModalOpen && (
+        <CreatePurchaseReturnDialog
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          suppliers={suppliers}
+          preselectedSupplierId={defaultSupplierId}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
       )}
 
-      {/* Create Return Dialog */}
-      <CreatePurchaseReturnDialog
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        suppliers={suppliers}
-        preselectedSupplierId={defaultSupplierId}
-        onSuccess={() => {
-          router.refresh();
+      {/* View Return Detail Dialog */}
+      <PurchaseReturnDetailDialog
+        isOpen={Boolean(selectedReturn)}
+        onClose={() => setSelectedReturn(null)}
+        returnDoc={selectedReturn}
+        onPrint={handlePrint}
+        onEdit={(doc) => {
+          setSelectedReturn(null);
+          setEditingReturn(doc);
         }}
       />
 
-      {/* Edit Return Dialog */}
+      {/* Edit Purchase Return Dialog */}
       {editingReturn && (
         <EditPurchaseReturnDialog
           isOpen={Boolean(editingReturn)}
@@ -377,7 +351,29 @@ export function PurchaseReturnsManager({
         />
       )}
 
-      {/* Printable Document Root (Rendered via Portal onto document.body for clean isolation and official styling) */}
+      {/* Delete Purchase Return Dialog */}
+      {deletingReturn && (
+        <DeleteTransactionConfirmDialog
+          isOpen={Boolean(deletingReturn)}
+          onClose={() => setDeletingReturn(null)}
+          transaction={{
+            id: deletingReturn.id,
+            type: 'PURCHASE_RETURN',
+            reference_id: deletingReturn.id,
+            reference_number: deletingReturn.return_number,
+            credit: 0,
+            debit: deletingReturn.total_amount,
+            description: `فاتورة مردود مشتريات #${deletingReturn.return_number}`,
+            items: deletingReturn.items,
+          }}
+          supplierId={deletingReturn.supplier_id}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
+
+      {/* Printable Document Root (Rendered via Portal onto document.body for clean isolation) */}
       {mounted &&
         printDoc &&
         createPortal(
@@ -389,4 +385,3 @@ export function PurchaseReturnsManager({
     </div>
   );
 }
-

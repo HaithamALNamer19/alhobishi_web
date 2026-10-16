@@ -31,8 +31,12 @@ import { cleanCustomerName } from '@/core/utils/clean-name';
 import { toast } from '@/shared/ui/toast';
 import { RecordSupplierPaymentDialog } from './record-supplier-payment-dialog';
 import { SupplierPaymentVoucherDialog } from './supplier-payment-voucher-dialog';
+import { PurchaseInvoiceDetailDialog } from './purchase-invoice-detail-dialog';
+import { PurchaseReturnDetailDialog } from './purchase-return-detail-dialog';
 import { PrintableSupplierVoucher } from './printable-supplier-voucher';
 import { PrintableSupplierStatement } from './printable-supplier-statement';
+import { PrintablePurchaseInvoice } from './printable-purchase-invoice';
+import { PrintablePurchaseReturnInvoice } from './printable-purchase-return-invoice';
 import { EditPurchaseInvoiceDialog } from './edit-purchase-invoice-dialog';
 import { EditSupplierPaymentDialog } from './edit-supplier-payment-dialog';
 import { DeleteTransactionConfirmDialog } from './delete-transaction-confirm-dialog';
@@ -142,6 +146,14 @@ export function SupplierStatementView({
     handlePrint({ type: 'voucher', payment });
   };
 
+  const handlePrintInvoice = (invoice: any) => {
+    handlePrint({ type: 'invoice', invoice });
+  };
+
+  const handlePrintReturn = (returnDoc: any) => {
+    handlePrint({ type: 'return', returnDoc });
+  };
+
   // Counts for tabs and cards
   const purchasesCount = useMemo(
     () => (initialTransactions || []).filter((tx) => tx.type === 'PURCHASE').length,
@@ -209,8 +221,10 @@ export function SupplierStatementView({
     } else if (tx.type === 'PURCHASE') {
       setSelectedInvoice({
         id: tx.reference_id || tx.id,
-        invoice_number: tx.reference_number,
+        invoice_number: tx.reference_number || tx.id,
+        supplier_id: supplier.id,
         supplier_name: supplier.name,
+        purchase_date: tx.createdAt,
         total_amount: tx.credit,
         items: tx.items || [],
         createdAt: tx.createdAt,
@@ -218,8 +232,11 @@ export function SupplierStatementView({
     } else if (tx.type === 'PURCHASE_RETURN') {
       setSelectedReturn({
         id: tx.reference_id || tx.id,
-        return_number: tx.reference_number,
+        return_number: tx.reference_number || tx.id,
+        purchase_id: tx.reference_id || '',
+        supplier_id: supplier.id,
         supplier_name: supplier.name,
+        return_date: tx.createdAt,
         total_amount: tx.debit,
         items: tx.items || [],
         createdAt: tx.createdAt,
@@ -574,6 +591,26 @@ export function SupplierStatementView({
                                   <Eye className="w-3.5 h-3.5 text-blue-600" />
                                   <span>الفاتورة</span>
                                 </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    handlePrintInvoice({
+                                      id: tx.reference_id || tx.id,
+                                      invoice_number: tx.reference_number || tx.id,
+                                      supplier_id: supplier.id,
+                                      supplier_name: supplier.name,
+                                      purchase_date: tx.createdAt,
+                                      total_amount: tx.credit,
+                                      items: tx.items || [],
+                                      createdAt: tx.createdAt,
+                                    })
+                                  }
+                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100 cursor-pointer"
+                                  title="طباعة فاتورة الشراء"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                </Button>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -687,6 +724,27 @@ export function SupplierStatementView({
                                 <Button
                                   variant="outline"
                                   size="sm"
+                                  onClick={() =>
+                                    handlePrintReturn({
+                                      id: tx.reference_id || tx.id,
+                                      return_number: tx.reference_number || tx.id,
+                                      purchase_id: tx.reference_id || '',
+                                      supplier_id: supplier.id,
+                                      supplier_name: supplier.name,
+                                      return_date: tx.createdAt,
+                                      total_amount: tx.debit,
+                                      items: tx.items || [],
+                                      createdAt: tx.createdAt,
+                                    })
+                                  }
+                                  className="h-7 px-2 text-[11px] text-slate-700 hover:bg-slate-100 cursor-pointer"
+                                  title="طباعة مردود المشتريات"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
                                   onClick={() => setDeletingTransaction(tx)}
                                   className="h-7 px-2 text-[11px] text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 cursor-pointer"
                                   title="حذف مردود المشتريات"
@@ -748,159 +806,25 @@ export function SupplierStatementView({
         />
       )}
 
-      {/* Purchase Invoice Detail Modal */}
-      {selectedInvoice && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
-          onClick={() => setSelectedInvoice(null)}
-        >
-          <div
-            className="bg-white rounded-3xl max-w-2xl w-full p-6 text-right space-y-4 shadow-2xl border border-slate-200"
-            onClick={(e) => e.stopPropagation()}
-            dir="rtl"
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-black text-base text-slate-900">
-                  تفاصيل فاتورة الشراء #{selectedInvoice.invoice_number}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  المورد: {selectedInvoice.supplier_name}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedInvoice(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Purchase Invoice Detail Dialog */}
+      <PurchaseInvoiceDetailDialog
+        isOpen={Boolean(selectedInvoice)}
+        onClose={() => setSelectedInvoice(null)}
+        invoice={selectedInvoice}
+        onPrint={handlePrintInvoice}
+        onEdit={(inv) => {
+          setSelectedInvoice(null);
+          setEditingInvoice(inv);
+        }}
+      />
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 font-bold text-slate-600 border-b border-slate-200">
-                  <tr>
-                    <th className="py-2 px-3">الصنف</th>
-                    <th className="py-2 px-3 text-center">الكمية</th>
-                    <th className="py-2 px-3 text-center">سعر التكلفة</th>
-                    <th className="py-2 px-3 text-center">الإجمالي</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {(selectedInvoice.items || []).map((it: any, i: number) => (
-                    <tr key={i}>
-                      <td className="py-2 px-3 font-bold text-slate-900">{it.product_name || 'صنف'}</td>
-                      <td className="py-2 px-3 text-center font-mono font-bold text-blue-700">
-                        {it.quantity}
-                      </td>
-                      <td className="py-2 px-3 text-center font-mono">{formatMoney(it.cost_price)}</td>
-                      <td className="py-2 px-3 text-center font-mono font-bold text-slate-900">
-                        {formatMoney(it.quantity * it.cost_price)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-              <span className="font-bold text-slate-600">إجمالي الفاتورة:</span>
-              <span className="font-black font-mono text-base text-blue-700">
-                {formatMoney(selectedInvoice.total_amount)}
-              </span>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setSelectedInvoice(null)}
-                className="text-xs"
-              >
-                إغلاق
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Purchase Return Detail Modal */}
-      {selectedReturn && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
-          onClick={() => setSelectedReturn(null)}
-        >
-          <div
-            className="bg-white rounded-3xl max-w-2xl w-full p-6 text-right space-y-4 shadow-2xl border border-slate-200"
-            onClick={(e) => e.stopPropagation()}
-            dir="rtl"
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-black text-base text-slate-900">
-                  تفاصيل مردود المشتريات #{selectedReturn.return_number}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  المورد: {selectedReturn.supplier_name}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedReturn(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 font-bold text-slate-600 border-b border-slate-200">
-                  <tr>
-                    <th className="py-2 px-3">الصنف المرجع</th>
-                    <th className="py-2 px-3 text-center">الكمية</th>
-                    <th className="py-2 px-3 text-center">سعر التكلفة</th>
-                    <th className="py-2 px-3 text-center">الإجمالي المخصوم</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {(selectedReturn.items || []).map((it: any, i: number) => (
-                    <tr key={i}>
-                      <td className="py-2 px-3 font-bold text-slate-900">{it.product_name || 'صنف'}</td>
-                      <td className="py-2 px-3 text-center font-mono font-bold text-amber-700">
-                        {it.quantity}
-                      </td>
-                      <td className="py-2 px-3 text-center font-mono">{formatMoney(it.cost_price)}</td>
-                      <td className="py-2 px-3 text-center font-mono font-bold text-slate-900">
-                        {formatMoney(it.quantity * it.cost_price)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-              <span className="font-bold text-slate-600">إجمالي المردود:</span>
-              <span className="font-black font-mono text-base text-amber-700">
-                {formatMoney(selectedReturn.total_amount)}
-              </span>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setSelectedReturn(null)}
-                className="text-xs"
-              >
-                إغلاق
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Purchase Return Detail Dialog */}
+      <PurchaseReturnDetailDialog
+        isOpen={Boolean(selectedReturn)}
+        onClose={() => setSelectedReturn(null)}
+        returnDoc={selectedReturn}
+        onPrint={handlePrintReturn}
+      />
 
       {/* Edit Purchase Invoice Dialog */}
       {editingInvoice && (
@@ -958,6 +882,12 @@ export function SupplierStatementView({
             )}
             {activePrint?.type === 'voucher' && (
               <PrintableSupplierVoucher payment={activePrint.payment} />
+            )}
+            {activePrint?.type === 'invoice' && (
+              <PrintablePurchaseInvoice invoice={activePrint.invoice} />
+            )}
+            {activePrint?.type === 'return' && (
+              <PrintablePurchaseReturnInvoice returnDoc={activePrint.returnDoc} />
             )}
           </div>,
           document.body

@@ -16,6 +16,7 @@ import {
   CreditCard,
   AlertCircle,
   Edit,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -24,6 +25,7 @@ import { formatMoney } from '@/core/domain/money';
 import { CreateReturnDialog, type CustomerOption } from './create-return-dialog';
 import { ReturnDetailDialog } from './return-detail-dialog';
 import { EditSalesReturnDialog } from './edit-sales-return-dialog';
+import { DeleteCustomerTransactionConfirmDialog } from './delete-customer-transaction-confirm-dialog';
 import { PrintableReturnInvoice } from './printable-return-invoice';
 import type { SerializedReturnDetail } from '../actions/return.actions';
 
@@ -56,6 +58,7 @@ export function AdminReturnsManager({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState<SerializedReturnDetail | null>(null);
   const [editingReturn, setEditingReturn] = useState<SerializedReturnDetail | null>(null);
+  const [deletingReturn, setDeletingReturn] = useState<ReturnListItem | null>(null);
   const [printDoc, setPrintDoc] = useState<SerializedReturnDetail | null>(null);
   const [mounted, setMounted] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -265,10 +268,18 @@ export function AdminReturnsManager({
                           <button
                             type="button"
                             onClick={() => handlePrint(r.rawDoc)}
-                            className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                             title="طباعة الفاتورة"
                           >
                             <Printer className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingReturn(r)}
+                            className="p-1.5 text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="حذف الفاتورة"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -324,6 +335,25 @@ export function AdminReturnsManager({
           isOpen={Boolean(editingReturn)}
           onClose={() => setEditingReturn(null)}
           returnDoc={editingReturn}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
+
+      {/* Delete Return Dialog */}
+      {deletingReturn && (
+        <DeleteCustomerTransactionConfirmDialog
+          isOpen={Boolean(deletingReturn)}
+          onClose={() => setDeletingReturn(null)}
+          transaction={{
+            id: deletingReturn.id,
+            type: 'RETURN',
+            returnId: deletingReturn.id,
+            amount: deletingReturn.totalAmount,
+            description: `فاتورة مردود مبيعات #${deletingReturn.returnNumber}`,
+          }}
+          customerId={deletingReturn.customerId}
           onSuccess={() => {
             router.refresh();
           }}
