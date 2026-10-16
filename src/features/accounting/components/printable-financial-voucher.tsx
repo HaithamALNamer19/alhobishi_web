@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
+import { cleanCustomerName } from '@/core/utils/clean-name';
 import type { SerializedFinancialVoucher } from './financial-vouchers-manager';
 
 export interface PrintableFinancialVoucherProps {
@@ -123,7 +124,7 @@ export function PrintableFinancialVoucher({ voucher }: PrintableFinancialVoucher
           <span className="text-slate-500 min-w-28 font-medium">
             {isReceipt ? 'وصلنا من السيد / الأخ:' : 'صرفنا إلى السيد / الأخ:'}
           </span>
-          <span className="font-black text-slate-900 text-sm">{voucher.partyName}</span>
+          <span className="font-black text-slate-900 text-sm">{cleanCustomerName(voucher.partyName)}</span>
         </div>
 
         <div className="flex items-baseline gap-2 border-b border-slate-200 pb-2">
@@ -183,7 +184,7 @@ export function PrintableFinancialVoucher({ voucher }: PrintableFinancialVoucher
               {isReceipt ? 'المسلّم' : 'المستلم'}
             </span>
             <span className="text-xs font-bold text-slate-900 block min-h-[1.5rem] mb-6">
-              {formatSignatoryName(voucher.partyName, isReceipt ? 'المسلّم' : 'المستلم')}
+              {formatSignatoryName(cleanCustomerName(voucher.partyName), isReceipt ? 'المسلّم' : 'المستلم')}
             </span>
             <div
               className="w-full border-t border-dashed border-slate-400 px-4 pt-1.5 text-slate-800 font-semibold"
