@@ -1,34 +1,27 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import {
   Package,
   Layers,
   ArrowRight,
-  SlidersHorizontal,
   History,
   CheckCircle2,
   AlertTriangle,
   XCircle,
-  ShieldAlert,
-  Loader2,
   Tag,
   DollarSign,
   Edit,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
-import { Input } from '@/shared/ui/input';
 import { Badge } from '@/shared/ui/badge';
-import { Dialog } from '@/shared/ui/dialog';
 import { formatMoney } from '@/core/domain/money';
 import type { ProductDetail } from '../domain/product';
 import type { ProductVariant } from '../domain/variant';
 import type { ProductPricing } from '../domain/pricing';
 import type { InventoryMovement } from '@/features/inventory/domain/inventory';
-import { adjustStockAction } from '../actions/product.actions';
 
 interface ProductDetailViewProps {
   product: ProductDetail;
@@ -42,101 +35,8 @@ export function ProductDetailView({
   movements: initialMovements,
 }: ProductDetailViewProps) {
   const router = useRouter();
-  const [variants, setVariants] = useState<ProductVariant[]>(product.variants);
-  const [movements, setMovements] = useState<InventoryMovement[]>(initialMovements);
-  const [isPending, startTransition] = useTransition();
-
-  // Stock Adjustment Dialog
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
-  const [newStockQty, setNewStockQty] = useState('');
-  const [reason, setReason] = useState('جرد مستودع دوري');
-
-  const openAdjustDialog = (v: ProductVariant) => {
-    setSelectedVariant(v);
-    setNewStockQty(v.stockQty.toString());
-    setReason('جرد مستودع دوري');
-  };
-
-  const handleAdjustSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedVariant) return;
-
-    const qty = parseInt(newStockQty, 10);
-    if (isNaN(qty) || qty < 0) {
-      toast.error('الكمية يجب أن تكون صفرًا أو أكبر');
-      return;
-    }
-
-    if (qty < selectedVariant.reservedQty) {
-      toast.error(
-        `لا يمكن تقليل المخزون إلى أقل من المحجوز حاليًا (${selectedVariant.reservedQty} قطعة)`
-      );
-      return;
-    }
-
-    if (!reason.trim()) {
-      toast.error('يرجى كتابة سبب التعديل');
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        const res = await adjustStockAction({
-          productId: product.id,
-          variantId: selectedVariant.id,
-          newStockQty: qty,
-          reason: reason.trim(),
-        });
-
-        if (!res.ok) {
-          toast.error(res.error.message);
-          return;
-        }
-
-        toast.success('تم تعديل المخزون وتسجيل حركة المستودع بنجاح');
-        const updatedVariant = selectedVariant;
-        setVariants((prev) =>
-          prev.map((v) =>
-            v.id === updatedVariant.id
-              ? {
-                  ...v,
-                  stockQty: res.data.newStockQty,
-                  availableQty: res.data.availableQty,
-                  stockState:
-                    res.data.availableQty <= 0
-                      ? 'out'
-                      : res.data.availableQty <= v.lowStockThreshold
-                        ? 'low'
-                        : 'in_stock',
-                }
-              : v
-          )
-        );
-
-        setMovements((prev) => [
-          {
-            id: `mov-${Date.now()}`,
-            productId: product.id,
-            variantId: updatedVariant.id,
-            type: 'ADJUSTMENT',
-            delta: res.data.delta,
-            stockAfter: res.data.newStockQty,
-            reservedAfter: updatedVariant.reservedQty,
-            orderId: null,
-            reason: reason.trim(),
-            actorId: '',
-            createdAt: new Date(),
-          },
-          ...prev,
-        ]);
-
-        setSelectedVariant(null);
-        router.refresh();
-      } catch (err: unknown) {
-        toast.error((err as Error).message || 'حدث خطأ غير متوقع');
-      }
-    });
-  };
+  const [variants] = useState<ProductVariant[]>(product.variants);
+  const [movements] = useState<InventoryMovement[]>(initialMovements);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-16">
@@ -196,7 +96,7 @@ export function ProductDetailView({
           <div className="flex items-center gap-2">
             <Layers className="w-5 h-5 text-blue-700" />
             <h2 className="text-lg font-bold text-slate-900">
-              إدارة مخزون المتغيرات ({variants.length})
+              أرصدة مخزون المتغيرات ({variants.length})
             </h2>
           </div>
           <span className="text-xs text-slate-400">
@@ -213,7 +113,6 @@ export function ProductDetailView({
                 <th className="py-3 px-3 text-center">المحجوز للطلبات</th>
                 <th className="py-3 px-3 text-center">المتوفر للبيع</th>
                 <th className="py-3 px-3 text-center">الحالة</th>
-                <th className="py-3 px-3 text-left">إجراء</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -260,18 +159,6 @@ export function ProductDetailView({
                         <XCircle className="w-3 h-3" /> نفد المخزون
                       </Badge>
                     )}
-                  </td>
-
-                  <td className="py-3.5 px-3 text-left">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openAdjustDialog(v)}
-                      className="text-xs h-8 flex items-center gap-1.5"
-                    >
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                      <span>تعديل المخزون</span>
-                    </Button>
                   </td>
                 </tr>
               ))}
@@ -333,75 +220,6 @@ export function ProductDetailView({
           </div>
         )}
       </div>
-
-      {/* Stock Adjustment Dialog */}
-      <Dialog
-        isOpen={!!selectedVariant}
-        onClose={() => setSelectedVariant(null)}
-        title={`تعديل مخزون: ${selectedVariant?.label}`}
-      >
-        {selectedVariant && (
-          <form onSubmit={handleAdjustSubmit} className="space-y-4">
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-1.5">
-              <div className="flex justify-between">
-                <span className="text-slate-500">المخزون الكلي الحالي:</span>
-                <span className="font-bold text-slate-900 font-mono">
-                  {selectedVariant.stockQty} قطعة
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">المحجوز في طلبات قيد التجهيز:</span>
-                <span className="font-bold text-amber-600 font-mono">
-                  {selectedVariant.reservedQty} قطعة
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">المتوفر حاليًا:</span>
-                <span className="font-bold text-blue-800 font-mono">
-                  {selectedVariant.availableQty} قطعة
-                </span>
-              </div>
-            </div>
-
-            <Input
-              label="الكمية الكلية الجديدة في المستودع *"
-              type="number"
-              value={newStockQty}
-              onChange={(e) => setNewStockQty(e.target.value)}
-              min={selectedVariant.reservedQty}
-              required
-              autoFocus
-            />
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                سبب التعديل (إلزامي للرقابة والمراجعة) *
-              </label>
-              <Input
-                placeholder="مثال: جرد دوري، استلام شحنة جديدة، تالف..."
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setSelectedVariant(null)}
-                disabled={isPending}
-              >
-                إلغاء
-              </Button>
-              <Button type="submit" disabled={isPending} className="flex items-center gap-2">
-                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                <span>اعتماد تعديل المخزون</span>
-              </Button>
-            </div>
-          </form>
-        )}
-      </Dialog>
     </div>
   );
 }

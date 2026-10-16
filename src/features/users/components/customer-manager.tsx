@@ -51,7 +51,7 @@ const ROLE_OPTIONS: Array<{
     title: 'موظف تجهيز ومخزن (Staff)',
     badgeText: 'موظف تجهيز',
     badgeVariant: 'sky',
-    description: 'صلاحيات الوصول للوحة الإدارة لعرض وتجهيز الطلبات وتأكيدها وتعديل كميات المخزون.',
+    description: 'صلاحيات الوصول للوحة الإدارة لعرض وتجهيز الطلبات وتأكيدها ومتابعة كميات المخزون.',
     icon: PackageCheck,
   },
   {
@@ -615,7 +615,7 @@ export function CustomerManager({ initialUsers, currentUserId }: CustomerManager
               <div className="p-3 rounded-xl bg-sky-50 border border-sky-200 text-sky-800 text-xs flex items-start gap-2">
                 <PackageCheck className="w-4 h-4 shrink-0 text-sky-600 mt-0.5" />
                 <span>
-                  سيتكمن موظف التجهيز فوراً من دخول لوحة الإدارة، والاطلاع على طلبات العملاء وتجهيزها وتأكيدها وتعديل كميات المخزون.
+                  سيتكمن موظف التجهيز فوراً من دخول لوحة الإدارة، والاطلاع على طلبات العملاء وتجهيزها وتأكيدها ومتابعة كميات المخزون.
                 </span>
               </div>
             )}

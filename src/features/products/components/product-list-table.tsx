@@ -16,7 +16,7 @@ import {
   XCircle,
   Eye,
   EyeOff,
-  SlidersHorizontal,
+  History,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -341,10 +341,10 @@ export function ProductListTable({
                             variant="ghost"
                             size="sm"
                             className="h-8 px-2 text-xs text-slate-700 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-1"
-                            title="عرض وإدارة المخزون"
+                            title="سجل وحركات المخزون"
                           >
-                            <SlidersHorizontal className="w-3.5 h-3.5" />
-                            <span>المخزون</span>
+                            <History className="w-3.5 h-3.5" />
+                            <span>سجل المخزون</span>
                           </Button>
                         </Link>
                         <Button

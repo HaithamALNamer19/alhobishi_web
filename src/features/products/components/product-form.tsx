@@ -259,7 +259,7 @@ export function ProductForm({
         barcode: '',
         retailPriceOverride: '',
         wholesalePriceOverride: '',
-        stockQty: '10',
+        stockQty: '0',
       };
     });
 
@@ -345,7 +345,7 @@ export function ProductForm({
           wholesalePriceOverride: v.wholesalePriceOverride.trim()
             ? parseInt(v.wholesalePriceOverride, 10)
             : null,
-          stockQty: parseInt(v.stockQty, 10) || 0,
+          stockQty: isEditing ? (parseInt(v.stockQty, 10) || 0) : 0,
           lowStockThreshold: 5,
         }))
       : [
@@ -357,7 +357,7 @@ export function ProductForm({
             barcode: barcode.trim() || null,
             retailPriceOverride: null,
             wholesalePriceOverride: null,
-            stockQty: parseInt(singleStockQty, 10) || 0,
+            stockQty: isEditing ? (parseInt(singleStockQty, 10) || 0) : 0,
             lowStockThreshold: 5,
           },
         ];
@@ -422,7 +422,7 @@ export function ProductForm({
           return;
         }
 
-        toast.success('تم إنشاء المنتج وتحديد المخزون بنجاح!');
+        toast.success('تم إنشاء المنتج بنجاح! رصيد المخزون يبدأ بـ 0 ويُقيد عبر فواتير الشراء.');
         if (returnUrl) {
           router.push(returnUrl);
         } else {
@@ -456,7 +456,7 @@ export function ProductForm({
             <p className="text-xs text-slate-500 mt-0.5">
               {isEditing
                 ? `تعديل الاسم والأسعار والأقسام والصور والخيارات للمنتج: ${initialProduct?.name}`
-                : 'إدخال تفاصيل المنتج، الأسعار (تجزئة وجملة)، والخيارات والمخزون'}
+                : 'إدخال تفاصيل المنتج، الأسعار (تجزئة وجملة)، والخيارات'}
             </p>
           </div>
         </div>
@@ -624,10 +624,10 @@ export function ProductForm({
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Layers className="w-4 h-4 text-blue-700" />
-                  <span>الخصائص والمتغيرات (Variants) والمخزون</span>
+                  <span>الخصائص والمتغيرات (Variants)</span>
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  إدارة مخزون وأسعار كل مقاس أو لون أو حجم بشكل مستقل وتفاعلي
+                  إدارة خيارات وأسعار كل مقاس أو لون أو حجم بشكل مستقل
                 </p>
               </div>
 
@@ -651,21 +651,31 @@ export function ProductForm({
 
             {!hasVariants ? (
               /* Single Variant Simple Stock */
-              <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
-                <div className="max-w-xs">
-                  <Input
-                    label="كمية المخزون الحالي *"
-                    type="number"
-                    placeholder="100"
-                    value={singleStockQty}
-                    onChange={(e) => setSingleStockQty(e.target.value)}
-                    min="0"
-                  />
-                  <span className="text-[11px] text-slate-500 mt-1 block">
-                    الكمية المتوفرة على الرف في المستودع لهذا المنتج
+              isEditing ? (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs text-slate-500 block font-medium">رصيد المخزون الحالي</span>
+                    <span className="text-lg font-black text-slate-900 font-mono">
+                      {singleStockQty} قطعة
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs font-medium">
+                    يتم تحديث المخزون تلقائيًا عبر فواتير الشراء والمبيعات والمردودات
                   </span>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200/80 flex items-start gap-3">
+                  <div className="p-2 bg-blue-100/80 rounded-lg text-blue-700 mt-0.5 shrink-0">
+                    <Package className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-blue-900 mb-0.5">المخزون محدد آليًا</h4>
+                    <p className="text-[11px] text-blue-700/90 leading-relaxed">
+                      يبدأ رصيد المخزون من (0) تلقائيًا عند إنشاء المنتج. يتم قيد وزيادة المخزون لاحقًا عبر تسجيل فواتير الشراء من الموردين، ويخصم آليًا مع المبيعات ومردودات المشتريات.
+                    </p>
+                  </div>
+                </div>
+              )
             ) : (
               /* Multi-variant builder */
               <div className="space-y-6">
@@ -804,12 +814,21 @@ export function ProductForm({
                       </span>
                     </div>
 
+                    {!isEditing && (
+                      <div className="bg-blue-50/60 p-3 rounded-xl border border-blue-200/80 text-xs text-blue-800 flex items-center gap-2">
+                        <Package className="w-4 h-4 text-blue-700 shrink-0" />
+                        <span>رصيد المخزون لكافة الخيارات يبدأ من (0)، ويتم قيده وزيادته لاحقًا عبر فواتير الشراء.</span>
+                      </div>
+                    )}
+
                     <div className="overflow-x-auto border border-slate-200 rounded-xl">
                       <table className="w-full text-right text-xs">
                         <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
                           <tr>
                             <th className="py-2.5 px-3">الخيار</th>
-                            <th className="py-2.5 px-3 text-center w-24">المخزون *</th>
+                            {isEditing && (
+                              <th className="py-2.5 px-3 text-center w-24">المخزون الحالي</th>
+                            )}
                             <th className="py-2.5 px-3 text-center w-28">سعر التجزئة</th>
                             <th className="py-2.5 px-3 text-center w-28">سعر التاجر</th>
                             <th className="py-2.5 px-3 w-28">رمز SKU</th>
@@ -830,18 +849,13 @@ export function ProductForm({
                                   className="w-full py-1 px-1.5 border border-transparent hover:border-slate-200 focus:border-blue-600 rounded text-xs font-bold focus:outline-none"
                                 />
                               </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={row.stockQty}
-                                  onChange={(e) =>
-                                    updateVariantRow(idx, 'stockQty', e.target.value)
-                                  }
-                                  className="w-20 text-center py-1 px-1.5 border border-slate-200 rounded-lg text-xs font-bold focus:ring-1 focus:ring-blue-600 focus:outline-none"
-                                  required
-                                />
-                              </td>
+                              {isEditing && (
+                                <td className="py-2.5 px-3 text-center">
+                                  <span className="font-mono font-bold text-slate-800 text-xs bg-slate-100 px-2.5 py-1 rounded-md">
+                                    {row.stockQty || 0}
+                                  </span>
+                                </td>
+                              )}
                               <td className="py-2.5 px-3 text-center">
                                 <input
                                   type="number"
