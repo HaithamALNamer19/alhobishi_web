@@ -329,9 +329,6 @@ export function CustomerStatementView({
                 <FileText className="w-6 h-6 text-blue-700" />
                 <span>كشف الحساب المالي المفصل</span>
               </h1>
-              <Badge variant={customer.role === 'wholesale' ? 'indigo' : 'slate'} className="text-xs">
-                {customer.role === 'wholesale' ? 'تاجر جملة' : 'عميل عادي'}
-              </Badge>
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-500 mt-1.5 flex-wrap">
               <span className="font-bold text-slate-800">{customer.displayName}</span>

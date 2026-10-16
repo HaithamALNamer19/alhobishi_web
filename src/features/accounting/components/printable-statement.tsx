@@ -48,9 +48,7 @@ export function PrintableStatement({
   const chronological = [...transactions].reverse();
 
   // Customer reference / code
-  const customerCode = customer.phone
-    ? customer.phone
-    : `CUST-${customer.uid.slice(0, 8).toUpperCase()}`;
+  const customerCode = `CUST-${customer.uid.slice(0, 8).toUpperCase()}`;
 
   const totalCredits = totalPayments + totalReturns;
 
@@ -108,14 +106,6 @@ export function PrintableStatement({
           <span className="font-bold text-slate-600">اسم العميل:</span>
           <span className="font-black text-slate-950 text-sm">{customer.displayName}</span>
         </div>
-        {customer.phone && (
-          <div className="flex items-center gap-1.5 font-mono" dir="ltr">
-            <span className="text-slate-500 font-sans text-[11px]" dir="rtl">
-              الهاتف:
-            </span>
-            <span className="font-bold text-slate-800">{customer.phone}</span>
-          </div>
-        )}
       </div>
 
       {/* 3. Transactions Table */}
