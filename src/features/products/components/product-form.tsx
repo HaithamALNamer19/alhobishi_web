@@ -620,7 +620,7 @@ export function ProductForm({
 
           {/* 3. Variants & Stock Matrix */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
-            <div className={`flex items-center justify-between ${hasVariants || isEditing ? 'border-b border-slate-100 pb-3' : ''}`}>
+            <div className={`flex items-center justify-between ${hasVariants ? 'border-b border-slate-100 pb-3' : ''}`}>
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Layers className="w-4 h-4 text-blue-700" />
@@ -649,22 +649,7 @@ export function ProductForm({
               </label>
             </div>
 
-            {!hasVariants ? (
-              /* Single Variant Simple Stock */
-              isEditing ? (
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <span className="text-xs text-slate-500 block font-medium">رصيد المخزون الحالي</span>
-                    <span className="text-lg font-black text-slate-900 font-mono">
-                      {singleStockQty} قطعة
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs font-medium">
-                    يتم تحديث المخزون تلقائيًا عبر فواتير الشراء والمبيعات والمردودات
-                  </span>
-                </div>
-              ) : null
-            ) : (
+            {hasVariants && (
               /* Multi-variant builder */
               <div className="space-y-6">
                 {/* Options List */}
@@ -807,9 +792,6 @@ export function ProductForm({
                         <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
                           <tr>
                             <th className="py-2.5 px-3">الخيار</th>
-                            {isEditing && (
-                              <th className="py-2.5 px-3 text-center w-24">المخزون الحالي</th>
-                            )}
                             <th className="py-2.5 px-3 text-center w-28">سعر التجزئة</th>
                             <th className="py-2.5 px-3 text-center w-28">سعر التاجر</th>
                             <th className="py-2.5 px-3 w-28">رمز SKU</th>
@@ -830,13 +812,6 @@ export function ProductForm({
                                   className="w-full py-1 px-1.5 border border-transparent hover:border-slate-200 focus:border-blue-600 rounded text-xs font-bold focus:outline-none"
                                 />
                               </td>
-                              {isEditing && (
-                                <td className="py-2.5 px-3 text-center">
-                                  <span className="font-mono font-bold text-slate-800 text-xs bg-slate-100 px-2.5 py-1 rounded-md">
-                                    {row.stockQty || 0}
-                                  </span>
-                                </td>
-                              )}
                               <td className="py-2.5 px-3 text-center">
                                 <input
                                   type="number"
