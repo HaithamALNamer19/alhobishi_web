@@ -197,7 +197,19 @@ export function CustomerStatementView({
     setActivePrint(job);
     document.body.classList.add('print-active');
     const originalTitle = document.title;
-    document.title = ' ';
+    const customerCleanName = cleanCustomerName(customer.displayName).trim().replace(/\s+/g, '_');
+
+    if (job.type === 'statement') {
+      document.title = `كشف_حساب_العميل_${customerCleanName}`;
+    } else if (job.type === 'invoice' && job.order) {
+      document.title = `فاتورة_مبيعات_${job.order.orderNumber}`;
+    } else if (job.type === 'receipt' && job.payment) {
+      document.title = `سند_قبض_${job.payment.id.slice(-6).toUpperCase()}`;
+    } else if (job.type === 'return' && job.returnDoc) {
+      document.title = `مردود_مبيعات_${job.returnDoc.returnNumber}`;
+    } else {
+      document.title = `كشف_حساب_العميل_${customerCleanName}`;
+    }
 
     const handleAfterPrint = () => {
       document.title = originalTitle;
@@ -420,7 +432,7 @@ export function CustomerStatementView({
           </Button>
           <SharePdfButton
             title={`كشف حساب عميل - ${cleanCustomerName(customer.displayName)}`}
-            filename={`كشف_حساب_${customer.username || customer.uid}`}
+            filename={`كشف_حساب_العميل_${cleanCustomerName(customer.displayName).trim().replace(/\s+/g, '_')}`}
             renderDocument={() => (
               <PrintableStatement
                 customer={customer}

@@ -126,7 +126,19 @@ export function SupplierStatementView({
     setActivePrint(job);
     document.body.classList.add('print-active');
     const originalTitle = document.title;
-    document.title = ' ';
+    const supplierCleanName = cleanCustomerName(supplier.name).trim().replace(/\s+/g, '_');
+
+    if (job.type === 'statement') {
+      document.title = `كشف_حساب_المورد_${supplierCleanName}`;
+    } else if (job.type === 'invoice' && job.invoice) {
+      document.title = `فاتورة_شراء_${job.invoice.invoice_number}`;
+    } else if (job.type === 'return' && job.returnDoc) {
+      document.title = `مردود_شراء_${job.returnDoc.return_number}`;
+    } else if (job.type === 'voucher' && job.payment) {
+      document.title = `سند_صرف_${job.payment.voucher_number || job.payment.id.slice(-6).toUpperCase()}`;
+    } else {
+      document.title = `كشف_حساب_المورد_${supplierCleanName}`;
+    }
 
     const handleAfterPrint = () => {
       document.title = originalTitle;
@@ -294,7 +306,7 @@ export function SupplierStatementView({
           </Button>
           <SharePdfButton
             title={`كشف حساب مورد - ${cleanCustomerName(supplier.name)}`}
-            filename={`كشف_حساب_مورد_${supplier.id}`}
+            filename={`كشف_حساب_المورد_${cleanCustomerName(supplier.name).trim().replace(/\s+/g, '_')}`}
             renderDocument={() => (
               <PrintableSupplierStatement
                 supplier={supplier}
