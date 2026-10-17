@@ -80,8 +80,9 @@ export function SharePdfButton({
     }
 
     try {
-      // 3. Dynamically import html2canvas and jsPDF (client-only)
-      const { default: html2canvas } = await import('html2canvas');
+      // 3. Dynamically import html2canvas-pro and jsPDF (client-only)
+      const html2canvasModule = await import('html2canvas-pro');
+      const html2canvas = html2canvasModule.default || html2canvasModule;
       const { jsPDF } = await import('jspdf');
 
       const canvas = await html2canvas(container, {
