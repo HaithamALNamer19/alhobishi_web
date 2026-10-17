@@ -42,19 +42,21 @@ export function SharePdfButton({
   const [isGenerating, setIsGenerating] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isCopied, setIsCopied] = useState(false);
 
-  // Generate PDF from React element
+  // Generate PDF from React element using html2canvas and jsPDF directly
   const generatePdf = async (): Promise<{ blob: Blob; file: File }> => {
-    // 1. Create off-screen rendering container
+    // 1. Create a container inside the DOM (rendered in view hierarchy but behind main UI)
     const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '-9999px';
-    container.style.width = '210mm'; // Standard A4 width
+    container.style.position = 'fixed';
+    container.style.top = '0';
+    container.style.left = '0';
+    container.style.width = '794px'; // 210mm in standard pixels
+    container.style.maxWidth = '794px';
     container.style.background = '#ffffff';
     container.style.color = '#0f172a';
+    container.style.zIndex = '-99999';
+    container.style.pointerEvents = 'none';
     container.setAttribute('dir', 'rtl');
     document.body.appendChild(container);
 
@@ -78,36 +80,49 @@ export function SharePdfButton({
     }
 
     try {
-      // 3. Import html2pdf dynamically (client-only)
-      const html2pdfModule = await import('html2pdf.js');
-      const html2pdf = html2pdfModule.default || html2pdfModule;
+      // 3. Dynamically import html2canvas and jsPDF (client-only)
+      const { default: html2canvas } = await import('html2canvas');
+      const { jsPDF } = await import('jspdf');
+
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 1024,
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      // Add remaining pages if document is longer than one A4 page
+      while (heightLeft > 0) {
+        position = position - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
 
       const cleanFilename = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
-
-      const opt = {
-        margin: [8, 8, 8, 8],
-        filename: cleanFilename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          letterRendering: true,
-          windowWidth: 850,
-          scrollY: 0,
-          scrollX: 0,
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-      };
-
-      const worker = (html2pdf as any)().set(opt).from(container);
-      const blob: Blob = await worker.outputPdf('blob');
+      const blob = pdf.output('blob');
       const file = new File([blob], cleanFilename, { type: 'application/pdf' });
 
       return { blob, file };
     } finally {
-      // 4. Cleanup offscreen container
+      // 4. Cleanup container after rendering
       setTimeout(() => {
         try {
           root.unmount();
@@ -135,7 +150,6 @@ export function SharePdfButton({
     try {
       const { blob, file } = await generatePdf();
       setPdfBlob(blob);
-      setPdfFile(file);
 
       // Check if native Web Share with files is supported (Smartphones/Tablets)
       if (
@@ -169,7 +183,7 @@ export function SharePdfButton({
       setShowModal(true);
     } catch (error: any) {
       console.error('Error generating PDF:', error);
-      toast.error('حدث خطأ أثناء إنشاء ملف الـ PDF');
+      toast.error('حدث خطأ أثناء إنشاء ملف الـ PDF: ' + (error?.message || 'تعذر التحويل'));
     } finally {
       setIsGenerating(false);
     }
