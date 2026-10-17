@@ -92,15 +92,6 @@ export function PrintablePurchaseReturnInvoice({
             {returnDoc.supplier_name}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-[11px] text-slate-600">
-          <span>
-            عدد الأصناف: <strong className="font-mono text-slate-900">{(returnDoc.items || []).length}</strong> صنف
-          </span>
-          <span>•</span>
-          <span>
-            إجمالي الكميات: <strong className="font-mono text-slate-900">{totalPieces}</strong> قطعة
-          </span>
-        </div>
       </div>
 
       {/* Items Table */}

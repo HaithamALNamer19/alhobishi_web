@@ -75,15 +75,6 @@ export function PrintablePurchaseInvoice({ invoice }: PrintablePurchaseInvoicePr
           <span className="font-bold text-slate-600">المورد:</span>
           <span className="font-black text-slate-950 text-sm">{invoice.supplier_name}</span>
         </div>
-        <div className="flex items-center gap-3 text-[11px] text-slate-600">
-          <span>
-            عدد الأصناف: <strong className="font-mono text-slate-900">{(invoice.items || []).length}</strong> صنف
-          </span>
-          <span>•</span>
-          <span>
-            إجمالي الكميات: <strong className="font-mono text-slate-900">{totalPieces}</strong> قطعة
-          </span>
-        </div>
       </div>
 
       {/* Items Table */}
