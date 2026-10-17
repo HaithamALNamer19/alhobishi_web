@@ -133,29 +133,29 @@ export function ReceiptDetailDialog({
 
           {/* Footer Actions */}
           <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+            <Button variant="outline" onClick={onClose} className="px-4 text-xs cursor-pointer">
+              إغلاق
+            </Button>
+
             <div className="flex items-center gap-2">
+              {onEdit && (
+                <Button
+                  type="button"
+                  onClick={() => onEdit(payment)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1.5 text-xs font-bold px-4 cursor-pointer"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>تعديل السند</span>
+                </Button>
+              )}
               <Button
                 onClick={() => onPrint(payment)}
-                className="bg-emerald-700 hover:bg-emerald-600 text-white gap-2 px-5 cursor-pointer"
+                className="bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-2 text-xs font-bold px-4 cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 <span>طباعة سند القبض</span>
               </Button>
-              {onEdit && (
-                <Button
-                  variant="outline"
-                  onClick={() => onEdit(payment)}
-                  className="gap-2 text-amber-700 border-amber-200 hover:bg-amber-50 cursor-pointer"
-                >
-                  <Edit className="w-4 h-4 text-amber-600" />
-                  <span>تعديل السند</span>
-                </Button>
-              )}
             </div>
-
-            <Button variant="outline" onClick={onClose} className="cursor-pointer">
-              إغلاق
-            </Button>
           </div>
         </div>
       )}

@@ -270,24 +270,6 @@ export function PurchaseReturnsManager({
                           </button>
                           <button
                             type="button"
-                            onClick={() => setEditingReturn(ret)}
-                            className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
-                            title="تعديل المردود"
-                          >
-                            <Edit className="w-3.5 h-3.5 text-amber-600" />
-                            <span>تعديل</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handlePrint(ret)}
-                            className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer select-none shadow-2xs"
-                            title="طباعة السند"
-                          >
-                            <Printer className="w-3.5 h-3.5 text-slate-600" />
-                            <span>طباعة</span>
-                          </button>
-                          <button
-                            type="button"
                             onClick={() => setDeletingReturn(ret)}
                             className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer select-none shadow-2xs"
                             title="حذف المردود"

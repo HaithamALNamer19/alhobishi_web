@@ -595,44 +595,6 @@ export function SupplierStatementView({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setEditingInvoice({
-                                      id: tx.reference_id || tx.id,
-                                      invoice_number: tx.reference_number || tx.id,
-                                      supplier_name: supplier.name,
-                                      total_amount: tx.credit,
-                                      createdAt: tx.createdAt,
-                                      items: tx.items || [],
-                                    });
-                                  }}
-                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
-                                  title="تعديل الفاتورة"
-                                >
-                                  <Edit className="w-3.5 h-3.5 text-amber-600" />
-                                  <span>تعديل</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handlePrintInvoice({
-                                      id: tx.reference_id || tx.id,
-                                      invoice_number: tx.reference_number || tx.id,
-                                      supplier_id: supplier.id,
-                                      supplier_name: supplier.name,
-                                      purchase_date: tx.createdAt,
-                                      total_amount: tx.credit,
-                                      items: tx.items || [],
-                                      createdAt: tx.createdAt,
-                                    })
-                                  }
-                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer select-none shadow-2xs"
-                                  title="طباعة فاتورة الشراء"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
-                                  <span>طباعة</span>
-                                </button>
-                                <button
-                                  type="button"
                                   onClick={() => setDeletingTransaction(tx)}
                                   className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="حذف الفاتورة"
@@ -656,50 +618,6 @@ export function SupplierStatementView({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setEditingPayment({
-                                      id: tx.reference_id || tx.id,
-                                      voucher_number: tx.reference_number || tx.id,
-                                      supplier_id: supplier.id,
-                                      supplier_name: supplier.name,
-                                      amount: tx.debit,
-                                      payment_method: tx.payment_method || 'CASH',
-                                      reference_number: tx.reference_number || null,
-                                      bank_or_exchange: tx.bank_or_exchange || null,
-                                      notes: tx.notes || null,
-                                    });
-                                  }}
-                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
-                                  title="تعديل السند"
-                                >
-                                  <Edit className="w-3.5 h-3.5 text-amber-600" />
-                                  <span>تعديل</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handlePrintVoucher({
-                                      id: tx.reference_id || tx.id,
-                                      voucher_number: tx.reference_number || tx.id,
-                                      supplier_id: supplier.id,
-                                      supplier_name: supplier.name,
-                                      company_name: supplier.company_name,
-                                      amount: tx.debit,
-                                      payment_method: tx.payment_method || 'CASH',
-                                      bank_or_exchange: tx.bank_or_exchange || null,
-                                      notes: tx.notes || tx.description,
-                                      recorded_by: tx.recorded_by,
-                                      createdAt: tx.createdAt,
-                                    })
-                                  }
-                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer select-none shadow-2xs"
-                                  title="طباعة سند الصرف مباشرة"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
-                                  <span>طباعة</span>
-                                </button>
-                                <button
-                                  type="button"
                                   onClick={() => setDeletingTransaction(tx)}
                                   className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="حذف سند الصرف"
@@ -720,47 +638,6 @@ export function SupplierStatementView({
                                 >
                                   <Eye className="w-3.5 h-3.5 text-blue-600" />
                                   <span>عرض</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingReturn({
-                                      id: tx.reference_id || tx.id,
-                                      return_number: tx.reference_number || tx.id,
-                                      supplier_id: supplier.id,
-                                      supplier_name: supplier.name,
-                                      total_amount: tx.debit,
-                                      return_date: tx.createdAt,
-                                      createdAt: tx.createdAt,
-                                      items: tx.items || [],
-                                    });
-                                  }}
-                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
-                                  title="تعديل مردود المشتريات"
-                                >
-                                  <Edit className="w-3.5 h-3.5 text-amber-600" />
-                                  <span>تعديل</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handlePrintReturn({
-                                      id: tx.reference_id || tx.id,
-                                      return_number: tx.reference_number || tx.id,
-                                      purchase_id: tx.reference_id || '',
-                                      supplier_id: supplier.id,
-                                      supplier_name: supplier.name,
-                                      return_date: tx.createdAt,
-                                      total_amount: tx.debit,
-                                      items: tx.items || [],
-                                      createdAt: tx.createdAt,
-                                    })
-                                  }
-                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer select-none shadow-2xs"
-                                  title="طباعة مردود المشتريات"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
-                                  <span>طباعة</span>
                                 </button>
                                 <button
                                   type="button"
@@ -821,6 +698,20 @@ export function SupplierStatementView({
             const v = selectedVoucher;
             setSelectedVoucher(null);
             handlePrintVoucher(v);
+          }}
+          onEdit={(v) => {
+            setSelectedVoucher(null);
+            setEditingPayment({
+              id: v.id,
+              voucher_number: v.voucher_number,
+              supplier_id: supplier.id,
+              supplier_name: supplier.name,
+              amount: v.amount,
+              payment_method: v.payment_method || 'CASH',
+              reference_number: v.reference_number || null,
+              bank_or_exchange: v.bank_or_exchange || null,
+              notes: v.notes || null,
+            });
           }}
         />
       )}

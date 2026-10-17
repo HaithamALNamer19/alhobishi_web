@@ -6,7 +6,8 @@ import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
-import { Printer, CheckCircle2, User, Phone, Package, Calendar } from 'lucide-react';
+import Link from 'next/link';
+import { Printer, CheckCircle2, User, Phone, Package, Calendar, Edit } from 'lucide-react';
 import type { SerializedInvoiceDetail } from '../actions/ledger.actions';
 
 interface InvoiceDetailDialogProps {
@@ -170,17 +171,26 @@ export function InvoiceDetailDialog({
 
           {/* Footer Actions */}
           <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-            <Button
-              onClick={() => onPrint(order)}
-              className="bg-blue-700 hover:bg-blue-600 text-white gap-2 px-5"
-            >
-              <Printer className="w-4 h-4" />
-              <span>طباعة الفاتورة</span>
-            </Button>
-
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} className="px-4 text-xs cursor-pointer">
               إغلاق
             </Button>
+
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/admin/orders/${order.id}`}
+                className="bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer"
+              >
+                <Edit className="w-4 h-4" />
+                <span>تعديل الفاتورة</span>
+              </Link>
+              <Button
+                onClick={() => onPrint(order)}
+                className="bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-2 text-xs font-bold px-4 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>طباعة الفاتورة</span>
+              </Button>
+            </div>
           </div>
         </div>
       )}

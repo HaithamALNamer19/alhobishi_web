@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CreditCard, Printer, Calendar, Building, FileText, User } from 'lucide-react';
+import { CreditCard, Printer, Calendar, Building, FileText, User, Edit } from 'lucide-react';
 import { Dialog } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
@@ -26,6 +26,7 @@ interface SupplierPaymentVoucherDialogProps {
     createdAt: string | Date;
   } | null;
   onPrint?: () => void;
+  onEdit?: (payment: any) => void;
 }
 
 export function SupplierPaymentVoucherDialog({
@@ -33,6 +34,7 @@ export function SupplierPaymentVoucherDialog({
   onClose,
   payment,
   onPrint,
+  onEdit,
 }: SupplierPaymentVoucherDialogProps) {
   if (!payment) return null;
 
@@ -147,20 +149,32 @@ export function SupplierPaymentVoucherDialog({
 
         {/* Action Buttons */}
         <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-          <Button type="button" variant="outline" onClick={onClose} className="text-xs">
+          <Button type="button" variant="outline" onClick={onClose} className="px-4 text-xs cursor-pointer">
             إغلاق
           </Button>
 
-          {onPrint && (
-            <Button
-              type="button"
-              onClick={onPrint}
-              className="bg-blue-700 hover:bg-blue-800 text-white font-bold flex items-center gap-2 text-xs"
-            >
-              <Printer className="w-4 h-4" />
-              <span>طباعة سند الصرف</span>
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {onEdit && (
+              <Button
+                type="button"
+                onClick={() => onEdit(payment)}
+                className="bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1.5 text-xs font-bold px-4 cursor-pointer"
+              >
+                <Edit className="w-4 h-4" />
+                <span>تعديل السند</span>
+              </Button>
+            )}
+            {onPrint && (
+              <Button
+                type="button"
+                onClick={onPrint}
+                className="bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-2 text-xs font-bold px-4 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>طباعة سند الصرف</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </Dialog>

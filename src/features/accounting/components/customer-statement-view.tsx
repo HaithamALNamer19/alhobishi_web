@@ -712,15 +712,6 @@ export function CustomerStatementView({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleQuickPrintInvoice(t.orderId!)}
-                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer select-none shadow-2xs"
-                                  title="طباعة الفاتورة مباشرة"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
-                                  <span>طباعة</span>
-                                </button>
-                                <button
-                                  type="button"
                                   onClick={() => setDeletingTransaction(t)}
                                   className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="حذف الفاتورة"
@@ -739,24 +730,6 @@ export function CustomerStatementView({
                                 >
                                   <Eye className="w-3.5 h-3.5 text-blue-600" />
                                   <span>عرض</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditPayment(t)}
-                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
-                                  title="تعديل السند المالي"
-                                >
-                                  <Edit className="w-3.5 h-3.5 text-amber-600" />
-                                  <span>تعديل</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickPrintReceipt(t.paymentId!)}
-                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer select-none shadow-2xs"
-                                  title="طباعة سند القبض مباشرة"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
-                                  <span>طباعة</span>
                                 </button>
                                 <button
                                   type="button"
@@ -781,24 +754,6 @@ export function CustomerStatementView({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleEditReturn(t.returnId!)}
-                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
-                                  title="تعديل فاتورة المردود"
-                                >
-                                  <Edit className="w-3.5 h-3.5 text-amber-600" />
-                                  <span>تعديل</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickPrintReturn(t.returnId!)}
-                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer select-none shadow-2xs"
-                                  title="طباعة فاتورة المردود مباشرة"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
-                                  <span>طباعة</span>
-                                </button>
-                                <button
-                                  type="button"
                                   onClick={() => setDeletingTransaction(t)}
                                   className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 transition-colors cursor-pointer select-none shadow-2xs"
                                   title="حذف فاتورة المردود"
@@ -817,15 +772,6 @@ export function CustomerStatementView({
                                 >
                                   <Eye className="w-3.5 h-3.5 text-blue-600" />
                                   <span>عرض</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditPayment(t)}
-                                  className="h-7 px-2.5 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 text-amber-700 bg-white hover:bg-amber-50 transition-colors cursor-pointer select-none shadow-2xs"
-                                  title="تعديل السند المالي"
-                                >
-                                  <Edit className="w-3.5 h-3.5 text-amber-600" />
-                                  <span>تعديل</span>
                                 </button>
                                 <button
                                   type="button"
