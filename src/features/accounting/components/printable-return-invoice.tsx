@@ -116,14 +116,6 @@ export function PrintableReturnInvoice({ returnDoc }: PrintableReturnInvoiceProp
           <span className="font-bold text-slate-600">المطلوب له / العميل:</span>
           <span className="font-black text-slate-950 text-sm">{returnDoc.customerName}</span>
         </div>
-        {returnDoc.customerPhone && (
-          <div className="flex items-center gap-1.5 font-mono" dir="ltr">
-            <span className="text-slate-500 font-sans text-[11px]" dir="rtl">
-              الهاتف:
-            </span>
-            <span className="font-bold text-slate-800">{returnDoc.customerPhone}</span>
-          </div>
-        )}
       </div>
 
       {/* Return Reason / Note (if any) */}
