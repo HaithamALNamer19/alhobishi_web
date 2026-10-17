@@ -1,6 +1,8 @@
 import React from 'react';
 import { formatMoney } from '@/core/domain/money';
 import { cleanCustomerName } from '@/core/utils/clean-name';
+import { PrintableStoreHeader } from '@/features/settings/components/printable-store-header';
+import type { StoreSettings } from '@/features/settings/domain/store-settings';
 
 interface PrintableSupplierStatementProps {
   supplier: {
@@ -25,6 +27,7 @@ interface PrintableSupplierStatementProps {
   totalPayments?: number;
   totalReturns?: number;
   netBalance?: number;
+  storeSettings?: Partial<StoreSettings> | null;
 }
 
 export function PrintableSupplierStatement({
@@ -34,6 +37,7 @@ export function PrintableSupplierStatement({
   totalPayments = 0,
   totalReturns = 0,
   netBalance = 0,
+  storeSettings,
 }: PrintableSupplierStatementProps) {
   const printDate = new Date().toLocaleDateString('ar-YE', {
     day: 'numeric',
@@ -61,47 +65,24 @@ export function PrintableSupplierStatement({
       dir="rtl"
     >
       {/* 1. Official Header */}
-      <div className="border-b-2 border-slate-900 pb-3 mb-3 flex items-center justify-between gap-4">
-        {/* Right Side: Store Info */}
-        <div className="text-right space-y-1">
-          <h1 className="text-base sm:text-lg font-black text-slate-950 tracking-tight">
-            متجر الحبيشي للتجارة والتوزيع
-          </h1>
-          <p className="text-[11px] text-slate-700 font-medium">
-            الموقع: حضرموت - الشحر - سوق شبام
-          </p>
-          <p className="text-[11px] text-slate-700 font-mono font-semibold" dir="ltr">
-            هاتف: 781836479
-          </p>
-        </div>
-
-        {/* Center: Store Logo & Document Title */}
-        <div className="flex flex-col items-center justify-center text-center px-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/images/logo.jpg"
-            alt="شعار المتجر"
-            className="w-16 h-16 object-contain rounded-md border border-slate-200"
-          />
-          <span className="text-xs font-black text-slate-950 mt-1 border-b border-slate-900 pb-0.5 whitespace-nowrap">
-            كشف حساب مورد مالي تفصيلي
-          </span>
-        </div>
-
-        {/* Left Side: Statement Date & Supplier Code */}
-        <div className="text-left border border-slate-300 rounded p-2.5 bg-slate-50 min-w-44 text-[11px] space-y-1.5 self-center">
-          <div className="flex justify-between gap-3">
-            <span className="text-slate-500 font-medium">تاريخ الكشف:</span>
-            <span className="font-mono font-bold text-slate-900">{printDate}</span>
+      <PrintableStoreHeader
+        title="كشف حساب مورد مالي تفصيلي"
+        storeSettings={storeSettings}
+        leftContent={
+          <div className="text-left border border-slate-300 rounded p-2.5 bg-slate-50 min-w-44 text-[11px] space-y-1.5 self-center">
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-500 font-medium">تاريخ الكشف:</span>
+              <span className="font-mono font-bold text-slate-900">{printDate}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-500 font-medium">معرف المورد:</span>
+              <span className="font-mono font-bold text-slate-900" dir="ltr">
+                SUP-{(supplier?.id || '').slice(0, 8).toUpperCase()}
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between gap-3">
-            <span className="text-slate-500 font-medium">معرف المورد:</span>
-            <span className="font-mono font-bold text-slate-900" dir="ltr">
-              SUP-{(supplier?.id || '').slice(0, 8).toUpperCase()}
-            </span>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* 2. Supplier Details Block */}
       <div className="bg-slate-50 border border-slate-300 rounded p-3 mb-3 text-[11px]">
@@ -249,7 +230,7 @@ export function PrintableSupplierStatement({
 
         <div>
           <span className="block text-[11px] font-bold text-slate-600 mb-8">
-            إدارة متجر الحبيشي للتجارة
+            إدارة {storeSettings?.shortName || storeSettings?.storeName || 'متجر الحبيشي للتجارة'}
           </span>
           <div className="border-b border-slate-300 w-36 mx-auto"></div>
         </div>
@@ -257,7 +238,7 @@ export function PrintableSupplierStatement({
 
       {/* 6. Footer Note */}
       <div className="mt-8 pt-2 text-center text-[10px] text-slate-400">
-        حرر هذا الكشف آلياً لمراجعة ومطابقة الحسابات المالية بين متجر الحبيشي للتجارة والمورد المذكور أعلاه.
+        {storeSettings?.statementNotes || 'حرر هذا الكشف آلياً لمراجعة ومطابقة الحسابات المالية بين متجر الحبيشي للتجارة والمورد المذكور أعلاه.'}
       </div>
     </div>
   );

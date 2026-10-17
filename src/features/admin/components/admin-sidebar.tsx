@@ -30,6 +30,7 @@ import {
   Building2,
   ShoppingBag,
   Sparkles,
+  Settings,
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -219,6 +220,13 @@ export function AdminSidebar({ session, isAdmin }: AdminSidebarProps) {
         adminOnly: false,
         items: [
           {
+            href: '/admin/settings',
+            label: 'إعدادات المتجر',
+            fullLabel: 'إعدادات المتجر والهوية الرسمية',
+            icon: Settings,
+            adminOnly: true,
+          },
+          {
             href: '/admin/banners',
             label: 'الإعلانات',
             fullLabel: 'الإعلانات والبنرات',
@@ -250,6 +258,7 @@ export function AdminSidebar({ session, isAdmin }: AdminSidebarProps) {
     '/admin/suppliers',
     '/admin/customers',
     '/admin/payments',
+    '/admin/settings',
     '/admin/banners',
     '/account/notifications',
   ];

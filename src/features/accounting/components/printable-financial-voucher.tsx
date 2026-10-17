@@ -2,10 +2,13 @@ import React from 'react';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import { cleanCustomerName } from '@/core/utils/clean-name';
+import { PrintableStoreHeader } from '@/features/settings/components/printable-store-header';
+import type { StoreSettings } from '@/features/settings/domain/store-settings';
 import type { SerializedFinancialVoucher } from './financial-vouchers-manager';
 
 export interface PrintableFinancialVoucherProps {
   voucher: SerializedFinancialVoucher;
+  storeSettings?: Partial<StoreSettings> | null;
 }
 
 function formatSignatoryName(name: string | null | undefined, fallback: string): string {
@@ -26,7 +29,7 @@ function formatSignatoryName(name: string | null | undefined, fallback: string):
   return trimmed;
 }
 
-export function PrintableFinancialVoucher({ voucher }: PrintableFinancialVoucherProps) {
+export function PrintableFinancialVoucher({ voucher, storeSettings }: PrintableFinancialVoucherProps) {
   const isReceipt = voucher.voucherType === 'RECEIPT';
   const voucherDate = new Date(voucher.createdAt);
   const formattedDate = !isNaN(voucherDate.getTime())
@@ -47,51 +50,28 @@ export function PrintableFinancialVoucher({ voucher }: PrintableFinancialVoucher
       dir="rtl"
     >
       {/* Official Header (3 Columns: Store Info | Logo & Title | Voucher Details) */}
-      <div className="border-b-2 border-slate-900 pb-3 mb-3 flex items-center justify-between gap-4">
-        {/* Right Side: Store Name, Location, Phones */}
-        <div className="text-right space-y-1">
-          <h1 className="text-base sm:text-lg font-black text-slate-950 tracking-tight">
-            متجر الحبيشي للتجارة والتوزيع
-          </h1>
-          <p className="text-[11px] text-slate-700 font-medium">
-            الموقع: حضرموت - الشحر - سوق شبام
-          </p>
-          <p className="text-[11px] text-slate-700 font-mono font-semibold" dir="ltr">
-            هاتف: 781836479
-          </p>
-        </div>
-
-        {/* Center: Store Logo & Document Title */}
-        <div className="flex flex-col items-center justify-center text-center px-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/images/logo.jpg"
-            alt="شعار المتجر"
-            className="w-16 h-16 object-contain rounded-md border border-slate-200"
-          />
-          <span className="text-xs font-black text-slate-950 mt-1 border-b border-slate-900 pb-0.5 whitespace-nowrap">
-            {docTitle}
-          </span>
-        </div>
-
-        {/* Left Side: Voucher Details */}
-        <div className="text-left border border-slate-300 rounded p-2.5 bg-slate-50 min-w-44 text-[11px] space-y-1.5 self-center">
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500 font-medium">رقم السند:</span>
-            <span className="font-mono font-bold text-slate-900 text-[11px]" dir="ltr">
-              {voucher.voucherNumber}
-            </span>
+      <PrintableStoreHeader
+        title={docTitle}
+        storeSettings={storeSettings}
+        leftContent={
+          <div className="text-left border border-slate-300 rounded p-2.5 bg-slate-50 min-w-44 text-[11px] space-y-1.5 self-center">
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500 font-medium">رقم السند:</span>
+              <span className="font-mono font-bold text-slate-900 text-[11px]" dir="ltr">
+                {voucher.voucherNumber}
+              </span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500 font-medium">التاريخ:</span>
+              <span className="font-mono font-bold text-slate-800">{formattedDate}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500 font-medium">طريقة السداد:</span>
+              <span className="font-bold text-slate-900">{voucher.paymentMethodLabel}</span>
+            </div>
           </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500 font-medium">التاريخ:</span>
-            <span className="font-mono font-bold text-slate-800">{formattedDate}</span>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500 font-medium">طريقة السداد:</span>
-            <span className="font-bold text-slate-900">{voucher.paymentMethodLabel}</span>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Amount Callout Box */}
       <div

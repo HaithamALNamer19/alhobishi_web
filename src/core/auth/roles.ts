@@ -51,6 +51,7 @@ export const Permission = {
   ACCOUNTS_ADJUST: 'accounts.adjust',
   DASHBOARD_FINANCE: 'dashboard.finance',
   AUDIT_VIEW: 'audit.view',
+  SETTINGS_MANAGE: 'settings.manage',
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];

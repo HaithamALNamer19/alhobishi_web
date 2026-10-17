@@ -8,6 +8,7 @@ import { can, Permission } from '@/core/auth/roles';
 import { formatMoney } from '@/core/domain/money';
 import { ORDER_STATUS_LABELS } from '@/features/orders/domain/order';
 import { getAdminDashboardMetrics } from '@/features/admin/services/dashboard.service';
+import { StoreSettingsButton } from '@/features/settings/components/store-settings-button';
 import {
   CalendarCheck2,
   Clock,
@@ -24,6 +25,7 @@ import {
   Boxes,
   CreditCard,
   Eye,
+  Settings,
 } from 'lucide-react';
 
 export const metadata = {
@@ -40,7 +42,9 @@ export default async function AdminDashboardPage() {
     getAdminDashboardMetrics(),
   ]);
 
-  const isAdmin = can(session?.role, Permission.USERS_MANAGE_ROLES);
+  const isAdmin =
+    can(session?.role, Permission.USERS_MANAGE_ROLES) ||
+    can(session?.role, Permission.SETTINGS_MANAGE);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -54,8 +58,9 @@ export default async function AdminDashboardPage() {
             متابعة حية للطلبات اليومية، تنبيهات الأصناف المنتهية، والمخزون، والعمليات المالية
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           {session?.role && <RoleBadge role={session.role} />}
+          {isAdmin && <StoreSettingsButton />}
           <Link
             href="/"
             target="_blank"
@@ -456,18 +461,18 @@ export default async function AdminDashboardPage() {
 
       {/* 5. Admin Shortcuts */}
       {isAdmin && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Link href="/admin/customers" className="group block">
-            <Card className="p-5 rounded-3xl transition-all group-hover:border-blue-600 group-hover:shadow-xs">
+            <Card className="p-5 rounded-3xl transition-all group-hover:border-blue-600 group-hover:shadow-xs h-full">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-100">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-100 shrink-0">
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm group-hover:text-blue-700">
                     إدارة العملاء والتجار
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
                     ترقية العملاء لحساب تاجر جملة، متابعة كشوفات الحساب، وسندات القبض
                   </p>
                 </div>
@@ -476,17 +481,35 @@ export default async function AdminDashboardPage() {
           </Link>
 
           <Link href="/admin/products" className="group block">
-            <Card className="p-5 rounded-3xl transition-all group-hover:border-blue-600 group-hover:shadow-xs">
+            <Card className="p-5 rounded-3xl transition-all group-hover:border-blue-600 group-hover:shadow-xs h-full">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-100">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-100 shrink-0">
                   <PackageSearch className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm group-hover:text-blue-700">
                     المنتجات وإدارة المخزون
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
                     تعديل الأسعار والخيارات، إضافة منتجات جديدة، وتحديث كميات المستودع
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </Link>
+
+          <Link href="/admin/settings" className="group block">
+            <Card className="p-5 rounded-3xl transition-all group-hover:border-blue-600 group-hover:shadow-xs h-full">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center border border-slate-200 shrink-0 group-hover:bg-blue-50 group-hover:text-blue-700">
+                  <Settings className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm group-hover:text-blue-700">
+                    إعدادات المتجر والهوية
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                    إدارة اسم المتجر التجاري، الشعار، أرقام الهواتف، الفواتير، وحالة المتجر
                   </p>
                 </div>
               </div>

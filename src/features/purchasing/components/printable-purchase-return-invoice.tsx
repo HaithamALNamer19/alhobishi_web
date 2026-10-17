@@ -1,14 +1,18 @@
 import React from 'react';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
+import { PrintableStoreHeader } from '@/features/settings/components/printable-store-header';
+import type { StoreSettings } from '@/features/settings/domain/store-settings';
 import type { SerializedPurchaseReturn } from './purchase-returns-manager';
 
 export interface PrintablePurchaseReturnInvoiceProps {
   returnDoc: SerializedPurchaseReturn;
+  storeSettings?: Partial<StoreSettings> | null;
 }
 
 export function PrintablePurchaseReturnInvoice({
   returnDoc,
+  storeSettings,
 }: PrintablePurchaseReturnInvoiceProps) {
   const returnDate = new Date(returnDoc.return_date || returnDoc.createdAt);
   const formattedDate = !isNaN(returnDate.getTime())
@@ -30,59 +34,36 @@ export function PrintablePurchaseReturnInvoice({
       dir="rtl"
     >
       {/* Official Header (3 Columns: Store Info | Logo & Title | Invoice Details) */}
-      <div className="border-b-2 border-slate-900 pb-3 mb-3 flex items-center justify-between gap-4">
-        {/* Right Side: Store Name, Location, Phones */}
-        <div className="text-right space-y-1">
-          <h1 className="text-base sm:text-lg font-black text-slate-950 tracking-tight">
-            متجر الحبيشي للتجارة والتوزيع
-          </h1>
-          <p className="text-[11px] text-slate-700 font-medium">
-            الموقع: حضرموت - الشحر - سوق شبام
-          </p>
-          <p className="text-[11px] text-slate-700 font-mono font-semibold" dir="ltr">
-            هاتف: 781836479
-          </p>
-        </div>
-
-        {/* Center: Store Logo & Document Title */}
-        <div className="flex flex-col items-center justify-center text-center px-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/images/logo.jpg"
-            alt="شعار المتجر"
-            className="w-16 h-16 object-contain rounded-md border border-slate-200"
-          />
-          <span className="text-xs font-black text-slate-950 mt-1 border-b border-slate-900 pb-0.5 whitespace-nowrap">
-            سند مردود مشتريات معتمد
-          </span>
-        </div>
-
-        {/* Left Side: Return Details */}
-        <div className="text-left border border-slate-300 rounded p-2.5 bg-slate-50 min-w-44 text-[11px] space-y-1.5 self-center">
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500 font-medium">رقم السند:</span>
-            <span className="font-mono font-bold text-slate-900 text-[11px]">
-              {returnDoc.return_number}
-            </span>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500 font-medium">تاريخ الإرجاع:</span>
-            <span className="font-mono font-bold text-slate-800">{formattedDate}</span>
-          </div>
-          {returnDoc.purchase_id && (
+      <PrintableStoreHeader
+        title="سند مردود مشتريات معتمد"
+        storeSettings={storeSettings}
+        leftContent={
+          <div className="text-left border border-slate-300 rounded p-2.5 bg-slate-50 min-w-44 text-[11px] space-y-1.5 self-center">
             <div className="flex justify-between gap-2">
-              <span className="text-slate-500 font-medium">المرجع:</span>
-              <span className="font-mono font-bold text-slate-800 text-[10px]">
-                {returnDoc.purchase_id}
+              <span className="text-slate-500 font-medium">رقم السند:</span>
+              <span className="font-mono font-bold text-slate-900 text-[11px]">
+                {returnDoc.return_number}
               </span>
             </div>
-          )}
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500 font-medium">نوع المستند:</span>
-            <span className="font-bold text-slate-900">مردود مشتريات</span>
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500 font-medium">تاريخ الإرجاع:</span>
+              <span className="font-mono font-bold text-slate-800">{formattedDate}</span>
+            </div>
+            {returnDoc.purchase_id && (
+              <div className="flex justify-between gap-2">
+                <span className="text-slate-500 font-medium">المرجع:</span>
+                <span className="font-mono font-bold text-slate-800 text-[10px]">
+                  {returnDoc.purchase_id}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500 font-medium">نوع المستند:</span>
+              <span className="font-bold text-slate-900">مردود مشتريات</span>
+            </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Supplier Information Bar */}
       <div className="flex items-center justify-between py-2 px-3 bg-slate-50 border border-slate-300 rounded mb-3 text-xs">

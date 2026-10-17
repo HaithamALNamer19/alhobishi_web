@@ -2,9 +2,12 @@ import React from 'react';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import type { SerializedInvoiceDetail } from '../actions/ledger.actions';
+import { PrintableStoreHeader } from '@/features/settings/components/printable-store-header';
+import type { StoreSettings } from '@/features/settings/domain/store-settings';
 
 interface PrintableInvoiceProps {
   order: SerializedInvoiceDetail['order'];
+  storeSettings?: Partial<StoreSettings> | null;
 }
 
 function formatSignatoryName(name: string | null | undefined, fallback: string): string {
@@ -25,7 +28,7 @@ function formatSignatoryName(name: string | null | undefined, fallback: string):
   return trimmed;
 }
 
-export function PrintableInvoice({ order }: PrintableInvoiceProps) {
+export function PrintableInvoice({ order, storeSettings }: PrintableInvoiceProps) {
   const invoiceDate = new Date(order.confirmedAt || order.createdAt).toLocaleDateString('ar-YE', {
     day: 'numeric',
     month: 'long',
@@ -39,49 +42,26 @@ export function PrintableInvoice({ order }: PrintableInvoiceProps) {
   return (
     <div className="w-full max-w-[210mm] mx-auto p-6 bg-white text-slate-900 font-sans text-xs leading-relaxed" dir="rtl">
       {/* Official Header (3 Columns: Store Info | Logo & Title | Invoice Details) */}
-      <div className="border-b-2 border-slate-900 pb-3 mb-3 flex items-center justify-between gap-4">
-        {/* Right Side: Store Name, Location, Phones */}
-        <div className="text-right space-y-1">
-          <h1 className="text-base sm:text-lg font-black text-slate-950 tracking-tight">
-            متجر الحبيشي للتجارة والتوزيع
-          </h1>
-          <p className="text-[11px] text-slate-700 font-medium">
-            الموقع: حضرموت - الشحر - سوق شبام
-          </p>
-          <p className="text-[11px] text-slate-700 font-mono font-semibold" dir="ltr">
-            هاتف: 781836479
-          </p>
-        </div>
-
-        {/* Center: Store Logo & Document Title */}
-        <div className="flex flex-col items-center justify-center text-center px-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/images/logo.jpg"
-            alt="شعار المتجر"
-            className="w-16 h-16 object-contain rounded-md border border-slate-200"
-          />
-          <span className="text-xs font-black text-slate-950 mt-1 border-b border-slate-900 pb-0.5 whitespace-nowrap">
-            فاتورة مبيعات معتمدة
-          </span>
-        </div>
-
-        {/* Left Side: Invoice Details */}
-        <div className="text-left border border-slate-300 rounded p-2.5 bg-slate-50 min-w-44 text-[11px] space-y-1.5 self-center">
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500 font-medium">رقم الفاتورة:</span>
-            <span className="font-mono font-bold text-slate-900 text-[11px]">{order.orderNumber}</span>
+      <PrintableStoreHeader
+        title="فاتورة مبيعات معتمدة"
+        storeSettings={storeSettings}
+        leftContent={
+          <div className="text-left border border-slate-300 rounded p-2.5 bg-slate-50 min-w-44 text-[11px] space-y-1.5 self-center">
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500 font-medium">رقم الفاتورة:</span>
+              <span className="font-mono font-bold text-slate-900 text-[11px]">{order.orderNumber}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500 font-medium">تاريخ الإصدار:</span>
+              <span className="font-mono font-bold text-slate-800">{invoiceDate}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500 font-medium">طريقة الحساب:</span>
+              <span className="font-bold text-slate-900">آجل (قيد بالحساب)</span>
+            </div>
           </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500 font-medium">تاريخ الإصدار:</span>
-            <span className="font-mono font-bold text-slate-800">{invoiceDate}</span>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500 font-medium">طريقة الحساب:</span>
-            <span className="font-bold text-slate-900">آجل (قيد بالحساب)</span>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Customer Information Bar (NO username, NO account type) */}
       <div className="flex items-center justify-between py-2 px-3 bg-slate-50 border border-slate-300 rounded mb-3 text-xs">
@@ -179,7 +159,7 @@ export function PrintableInvoice({ order }: PrintableInvoiceProps) {
       {/* Terms & Signatures */}
       <div className="border-t border-slate-200 pt-4 mt-6">
         <p className="text-[10px] text-slate-500 mb-6 text-center">
-          * تم فحص وتجهيز البضاعة بعناية. لا يُقبل استرجاع أو استبدال البضاعة بعد مرور 3 أيام من الاستلام.
+          * {storeSettings?.invoiceNotes || 'تم فحص وتجهيز البضاعة بعناية. لا يُقبل استرجاع أو استبدال البضاعة بعد مرور 3 أيام من الاستلام.'}
         </p>
 
         <div className="grid grid-cols-3 gap-4 text-center text-[11px]" dir="rtl">

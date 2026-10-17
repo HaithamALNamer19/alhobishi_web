@@ -8,6 +8,9 @@ interface BrandLogoProps {
   inverted?: boolean;
   href?: string | null;
   className?: string;
+  title?: string;
+  subtitle?: string;
+  logoUrl?: string;
 }
 
 export function BrandLogo({
@@ -16,6 +19,9 @@ export function BrandLogo({
   inverted = false,
   href = '/',
   className = '',
+  title = 'الحبيشي',
+  subtitle = 'للألعاب والإكسسوارات والخردوات',
+  logoUrl = '/logo.jpg',
 }: BrandLogoProps) {
   const dimensions = {
     sm: { img: 'w-8 h-8', text: 'text-sm sm:text-base', sub: 'text-[9px]' },
@@ -32,8 +38,8 @@ export function BrandLogo({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logo.jpg"
-          alt="شعار الحبيشي"
+          src={logoUrl || '/logo.jpg'}
+          alt={`شعار ${title}`}
           className="w-full h-full object-cover object-center"
         />
       </div>
@@ -46,15 +52,15 @@ export function BrandLogo({
           }`}
           style={{ fontFamily: 'inherit' }}
         >
-          الحبيشي
+          {title}
         </span>
-        {showSubtitle && (
+        {showSubtitle && subtitle && (
           <span
             className={`font-semibold mt-1 tracking-normal hidden sm:inline-block ${dimensions.sub} ${
               inverted ? 'text-blue-200' : 'text-slate-500'
             }`}
           >
-            للألعاب والإكسسوارات والخردوات
+            {subtitle}
           </span>
         )}
       </div>
