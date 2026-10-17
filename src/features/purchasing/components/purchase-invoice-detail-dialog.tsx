@@ -7,6 +7,8 @@ import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import { Receipt, Printer, X, Calendar, Building2, FileText, CheckCircle2, Edit } from 'lucide-react';
 import type { SerializedPurchaseInvoice } from './purchases-manager';
+import { SharePdfButton } from '@/shared/ui/share-pdf-button';
+import { PrintablePurchaseInvoice } from './printable-purchase-invoice';
 
 interface PurchaseInvoiceDetailDialogProps {
   isOpen: boolean;
@@ -175,6 +177,12 @@ export function PurchaseInvoiceDetailDialog({
                 <span>طباعة الفاتورة</span>
               </Button>
             )}
+            <SharePdfButton
+              title={`فاتورة شراء وتوريد #${invoice.invoice_number}`}
+              filename={`فاتورة_شراء_${invoice.invoice_number}`}
+              renderDocument={() => <PrintablePurchaseInvoice invoice={invoice} />}
+              summaryText={`فاتورة شراء رقم: ${invoice.invoice_number}\nالمورد: ${invoice.supplier_name || 'مورد'}\nتاريخ التوريد: ${formattedDate}\nالإجمالي: ${formatMoney(invoice.total_amount)}`}
+            />
           </div>
         </div>
       </div>

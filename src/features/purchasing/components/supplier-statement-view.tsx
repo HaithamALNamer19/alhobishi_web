@@ -33,6 +33,7 @@ import { toast } from '@/shared/ui/toast';
 import { RecordSupplierPaymentDialog } from './record-supplier-payment-dialog';
 import { SupplierPaymentVoucherDialog } from './supplier-payment-voucher-dialog';
 import { PurchaseInvoiceDetailDialog } from './purchase-invoice-detail-dialog';
+import { SharePdfButton } from '@/shared/ui/share-pdf-button';
 import { PurchaseReturnDetailDialog } from './purchase-return-detail-dialog';
 import { PrintableSupplierVoucher } from './printable-supplier-voucher';
 import { PrintableSupplierStatement } from './printable-supplier-statement';
@@ -291,6 +292,23 @@ export function SupplierStatementView({
             <Printer className="w-4 h-4" />
             <span>طباعة كشف الحساب</span>
           </Button>
+          <SharePdfButton
+            title={`كشف حساب مورد - ${cleanCustomerName(supplier.name)}`}
+            filename={`كشف_حساب_مورد_${supplier.id}`}
+            renderDocument={() => (
+              <PrintableSupplierStatement
+                supplier={supplier}
+                transactions={initialTransactions}
+                totalPurchases={initialPurchases}
+                totalPayments={initialPayments}
+                totalReturns={initialReturns}
+                netBalance={initialBalance}
+              />
+            )}
+            summaryText={`كشف حساب تفصيلي للمورد: ${cleanCustomerName(supplier.name)}\nإجمالي المشتريات: ${formatMoney(initialPurchases)}\nإجمالي السدادات: ${formatMoney(initialPayments)}\nإجمالي المردودات: ${formatMoney(initialReturns)}\nالرصيد المستحق: ${formatMoney(initialBalance)}`}
+            buttonLabel="مشاركة كشف الحساب (PDF)"
+            className="py-2.5 px-4 rounded-2xl"
+          />
         </div>
       </div>
 

@@ -7,6 +7,8 @@ import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import { Undo2, Printer, X, Calendar, Building2, FileText, CheckCircle2, Edit } from 'lucide-react';
 import type { SerializedPurchaseReturn } from './purchase-returns-manager';
+import { SharePdfButton } from '@/shared/ui/share-pdf-button';
+import { PrintablePurchaseReturnInvoice } from './printable-purchase-return-invoice';
 
 interface PurchaseReturnDetailDialogProps {
   isOpen: boolean;
@@ -177,6 +179,12 @@ export function PurchaseReturnDetailDialog({
                 <span>طباعة السند</span>
               </Button>
             )}
+            <SharePdfButton
+              title={`مردود شراء وتوريد #${returnDoc.return_number}`}
+              filename={`مردود_شراء_${returnDoc.return_number}`}
+              renderDocument={() => <PrintablePurchaseReturnInvoice returnDoc={returnDoc} />}
+              summaryText={`فاتورة مردود شراء رقم: ${returnDoc.return_number}\nالمورد: ${returnDoc.supplier_name || 'مورد'}\nتاريخ المردود: ${formattedDate}\nالإجمالي: ${formatMoney(returnDoc.total_amount)}`}
+            />
           </div>
         </div>
       </div>

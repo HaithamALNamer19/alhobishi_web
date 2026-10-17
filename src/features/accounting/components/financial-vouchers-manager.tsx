@@ -19,6 +19,7 @@ import { Dialog } from '@/shared/ui/dialog';
 import { formatMoney } from '@/core/domain/money';
 import { RecordFinancialVoucherDialog } from './record-financial-voucher-dialog';
 import { PrintableFinancialVoucher } from './printable-financial-voucher';
+import { SharePdfButton } from '@/shared/ui/share-pdf-button';
 
 export interface SerializedFinancialVoucher {
   id: string;
@@ -429,14 +430,22 @@ export function FinancialVouchersManager({ initialVouchers }: FinancialVouchersM
               <span className="text-xs text-slate-500 font-mono" dir="ltr">
                 {selectedVoucherForPrint.voucherNumber}
               </span>
-              <Button
-                type="button"
-                onClick={() => handlePrint(selectedVoucherForPrint)}
-                className="flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs h-9 px-4 rounded-xl cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>طباعة السند</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  onClick={() => handlePrint(selectedVoucherForPrint)}
+                  className="flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs h-9 px-4 rounded-xl cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>طباعة السند</span>
+                </Button>
+                <SharePdfButton
+                  title={`${selectedVoucherForPrint.voucherType === 'RECEIPT' ? 'سند قبض مالي' : 'سند صرف مالي'} #${selectedVoucherForPrint.voucherNumber}`}
+                  filename={`${selectedVoucherForPrint.voucherType === 'RECEIPT' ? 'سند_قبض' : 'سند_صرف'}_${selectedVoucherForPrint.voucherNumber}`}
+                  renderDocument={() => <PrintableFinancialVoucher voucher={selectedVoucherForPrint} />}
+                  summaryText={`${selectedVoucherForPrint.voucherType === 'RECEIPT' ? 'سند قبض مالي' : 'سند صرف مالي'} رقم: ${selectedVoucherForPrint.voucherNumber}\nالمستفيد / الطرف: ${selectedVoucherForPrint.partyName}\nالمبلغ: ${formatMoney(selectedVoucherForPrint.amount)}\nطريقة الدفع: ${selectedVoucherForPrint.paymentMethodLabel}`}
+                />
+              </div>
             </div>
 
             {/* Official Printable Voucher Preview */}

@@ -7,6 +7,8 @@ import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
+import { SharePdfButton } from '@/shared/ui/share-pdf-button';
+import { PrintableSupplierVoucher } from './printable-supplier-voucher';
 
 interface SupplierPaymentVoucherDialogProps {
   isOpen: boolean;
@@ -174,6 +176,12 @@ export function SupplierPaymentVoucherDialog({
                 <span>طباعة سند الصرف</span>
               </Button>
             )}
+            <SharePdfButton
+              title={`سند صرف مورد #${payment.voucher_number || payment.id}`}
+              filename={`سند_صرف_${payment.voucher_number || payment.id}`}
+              renderDocument={() => <PrintableSupplierVoucher payment={payment} />}
+              summaryText={`سند صرف مالي رقم: ${payment.voucher_number || payment.id}\nالمورد: ${payment.supplier_name}\nالمبلغ: ${formatMoney(payment.amount)}\nطريقة الدفع: ${payment.payment_method === 'CASH' ? 'نقداً' : payment.payment_method === 'TRANSFER' ? 'حوالة / تحويل' : 'شيك'}`}
+            />
           </div>
         </div>
       </div>

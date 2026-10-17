@@ -27,6 +27,7 @@ import { Badge } from '@/shared/ui/badge';
 import { Pagination } from '@/shared/ui/pagination';
 import { formatMoney } from '@/core/domain/money';
 import { toast } from '@/shared/ui/toast';
+import { SharePdfButton } from '@/shared/ui/share-pdf-button';
 import {
   getLedgerDocumentDetailAction,
   type SerializedInvoiceDetail,
@@ -417,6 +418,23 @@ export function CustomerStatementView({
             <Printer className="w-4 h-4" />
             <span>طباعة كشف الحساب</span>
           </Button>
+          <SharePdfButton
+            title={`كشف حساب عميل - ${cleanCustomerName(customer.displayName)}`}
+            filename={`كشف_حساب_${customer.username || customer.uid}`}
+            renderDocument={() => (
+              <PrintableStatement
+                customer={customer}
+                transactions={transactions}
+                totalInvoices={totalInvoices}
+                totalPayments={totalPayments}
+                totalReturns={totalReturns}
+                balance={balance}
+              />
+            )}
+            summaryText={`كشف حساب تفصيلي للعميل: ${cleanCustomerName(customer.displayName)}\nإجمالي الفواتير: ${formatMoney(totalInvoices)}\nإجمالي السدادات: ${formatMoney(totalPayments)}\nإجمالي المردودات: ${formatMoney(totalReturns)}\nالرصيد النهائي: ${formatMoney(balance)}`}
+            buttonLabel="مشاركة كشف الحساب (PDF)"
+            className="py-2.5 px-4 rounded-2xl"
+          />
         </div>
       </div>
 

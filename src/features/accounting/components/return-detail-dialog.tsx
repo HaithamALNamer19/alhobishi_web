@@ -7,6 +7,8 @@ import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import { RotateCcw, Printer, X, Calendar, User, FileText, CheckCircle2, Edit } from 'lucide-react';
 import type { SerializedReturnDetail } from '../actions/return.actions';
+import { SharePdfButton } from '@/shared/ui/share-pdf-button';
+import { PrintableReturnInvoice } from './printable-return-invoice';
 
 interface ReturnDetailDialogProps {
   isOpen: boolean;
@@ -176,12 +178,18 @@ export function ReturnDetailDialog({
             {onPrint && (
               <Button
                 onClick={() => onPrint(returnDoc)}
-                className="bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-2 text-xs font-bold px-4"
+                className="bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-2 text-xs font-bold px-4 cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 <span>طباعة الفاتورة</span>
               </Button>
             )}
+            <SharePdfButton
+              title={`فاتورة مردود مبيعات #${returnDoc.returnNumber}`}
+              filename={`مردود_مبيعات_${returnDoc.returnNumber}`}
+              renderDocument={() => <PrintableReturnInvoice returnDoc={returnDoc} />}
+              summaryText={`فاتورة مردود مبيعات رقم: ${returnDoc.returnNumber}\nالعميل: ${returnDoc.customerName}\nتاريخ المردود: ${formattedDate}\nالإجمالي: ${formatMoney(returnDoc.totalAmount)}`}
+            />
           </div>
         </div>
       </div>

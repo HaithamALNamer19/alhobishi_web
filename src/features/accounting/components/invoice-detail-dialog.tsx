@@ -9,6 +9,8 @@ import { tafqeetRials } from '@/core/utils/tafqeet';
 import Link from 'next/link';
 import { Printer, CheckCircle2, User, Phone, Package, Calendar, Edit } from 'lucide-react';
 import type { SerializedInvoiceDetail } from '../actions/ledger.actions';
+import { SharePdfButton } from '@/shared/ui/share-pdf-button';
+import { PrintableInvoice } from './printable-invoice';
 
 interface InvoiceDetailDialogProps {
   isOpen: boolean;
@@ -190,6 +192,12 @@ export function InvoiceDetailDialog({
                 <Printer className="w-4 h-4" />
                 <span>طباعة الفاتورة</span>
               </Button>
+              <SharePdfButton
+                title={`فاتورة مبيعات #${order.orderNumber}`}
+                filename={`فاتورة_مبيعات_${order.orderNumber}`}
+                renderDocument={() => <PrintableInvoice order={order} />}
+                summaryText={`فاتورة مبيعات رقم: ${order.orderNumber}\nالعميل: ${order.customerName}\nالإجمالي: ${formatMoney(order.totalAmount)}`}
+              />
             </div>
           </div>
         </div>

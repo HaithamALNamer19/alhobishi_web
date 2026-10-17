@@ -8,6 +8,8 @@ import { formatMoney } from '@/core/domain/money';
 import { tafqeetRials } from '@/core/utils/tafqeet';
 import { Printer, CreditCard, User, Calendar, FileText, CheckCircle2, Edit } from 'lucide-react';
 import type { SerializedPaymentDetail } from '../actions/ledger.actions';
+import { SharePdfButton } from '@/shared/ui/share-pdf-button';
+import { PrintableReceipt } from './printable-receipt';
 
 interface ReceiptDetailDialogProps {
   isOpen: boolean;
@@ -155,6 +157,12 @@ export function ReceiptDetailDialog({
                 <Printer className="w-4 h-4" />
                 <span>طباعة سند القبض</span>
               </Button>
+              <SharePdfButton
+                title={`سند قبض #${payment.referenceNumber || payment.id}`}
+                filename={`سند_قبض_${payment.referenceNumber || payment.id}`}
+                renderDocument={() => <PrintableReceipt payment={payment} />}
+                summaryText={`سند قبض مالي رقم: ${payment.referenceNumber || payment.id}\nالعميل: ${payment.customerName}\nالمبلغ: ${formatMoney(payment.amount)}\nطريقة الدفع: ${payment.method === 'CASH' ? 'نقداً' : payment.method === 'TRANSFER' ? 'حوالة مصرفية' : 'أخرى'}`}
+              />
             </div>
           </div>
         </div>
